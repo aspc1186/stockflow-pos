@@ -1,17 +1,17 @@
 {
   "version": 2,
   "builds": [
-    {"src": "api/auth.ts","use": "@vercel/node"},
-    {"src": "api/dashboard.ts","use": "@vercel/node"},
-    {"src": "api/mesas.ts","use": "@vercel/node"},
-    {"src": "api/pedidos.ts","use": "@vercel/node"},
-    {"src": "api/productos.ts","use": "@vercel/node"},
-    {"src": "api/usuarios.ts","use": "@vercel/node"},
-    {"src": "api/inventario.ts","use": "@vercel/node"},
-    {"src": "api/caja.ts","use": "@vercel/node"},
-    {"src": "api/catalogo.ts","use": "@vercel/node"},
-    {"src": "api/compras.ts","use": "@vercel/node"},
-    {"src": "api/superadmin.ts","use": "@vercel/node"},
+    {"src": "api/auth.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/dashboard.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/mesas.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/pedidos.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/productos.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/usuarios.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/inventario.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/caja.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/catalogo.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/compras.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/superadmin.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
     {"src": "package.json","use": "@vercel/static-build","config": {"distDir": "dist"}}
   ],
   "routes": [
