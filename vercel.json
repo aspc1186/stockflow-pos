@@ -9,8 +9,6 @@
     {"src": "/(.*)","dest": "/index.html"}
   ],
   "env": {
-    "DATABASE_URL": "@database_url",
-    "JWT_SECRET": "@jwt_secret",
     "JWT_EXPIRES_IN": "8h",
     "NODE_ENV": "production"
   }
