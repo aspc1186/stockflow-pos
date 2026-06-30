@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireSuperAdmin, cors } from '../_auth'
+import { requireAuth, requireSuperAdmin, cors } from '../_auth'
 import { query, queryOne } from '../_db'
 import { v4 as uuid } from 'uuid'
 import bcrypt from 'bcryptjs'
@@ -7,9 +7,32 @@ import bcrypt from 'bcryptjs'
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
+
+  const urlPath = (req.url || '').split('?')[0]
+
+  // /api/empresas/[id] — acceso para admin de empresa
+  if (urlPath.includes('/empresas') && !urlPath.includes('/superadmin')) {
+    const auth = await requireAuth(req, res); if (!auth) return
+    const parts = urlPath.split('/').filter(Boolean)
+    const id = parts[parts.length - 1]
+    if (!id) return res.status(400).end()
+    if (auth.rol!=='superadmin' && auth.empresa_id!==id) return res.status(403).json({ success: false, message: 'Sin permisos' })
+    const e=await queryOne(`SELECT * FROM empresas WHERE id=$1`,[id])
+    if (!e) return res.status(404).json({ success: false, message: 'Empresa no encontrada' })
+    if (req.method === 'GET') return res.status(200).json({ success: true, data: e })
+    if (req.method === 'PATCH') {
+      if (!['admin','superadmin'].includes(auth.rol)) return res.status(403).json({ success: false, message: 'Sin permisos' })
+      const { nombre,telefono,email,ciudad,tipo,logo_url } = req.body ?? {}
+      const [u]=await query(`UPDATE empresas SET nombre=COALESCE($1,nombre),telefono=COALESCE($2,telefono),email=COALESCE($3,email),ciudad=COALESCE($4,ciudad),tipo=COALESCE($5,tipo),logo_url=COALESCE($6,logo_url),updated_at=NOW() WHERE id=$7 RETURNING *`,[nombre,telefono,email,ciudad,tipo,logo_url,id])
+      return res.status(200).json({ success: true, data: u })
+    }
+    return res.status(405).end()
+  }
+
+  // /api/superadmin/* — solo superadmin
   const auth = await requireSuperAdmin(req, res); if (!auth) return
-  const parts = (req.url || '').split('?')[0].split('/').filter(Boolean)
-  const id = parts[3] || null // /api/superadmin/empresas/[id]
+  const parts = urlPath.split('/').filter(Boolean)
+  const id = parts[3] || null
 
   if (!id) {
     if (req.method === 'GET') {

@@ -11,9 +11,7 @@
     {"src": "api/caja.ts","use": "@vercel/node"},
     {"src": "api/catalogo.ts","use": "@vercel/node"},
     {"src": "api/compras.ts","use": "@vercel/node"},
-    {"src": "api/reportes.ts","use": "@vercel/node"},
     {"src": "api/superadmin.ts","use": "@vercel/node"},
-    {"src": "api/empresas.ts","use": "@vercel/node"},
     {"src": "package.json","use": "@vercel/static-build","config": {"distDir": "dist"}}
   ],
   "routes": [
@@ -21,6 +19,8 @@
     {"src": "/api/auth","dest": "/api/auth.ts"},
     {"src": "/api/dashboard/(.*)","dest": "/api/dashboard.ts"},
     {"src": "/api/dashboard","dest": "/api/dashboard.ts"},
+    {"src": "/api/reportes/(.*)","dest": "/api/dashboard.ts"},
+    {"src": "/api/reportes","dest": "/api/dashboard.ts"},
     {"src": "/api/mesas/(.*)","dest": "/api/mesas.ts"},
     {"src": "/api/mesas","dest": "/api/mesas.ts"},
     {"src": "/api/pedidos/(.*)","dest": "/api/pedidos.ts"},
@@ -36,12 +36,10 @@
     {"src": "/api/clientes","dest": "/api/catalogo.ts"},
     {"src": "/api/compras/(.*)","dest": "/api/compras.ts"},
     {"src": "/api/compras","dest": "/api/compras.ts"},
-    {"src": "/api/reportes/(.*)","dest": "/api/reportes.ts"},
-    {"src": "/api/reportes","dest": "/api/reportes.ts"},
     {"src": "/api/superadmin/(.*)","dest": "/api/superadmin.ts"},
     {"src": "/api/superadmin","dest": "/api/superadmin.ts"},
-    {"src": "/api/empresas/(.*)","dest": "/api/empresas.ts"},
-    {"src": "/api/empresas","dest": "/api/empresas.ts"},
+    {"src": "/api/empresas/(.*)","dest": "/api/superadmin.ts"},
+    {"src": "/api/empresas","dest": "/api/superadmin.ts"},
     {"src": "/(.*)","dest": "/index.html"}
   ],
   "env": {
