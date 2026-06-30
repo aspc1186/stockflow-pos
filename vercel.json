@@ -18,7 +18,9 @@
   ],
   "routes": [
     {"src": "/api/auth/(.*)","dest": "/api/auth.ts"},
+    {"src": "/api/auth","dest": "/api/auth.ts"},
     {"src": "/api/dashboard/(.*)","dest": "/api/dashboard.ts"},
+    {"src": "/api/dashboard","dest": "/api/dashboard.ts"},
     {"src": "/api/mesas/(.*)","dest": "/api/mesas.ts"},
     {"src": "/api/mesas","dest": "/api/mesas.ts"},
     {"src": "/api/pedidos/(.*)","dest": "/api/pedidos.ts"},
@@ -35,9 +37,11 @@
     {"src": "/api/compras/(.*)","dest": "/api/compras.ts"},
     {"src": "/api/compras","dest": "/api/compras.ts"},
     {"src": "/api/reportes/(.*)","dest": "/api/reportes.ts"},
+    {"src": "/api/reportes","dest": "/api/reportes.ts"},
     {"src": "/api/superadmin/(.*)","dest": "/api/superadmin.ts"},
     {"src": "/api/superadmin","dest": "/api/superadmin.ts"},
     {"src": "/api/empresas/(.*)","dest": "/api/empresas.ts"},
+    {"src": "/api/empresas","dest": "/api/empresas.ts"},
     {"src": "/(.*)","dest": "/index.html"}
   ],
   "env": {
