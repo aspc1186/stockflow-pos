@@ -1,7 +1,7 @@
 {
   "name": "saas-pos",
   "version": "1.0.0",
-  "private": true,
+  "private": true,\n  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
