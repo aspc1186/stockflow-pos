@@ -40,6 +40,7 @@
     {"src": "/api/superadmin","dest": "/api/superadmin.ts"},
     {"src": "/api/empresas/(.*)","dest": "/api/superadmin.ts"},
     {"src": "/api/empresas","dest": "/api/superadmin.ts"},
+    {"handle": "filesystem"},
     {"src": "/(.*)","dest": "/index.html"}
   ],
   "env": {
