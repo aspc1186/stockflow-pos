@@ -1,17 +1,17 @@
 {
   "version": 2,
   "builds": [
-    {"src": "api/auth.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/dashboard.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/mesas.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/pedidos.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/productos.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/usuarios.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/inventario.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/caja.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/catalogo.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/compras.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
-    {"src": "api/superadmin.ts","use": "@vercel/node","config": {"includeFiles": ["_auth.ts","_db.ts"]}},
+    {"src": "api/auth.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/dashboard.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/mesas.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/pedidos.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/productos.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/usuarios.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/inventario.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/caja.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/catalogo.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/compras.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/superadmin.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
     {"src": "package.json","use": "@vercel/static-build","config": {"distDir": "dist"}}
   ],
   "routes": [
