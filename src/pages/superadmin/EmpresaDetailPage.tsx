@@ -29,7 +29,7 @@ export default function EmpresaDetailPage() {
         {[{label:'Usuarios',v:e.total_usuarios??0,icon:<Users className="w-4 h-4 text-brand-400"/>},
           {label:'Pedidos totales',v:e.total_pedidos??0,icon:<Building2 className="w-4 h-4 text-emerald-400"/>},
           {label:'Ventas totales',v:formatCurrency(Number(e.ventas_totales??0)),icon:<Building2 className="w-4 h-4 text-amber-400"/>}].map(i=>(
-          <div key={i.label} className="card p-4 flex items-center gap-3">{i.icon}<div><p className="text-xs text-surface-200/50">{i.label}</p><p className="text-xl font-bold text-surface-50">{i.v}</p></div></div>
+          <div key={i.label} className="card p-4 flex items-center gap-3">{i.icon}<div><p className="text-xs text-surface-200/50">{i.label}</p><p className="text-xl font-bold text-surface-50">{String(i.v)}</p></div></div>
         ))}
       </div>
       <div className="card overflow-hidden">
