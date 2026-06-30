@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireSuperAdmin, cors } from './_auth'
-import { query, queryOne } from './_db'
+import { requireSuperAdmin, cors } from '../_auth'
+import { query, queryOne } from '../_db'
 import { v4 as uuid } from 'uuid'
 import bcrypt from 'bcryptjs'
 
