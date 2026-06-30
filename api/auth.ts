@@ -20,9 +20,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `SELECT u.*,r.nombre as rol_nombre FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE u.username=$1`,
         [username.toLowerCase()]
       )
+      
+      // DEBUG: log para ver qué está pasando
+      console.log('Usuario encontrado:', user ? 'SÍ' : 'NO')
+      console.log('Usuario activo:', user?.activo)
+      console.log('Hash en DB:', user?.password_hash?.substring(0, 20) + '...')
+      
       if (!user || !user.activo) return res.status(401).json({ success: false, message: 'Credenciales inválidas' })
+      
       const valid = await bcrypt.compare(password, user.password_hash)
+      console.log('bcrypt.compare resultado:', valid)
+      
       if (!valid) return res.status(401).json({ success: false, message: 'Credenciales inválidas' })
+      
       let empresa = null
       if (user.empresa_id) {
         empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url FROM empresas WHERE id=$1`, [user.empresa_id])
@@ -32,7 +42,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const token = signToken({ sub: user.id, empresa_id: user.empresa_id ?? undefined, rol: user.rol_nombre })
       const { password_hash, ...safeUser } = user
       return res.status(200).json({ success: true, token, user: { ...safeUser, rol: { id: user.rol_id, nombre: user.rol_nombre }, empresa } })
-    } catch (e) { console.error(e); return res.status(500).json({ success: false, message: 'Error interno' }) }
+    } catch (e) { 
+      console.error('Error en login:', e)
+      return res.status(500).json({ success: false, message: 'Error interno' }) 
+    }
   }
 
   // GET /api/auth/me
