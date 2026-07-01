@@ -1,13 +1,31 @@
-import { Pool } from 'pg'
-let pool: Pool | null = null
-export function getPool(): Pool {
-  if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 10 })
+const { Pool } = require('pg')
+
+let pool: any = null
+
+function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 10
+    })
+  }
   return pool
 }
-export async function query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> {
+
+async function query(sql: string, params?: any[]): Promise<any[]> {
   const client = await getPool().connect()
-  try { const r = await client.query(sql, params); return r.rows as T[] } finally { client.release() }
+  try {
+    const r = await client.query(sql, params)
+    return r.rows
+  } finally {
+    client.release()
+  }
 }
-export async function queryOne<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T | null> {
-  const rows = await query<T>(sql, params); return rows[0] ?? null
+
+async function queryOne(sql: string, params?: any[]): Promise<any | null> {
+  const rows = await query(sql, params)
+  return rows[0] ?? null
 }
+
+module.exports = { query, queryOne, getPool }

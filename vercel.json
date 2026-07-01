@@ -1,17 +1,17 @@
 {
   "version": 2,
   "builds": [
-    {"src": "api/auth.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/dashboard.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/mesas.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/pedidos.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/productos.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/usuarios.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/inventario.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/caja.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/catalogo.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/compras.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
-    {"src": "api/superadmin.ts","use": "@vercel/node","config": {"tsconfig": "tsconfig.api.json"}},
+    {"src": "api/auth.ts","use": "@vercel/node"},
+    {"src": "api/dashboard.ts","use": "@vercel/node"},
+    {"src": "api/mesas.ts","use": "@vercel/node"},
+    {"src": "api/pedidos.ts","use": "@vercel/node"},
+    {"src": "api/productos.ts","use": "@vercel/node"},
+    {"src": "api/usuarios.ts","use": "@vercel/node"},
+    {"src": "api/inventario.ts","use": "@vercel/node"},
+    {"src": "api/caja.ts","use": "@vercel/node"},
+    {"src": "api/catalogo.ts","use": "@vercel/node"},
+    {"src": "api/compras.ts","use": "@vercel/node"},
+    {"src": "api/superadmin.ts","use": "@vercel/node"},
     {"src": "package.json","use": "@vercel/static-build","config": {"distDir": "dist"}}
   ],
   "routes": [

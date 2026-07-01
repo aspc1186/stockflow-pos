@@ -8,8 +8,7 @@
     "resolveJsonModule": true,
     "strict": false,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "outDir": "./api-dist"
+    "allowSyntheticDefaultImports": true
   },
   "include": ["api/**/*.ts", "_auth.ts", "_db.ts"]
 }
