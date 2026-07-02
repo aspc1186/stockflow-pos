@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react'
+import { createContext, useContext, ReactNode } from 'react'
 
 interface SocketCtx {
   connected: boolean
@@ -8,10 +8,13 @@ interface SocketCtx {
 }
 
 const SocketContext = createContext<SocketCtx>({
-  connected: false, on: () => {}, off: () => {}, emit: () => {}
+  connected: false,
+  on: () => {},
+  off: () => {},
+  emit: () => {},
 })
 
-export function SocketProvider({ children }: { children: React.ReactNode }) {
+export function SocketProvider({ children }: { children: ReactNode }) {
   return (
     <SocketContext.Provider value={{ connected: false, on: () => {}, off: () => {}, emit: () => {} }}>
       {children}
@@ -19,4 +22,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function useSocket() { return useContext(SocketContext) }
+export function useSocket() {
+  return useContext(SocketContext)
+}
