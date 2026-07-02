@@ -1,62 +1,70 @@
-import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, Clock, Wine } from 'lucide-react'
+import { Wine } from 'lucide-react'
 import api from '@/lib/axios'
-import type { Pedido } from '@/types'
-import { useSocket } from '@/contexts/SocketContext'
-import { calcularTiempoTranscurrido } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
+import { PageLoader } from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
+import { cn } from '@/lib/utils'
 
 export default function BarraPage() {
-  const qc=useQueryClient(); const {on,off}=useSocket()
-  const {data:pedidos=[]}=useQuery({
-    queryKey:['barra'],
-    queryFn:async()=>{const {data}=await api.get<{data:Pedido[]}>('/pedidos?estado=abierto,en_preparacion');return data.data},
-    refetchInterval:10_000,
+  const qc = useQueryClient()
+  const { data: pedidos = [], isLoading } = useQuery({
+    queryKey: ['barra-pedidos'],
+    queryFn: async () => { const { data } = await api.get<any>('/pedidos?estado=abierto,en_preparacion,listo'); return (data.data||data) as any[] },
+    refetchInterval: 8_000,
   })
-  useEffect(()=>{const h=()=>qc.invalidateQueries({queryKey:['barra']});on('pedido_nuevo',h);on('pedido_actualizado',h);return()=>{off('pedido_nuevo',h);off('pedido_actualizado',h)}},[on,off,qc])
-  const upd=useMutation({
-    mutationFn:({pid,iid,estado}:{pid:string;iid:string;estado:string})=>api.patch(`/pedidos/${pid}/items/${iid}`,{estado}),
-    onSuccess:()=>qc.invalidateQueries({queryKey:['barra']}),
-    onError:()=>toast.error('Error'),
+  const actualizar = useMutation({
+    mutationFn: ({pedidoId,itemId,estado}:{pedidoId:string;itemId:string;estado:string}) =>
+      api.patch(`/pedidos/${pedidoId}/items/${itemId}`, {estado}),
+    onSuccess: () => qc.invalidateQueries({queryKey:['barra-pedidos']}),
+    onError: () => toast.error('Error al actualizar'),
   })
-  const conItems=pedidos.map(p=>({...p,items:(p.items??[]).filter(i=>['barra','ambos'].includes(i.destino)&&!['entregado','cancelado'].includes(i.estado))})).filter(p=>p.items.length>0)
+
+  if (isLoading) return <PageLoader />
+  const activos = pedidos.filter((p:any) => ['abierto','en_preparacion'].includes(p.estado))
+
   return (
     <div className="min-h-screen bg-surface-900 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center"><Wine className="w-5 h-5 text-purple-400"/></div>
-          <div><h1 className="text-xl font-bold text-white">Pantalla de Barra</h1><p className="text-sm text-surface-200/50">{conItems.length} pedidos pendientes</p></div>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {conItems.map(pedido=>{
-            const urgente=new Date().getTime()-new Date(pedido.apertura_at).getTime()>15*60*1000
-            const p=pedido as any
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center"><Wine className="w-5 h-5 text-purple-400"/></div>
+        <div><h1 className="text-xl font-bold text-white">Barra</h1><p className="text-sm text-surface-200/50">{activos.length} pedidos activos</p></div>
+      </div>
+      {activos.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20"><Wine className="w-16 h-16 text-surface-200/15 mb-4"/><p className="text-surface-200/40">Sin pedidos pendientes</p></div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {activos.map((pedido:any) => {
+            const items = (pedido.items||[]).filter((i:any) => i.destino==='barra'||i.destino==='ambos'||i.destino==='directo')
+            if (!items.length) return null
             return (
-              <div key={pedido.id} className={cn('card border rounded-xl overflow-hidden',urgente?'border-red-500/50':'border-purple-500/20')}>
-                <div className={cn('px-4 py-3 flex items-center justify-between',urgente?'bg-red-500/20':'bg-purple-500/10')}>
-                  <span className="font-bold text-white">{p.mesa_numero?`Mesa ${p.mesa_numero}`:`#${pedido.numero}`}</span>
-                  <div className={cn('flex items-center gap-1 text-xs font-semibold',urgente?'text-red-400':'text-purple-400')}><Clock className="w-3 h-3"/>{calcularTiempoTranscurrido(pedido.apertura_at)}</div>
+              <div key={pedido.id} className="card p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-surface-50">Mesa {pedido.mesa_numero || '—'}</p>
+                    <p className="text-xs text-surface-200/50">{formatDate(pedido.apertura_at,'HH:mm')} · {pedido.mesero_nombre||''}</p>
+                  </div>
+                  <span className={cn('badge', pedido.estado==='abierto'?'badge-yellow':'badge-blue')}>{pedido.estado.replace('_',' ')}</span>
                 </div>
-                <div className="divide-y divide-white/5">
-                  {pedido.items.map(item=>{const it=item as any;return(
-                    <div key={item.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1"><div className="flex items-center gap-2"><span className="text-xl font-bold text-surface-50">{item.cantidad}</span><span className="text-sm text-surface-100">{it.nombre}</span></div>{item.observaciones&&<p className="text-xs text-amber-400 mt-0.5 ml-7">⚠ {item.observaciones}</p>}</div>
-                      <div className="flex gap-1.5">
-                        {item.estado==='pendiente'&&<button onClick={()=>upd.mutate({pid:pedido.id,iid:item.id,estado:'en_preparacion'})} className="px-3 py-1.5 text-xs rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 font-medium">Preparando</button>}
-                        {item.estado==='en_preparacion'&&<button onClick={()=>upd.mutate({pid:pedido.id,iid:item.id,estado:'listo'})} className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-medium"><Check className="w-3 h-3"/>Listo</button>}
-                        {item.estado==='listo'&&<span className="px-3 py-1.5 text-xs rounded-lg bg-emerald-500/10 text-emerald-400/60">✓</span>}
+                <div className="space-y-2">
+                  {items.map((item:any) => (
+                    <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                      <div>
+                        <p className="text-sm font-medium text-surface-50">{item.nombre || item.producto_id}</p>
+                        <p className="text-xs text-surface-200/50">{item.cantidad}x {item.observaciones||''}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        {item.estado==='pendiente'&&<button onClick={()=>actualizar.mutate({pedidoId:pedido.id,itemId:item.id,estado:'preparando'})} className="text-[10px] px-2 py-1 rounded bg-blue-500/20 text-blue-400">Preparar</button>}
+                        {item.estado==='preparando'&&<button onClick={()=>actualizar.mutate({pedidoId:pedido.id,itemId:item.id,estado:'listo'})} className="text-[10px] px-2 py-1 rounded bg-emerald-500/20 text-emerald-400">Listo ✓</button>}
+                        {item.estado==='listo'&&<span className="text-[10px] px-2 py-1 rounded bg-emerald-500/10 text-emerald-400/60">Listo</span>}
                       </div>
                     </div>
-                  )})}
+                  ))}
                 </div>
               </div>
             )
           })}
-          {conItems.length===0&&<div className="col-span-full flex flex-col items-center justify-center py-20 text-center"><Wine className="w-12 h-12 text-surface-200/20 mb-3"/><p className="text-surface-200/40 font-medium">Sin pedidos en barra</p></div>}
         </div>
-      </div>
+      )}
     </div>
   )
 }
