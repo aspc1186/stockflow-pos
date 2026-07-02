@@ -1,0 +1,43 @@
+{
+  "version": 2,
+  "builds": [
+    {"src": "api/auth.ts", "use": "@vercel/node"},
+    {"src": "api/superadmin.ts", "use": "@vercel/node"},
+    {"src": "api/mesas.ts", "use": "@vercel/node"},
+    {"src": "api/pedidos.ts", "use": "@vercel/node"},
+    {"src": "api/productos.ts", "use": "@vercel/node"},
+    {"src": "api/usuarios.ts", "use": "@vercel/node"},
+    {"src": "api/inventario.ts", "use": "@vercel/node"},
+    {"src": "api/caja.ts", "use": "@vercel/node"},
+    {"src": "api/catalogo.ts", "use": "@vercel/node"},
+    {"src": "api/dashboard.ts", "use": "@vercel/node"},
+    {"src": "package.json", "use": "@vercel/static-build", "config": {"distDir": "dist"}}
+  ],
+  "routes": [
+    {"src": "/api/auth/(.*)", "dest": "/api/auth.ts"},
+    {"src": "/api/superadmin/(.*)", "dest": "/api/superadmin.ts"},
+    {"src": "/api/superadmin", "dest": "/api/superadmin.ts"},
+    {"src": "/api/empresas/(.*)", "dest": "/api/superadmin.ts"},
+    {"src": "/api/empresas", "dest": "/api/superadmin.ts"},
+    {"src": "/api/mesas/(.*)", "dest": "/api/mesas.ts"},
+    {"src": "/api/mesas", "dest": "/api/mesas.ts"},
+    {"src": "/api/pedidos/(.*)", "dest": "/api/pedidos.ts"},
+    {"src": "/api/pedidos", "dest": "/api/pedidos.ts"},
+    {"src": "/api/productos/(.*)", "dest": "/api/productos.ts"},
+    {"src": "/api/productos", "dest": "/api/productos.ts"},
+    {"src": "/api/usuarios/(.*)", "dest": "/api/usuarios.ts"},
+    {"src": "/api/usuarios", "dest": "/api/usuarios.ts"},
+    {"src": "/api/inventario", "dest": "/api/inventario.ts"},
+    {"src": "/api/caja", "dest": "/api/caja.ts"},
+    {"src": "/api/zonas", "dest": "/api/catalogo.ts"},
+    {"src": "/api/categorias", "dest": "/api/catalogo.ts"},
+    {"src": "/api/clientes", "dest": "/api/catalogo.ts"},
+    {"src": "/api/proveedores", "dest": "/api/catalogo.ts"},
+    {"src": "/api/reservas", "dest": "/api/catalogo.ts"},
+    {"src": "/api/eventos", "dest": "/api/catalogo.ts"},
+    {"src": "/api/dashboard/(.*)", "dest": "/api/dashboard.ts"},
+    {"src": "/api/dashboard", "dest": "/api/dashboard.ts"},
+    {"handle": "filesystem"},
+    {"src": "/(.*)", "dest": "/index.html"}
+  ]
+}
