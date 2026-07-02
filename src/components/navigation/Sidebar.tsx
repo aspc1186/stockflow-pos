@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, ShoppingCart, Users, BarChart3, Settings, CreditCard, UserCheck, ChefHat, Wine, X } from 'lucide-react'
+import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, UserCheck, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 
@@ -10,14 +10,9 @@ const groups = [
     { to: '/app/pedidos', label: 'Pedidos', icon: ClipboardList, roles: [] },
     { to: '/app/caja', label: 'Caja', icon: CreditCard, roles: ['admin','cajero','supervisor'] },
   ]},
-  { label: 'Estaciones', items: [
-    { to: '/cocina', label: 'Cocina', icon: ChefHat, roles: ['admin','cocina','supervisor'] },
-    { to: '/barra', label: 'Barra', icon: Wine, roles: ['admin','barra','supervisor'] },
-  ]},
   { label: 'Gestión', items: [
     { to: '/app/productos', label: 'Productos', icon: Package, roles: ['admin','supervisor'] },
     { to: '/app/inventario', label: 'Inventario', icon: Package, roles: ['admin','supervisor'] },
-    { to: '/app/compras', label: 'Compras', icon: ShoppingCart, roles: ['admin','supervisor'] },
     { to: '/app/clientes', label: 'Clientes', icon: UserCheck, roles: [] },
   ]},
   { label: 'Admin', items: [
