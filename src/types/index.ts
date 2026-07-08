@@ -1,59 +1,13 @@
-export interface Empresa {
-  id: string; nombre: string; slug: string; nit?: string; telefono?: string
-  email?: string; ciudad?: string; logo_url?: string; color_primario?: string
-  tipo: string; activa: boolean; plan?: string; licencia_fin?: string
-  created_at: string; updated_at: string
-}
-export interface Usuario {
-  id: string; empresa_id?: string; nombre: string; email: string; username: string
-  telefono?: string; activo: boolean; ultimo_acceso?: string; created_at: string; updated_at: string
-}
+export interface Empresa { id:string; nombre:string; slug:string; tipo:string; ciudad?:string; activa:boolean; plan?:string; logo_url?:string; color_primario?:string; licencia_fin?:string; created_at:string; updated_at:string }
+export interface Usuario { id:string; empresa_id?:string; nombre:string; email:string; username:string; activo:boolean; ultimo_acceso?:string; created_at:string; updated_at:string }
 export type EstadoMesa = 'libre'|'ocupada'|'reservada'|'limpieza'|'cerrada'
-export interface Mesa {
-  id: string; empresa_id: string; zona_nombre?: string
-  numero: number; nombre?: string; capacidad: number; tipo?: string
-  pos_x: number; pos_y: number; estado: EstadoMesa; activa: boolean
-  pedido_id?: string; pedido_total?: number; apertura_at?: string
-}
-export interface Categoria { id: string; empresa_id: string; nombre: string; icono?: string; orden: number; activa: boolean }
-export interface Producto {
-  id: string; empresa_id: string; categoria_id?: string; categoria_nombre?: string
-  nombre: string; descripcion?: string; codigo?: string
-  precio_venta: number; precio_costo: number; impuesto_pct: number
-  unidad_medida: string; disponible: boolean; controla_stock: boolean
-  destino: string; stock_actual?: number; stock_minimo?: number
-}
+export interface Mesa { id:string; empresa_id:string; numero:number; nombre?:string; capacidad:number; tipo?:string; estado:EstadoMesa; activa:boolean; zona_nombre?:string; pedido_id?:string; pedido_total?:number; apertura_at?:string; pos_x:number; pos_y:number }
+export interface Categoria { id:string; empresa_id:string; nombre:string; icono?:string; orden:number; activa:boolean }
+export interface Producto { id:string; empresa_id:string; categoria_id?:string; categoria_nombre?:string; nombre:string; descripcion?:string; precio_venta:number; precio_costo:number; impuesto_pct:number; unidad_medida:string; disponible:boolean; controla_stock:boolean; destino:string; stock_actual?:number; stock_minimo?:number }
 export type EstadoPedido = 'abierto'|'en_preparacion'|'listo'|'cobrado'|'cancelado'
-export interface PedidoItem {
-  id: string; pedido_id: string; empresa_id: string; producto_id: string; nombre?: string
-  cantidad: number; precio_unit: number; impuesto_pct: number; descuento: number
-  subtotal: number; observaciones?: string; estado: string; destino: string; created_at: string
-}
-export interface Pedido {
-  id: string; empresa_id: string; mesa_id?: string; mesa_numero?: number
-  cliente_id?: string; cliente_nombre?: string; usuario_id?: string; mesero_nombre?: string
-  numero?: number; estado: EstadoPedido; tipo: string
-  subtotal: number; impuestos: number; descuento: number; propina: number; total: number
-  notas?: string; apertura_at: string; cierre_at?: string; items?: PedidoItem[]; created_at: string; updated_at: string
-}
-export interface Cliente {
-  id: string; empresa_id: string; nombre: string; telefono?: string; email?: string
-  total_visitas: number; total_consumo: number; activo: boolean; created_at: string
-}
-export interface Caja {
-  id: string; empresa_id: string; cajero_nombre?: string
-  estado: 'abierta'|'cerrada'; saldo_inicial: number; saldo_final?: number
-  total_ventas: number; total_ingresos: number; total_egresos: number
-  apertura_at: string; cierre_at?: string
-}
-export interface CajaMovimiento {
-  id: string; caja_id: string; tipo: string; metodo_pago: string
-  monto: number; descripcion?: string; created_at: string
-}
-export interface DashboardStats {
-  ventas_hoy: number; ventas_mes: number; pedidos_activos: number
-  mesas_ocupadas: number; mesas_libres: number; inventario_critico: number
-  caja_actual: number; usuarios_conectados: number
-  productos_mas_vendidos: {nombre:string;total:number}[]
-  ventas_por_hora: {hora:string;total:number}[]
-}
+export interface PedidoItem { id:string; pedido_id:string; empresa_id:string; producto_id:string; nombre?:string; cantidad:number; precio_unit:number; descuento:number; subtotal:number; observaciones?:string; estado:string; destino:string; created_at:string; impuesto_pct:number }
+export interface Pedido { id:string; empresa_id:string; mesa_id?:string; mesa_numero?:number; cliente_id?:string; cliente_nombre?:string; usuario_id?:string; mesero_nombre?:string; numero?:number; estado:EstadoPedido; tipo:string; subtotal:number; impuestos:number; descuento:number; propina:number; total:number; notas?:string; apertura_at:string; cierre_at?:string; items?:PedidoItem[]; created_at:string; updated_at:string }
+export interface Cliente { id:string; empresa_id:string; nombre:string; telefono?:string; email?:string; tipo_cliente?:string; total_visitas:number; total_consumo:number; activo:boolean; created_at:string }
+export interface Caja { id:string; empresa_id:string; cajero_nombre?:string; estado:'abierta'|'cerrada'; saldo_inicial:number; saldo_final?:number; total_ventas:number; total_ingresos:number; total_egresos:number; apertura_at:string; cierre_at?:string }
+export interface CajaMovimiento { id:string; caja_id:string; tipo:string; metodo_pago:string; monto:number; descripcion?:string; created_at:string }
+export interface DashboardStats { ventas_hoy:number; ventas_mes:number; pedidos_activos:number; mesas_ocupadas:number; mesas_libres:number; inventario_critico:number; caja_actual:number; usuarios_conectados:number; productos_mas_vendidos:{nombre:string;total:number}[]; ventas_por_hora:{hora:string;total:number}[] }

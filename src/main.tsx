@@ -8,27 +8,16 @@ import { SocketProvider } from './contexts/SocketContext'
 import App from './App'
 import './index.css'
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false },
-  },
-})
+const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={qc}>
         <AuthProvider>
           <SocketProvider>
-            <App />
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                style: { background: '#1e293b', color: '#f8fafc', border: '1px solid rgba(255,255,255,0.1)' },
-                success: { iconTheme: { primary: '#10b981', secondary: '#f8fafc' } },
-                error: { iconTheme: { primary: '#ef4444', secondary: '#f8fafc' } },
-              }}
-            />
+            <App/>
+            <Toaster position="top-right" toastOptions={{ style: { background:'#1e293b', color:'#f8fafc', border:'1px solid rgba(255,255,255,0.1)' } }}/>
           </SocketProvider>
         </AuthProvider>
       </QueryClientProvider>

@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
   "builds": [
     {"src": "api/auth.ts", "use": "@vercel/node"},
     {"src": "api/superadmin.ts", "use": "@vercel/node"},
@@ -33,8 +35,6 @@
     {"src": "/api/categorias", "dest": "/api/catalogo.ts"},
     {"src": "/api/clientes", "dest": "/api/catalogo.ts"},
     {"src": "/api/proveedores", "dest": "/api/catalogo.ts"},
-    {"src": "/api/reservas", "dest": "/api/catalogo.ts"},
-    {"src": "/api/eventos", "dest": "/api/catalogo.ts"},
     {"src": "/api/dashboard/(.*)", "dest": "/api/dashboard.ts"},
     {"src": "/api/dashboard", "dest": "/api/dashboard.ts"},
     {"handle": "filesystem"},

@@ -7,12 +7,7 @@ interface SocketCtx {
   emit: (e: string, d?: unknown) => void
 }
 
-const SocketContext = createContext<SocketCtx>({
-  connected: false,
-  on: () => {},
-  off: () => {},
-  emit: () => {},
-})
+const SocketContext = createContext<SocketCtx>({ connected: false, on: () => {}, off: () => {}, emit: () => {} })
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   return (
@@ -22,6 +17,4 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function useSocket() {
-  return useContext(SocketContext)
-}
+export function useSocket() { return useContext(SocketContext) }
