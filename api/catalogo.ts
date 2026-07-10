@@ -34,5 +34,3 @@ module.exports = async function(req: any, res: any) {
   }
   return res.status(405).end()
 }
-
-export {}

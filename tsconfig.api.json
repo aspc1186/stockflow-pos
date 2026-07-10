@@ -7,7 +7,8 @@
     "skipLibCheck": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "outDir": ".vercel/output"
+    "outDir": ".vercel/output",
+    "moduleDetection": "force"
   },
   "include": ["api/**/*.ts", "_auth.ts", "_db.ts"],
   "exclude": ["node_modules", "src", "dist"]

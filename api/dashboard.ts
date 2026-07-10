@@ -54,5 +54,3 @@ module.exports = async function(req: any, res: any) {
     }})
   } catch(e: any) { return res.status(500).json({ ok:false, msg:e.message }) }
 }
-
-export {}

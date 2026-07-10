@@ -60,5 +60,3 @@ function cors(res: any) {
 }
 
 module.exports = { signToken, verifyToken, getToken, authenticate, authSuperAdmin, cors }
-
-export {}

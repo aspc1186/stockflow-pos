@@ -77,5 +77,3 @@ module.exports = async function(req: any, res: any) {
 
   return res.status(404).json({ ok: false, msg: 'Ruta no encontrada' })
 }
-
-export {}

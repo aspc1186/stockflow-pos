@@ -31,5 +31,3 @@ async function queryOne(sql: string, params?: any[]): Promise<any | null> {
 }
 
 module.exports = { query, queryOne }
-
-export {}
