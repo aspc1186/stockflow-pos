@@ -1,4 +1,4 @@
-const { Pool } = require('pg')
+import { Pool } from 'pg'
 
 let pool: any = null
 
@@ -30,4 +30,4 @@ async function queryOne(sql: string, params?: any[]): Promise<any | null> {
   return rows[0] ?? null
 }
 
-module.exports = { query, queryOne }
+export { query, queryOne }

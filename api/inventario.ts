@@ -1,7 +1,7 @@
-const { query, queryOne } = require('../_db')
-const { authenticate, cors } = require('../_auth')
+import { query, queryOne } from '../_db'
+import { authenticate, cors } from '../_auth'
 
-module.exports = async function(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
   const auth = await authenticate(req, res)

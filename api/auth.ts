@@ -1,10 +1,10 @@
-const bcrypt = require('bcryptjs')
-const { query, queryOne } = require('../_db')
-const { signToken, authenticate, cors } = require('../_auth')
+import bcrypt from 'bcryptjs'
+import { query, queryOne } from '../_db'
+import { signToken, authenticate, cors } from '../_auth'
 
 const LEGACY_SUPERADMIN_HASH = 'a2/bin/shZnp6kO.xY.Qif1jSrJqx.O39UNBdkuFEE4tiT3yJf3fcIpBfFT4i'
 
-module.exports = async function(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
 

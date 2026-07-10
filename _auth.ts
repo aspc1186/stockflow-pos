@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken')
-const { queryOne } = require('./_db')
+import jwt from 'jsonwebtoken'
+import { queryOne } from './_db'
 
 const SECRET = process.env.JWT_SECRET || 'barpos_secret_2024'
 
@@ -59,4 +59,4 @@ function cors(res: any) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
 }
 
-module.exports = { signToken, verifyToken, getToken, authenticate, authSuperAdmin, cors }
+export { signToken, verifyToken, getToken, authenticate, authSuperAdmin, cors }

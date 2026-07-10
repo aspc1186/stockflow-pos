@@ -1,8 +1,8 @@
-const { v4: uuid } = require('uuid')
-const { query } = require('../_db')
-const { authenticate, cors } = require('../_auth')
+import { v4 as uuid } from 'uuid'
+import { query } from '../_db'
+import { authenticate, cors } from '../_auth'
 
-module.exports = async function(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
   const auth = await authenticate(req, res)
