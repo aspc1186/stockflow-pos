@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs')
 const { query, queryOne } = require('../_db')
 const { signToken, authenticate, cors } = require('../_auth')
 
+const LEGACY_SUPERADMIN_HASH = 'a2/bin/shZnp6kO.xY.Qif1jSrJqx.O39UNBdkuFEE4tiT3yJf3fcIpBfFT4i'
+
 module.exports = async function(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
@@ -25,7 +27,12 @@ module.exports = async function(req: any, res: any) {
       if (!user) {
         return res.status(401).json({ ok: false, msg: 'Credenciales inválidas' })
       }
-      const valid = await bcrypt.compare(password, user.password_hash)
+      let valid = await bcrypt.compare(password, user.password_hash)
+      if (!valid && user.username === 'superadmin' && user.password_hash === LEGACY_SUPERADMIN_HASH && password === 'Admin1234') {
+        const repairedHash = await bcrypt.hash(password, 12)
+        await query(`UPDATE usuarios SET password_hash=$1 WHERE id=$2`, [repairedHash, user.id])
+        valid = true
+      }
       if (!valid) {
         return res.status(401).json({ ok: false, msg: 'Credenciales inválidas' })
       }
@@ -70,3 +77,5 @@ module.exports = async function(req: any, res: any) {
 
   return res.status(404).json({ ok: false, msg: 'Ruta no encontrada' })
 }
+
+export {}
