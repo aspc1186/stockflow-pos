@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
-import { query } from '../_db'
-import { authenticate, cors } from '../_auth'
+import { query } from '../_db.js'
+import { authenticate, cors } from '../_auth.js'
 
 export default async function handler(req: any, res: any) {
   cors(res)

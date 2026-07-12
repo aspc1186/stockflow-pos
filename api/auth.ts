@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
-import { query, queryOne } from '../_db'
-import { signToken, authenticate, cors } from '../_auth'
+import { query, queryOne } from '../_db.js'
+import { signToken, authenticate, cors } from '../_auth.js'
 
 const LEGACY_SUPERADMIN_HASH = 'a2/bin/shZnp6kO.xY.Qif1jSrJqx.O39UNBdkuFEE4tiT3yJf3fcIpBfFT4i'
 

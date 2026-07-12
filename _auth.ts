@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { queryOne } from './_db'
+import { queryOne } from './_db.js'
 
 const SECRET = process.env.JWT_SECRET || 'barpos_secret_2024'
 
