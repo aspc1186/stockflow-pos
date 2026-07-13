@@ -34,13 +34,13 @@ export default function UsuariosPage() {
         <button onClick={() => setModal(true)} className="btn-primary"><Plus className="w-4 h-4"/>Nuevo usuario</button>
       </div>
       <div className="card overflow-hidden"><table className="table-base">
-        <thead><tr><th>Usuario</th><th>Email</th><th>Rol</th><th>Último acceso</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Usuario</th><th>Email</th><th>Rol</th><th>Ultimo acceso</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {usuarios.map((u:any) => (
             <tr key={u.id}>
               <td><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-full bg-brand-600/20 flex items-center justify-center"><span className="text-xs font-bold text-brand-400">{u.nombre[0]}</span></div><div><p className="font-medium text-surface-50">{u.nombre}</p><p className="text-xs text-surface-200/40">@{u.username}</p></div></div></td>
-              <td className="text-surface-200/70">{u.email}</td>
-              <td><span className="badge badge-blue capitalize">{u.rol ?? '—'}</span></td>
+              <td className="text-surface-200/70">{u.email?.endsWith('@sin-email.local') ? 'Sin email' : u.email}</td>
+              <td><span className="badge badge-blue capitalize">{u.rol ?? '-'}</span></td>
               <td className="text-xs text-surface-200/50">{u.ultimo_acceso ? formatDate(u.ultimo_acceso,'dd/MM HH:mm') : 'Nunca'}</td>
               <td><span className={u.activo?'badge-green':'badge-gray'}>{u.activo?'Activo':'Inactivo'}</span></td>
               <td><button onClick={() => toggle.mutate({id:u.id,activo:!u.activo})} className={`text-xs px-2 py-1 rounded font-medium ${u.activo?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{u.activo?'Desactivar':'Activar'}</button></td>
@@ -50,18 +50,18 @@ export default function UsuariosPage() {
         </tbody>
       </table></div>
       <Modal open={modal} onClose={() => setModal(false)} title="Nuevo usuario" size="md"
-        footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => crear.mutate()} disabled={crear.isPending||!form.nombre||!form.password} className="btn-primary flex-1">{crear.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Crear'}</button></div>}>
+        footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => crear.mutate()} disabled={crear.isPending||!form.nombre||!form.password||!form.rol_id} className="btn-primary flex-1">{crear.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Crear'}</button></div>}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div><label className="label">Nombre *</label><input className="input" value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))}/></div>
-            <div><label className="label">Rol *</label><select className="input" value={form.rol_id} onChange={e=>setForm(p=>({...p,rol_id:e.target.value}))}><option value="">Seleccionar</option>{['admin','supervisor','cajero','mesero','barra','cocina'].map(r=><option key={r} value={r} className="bg-surface-800 capitalize">{r}</option>)}</select></div>
+            <div><label className="label">Rol *</label><select className="input" value={form.rol_id} onChange={e=>setForm(p=>({...p,rol_id:e.target.value}))}><option value="">Seleccionar</option><option value="mesero" className="bg-surface-800">Mesero - mesas, pedidos y cobro</option><option value="cajero" className="bg-surface-800">Cajero - mesas y cobro</option><option value="barra" className="bg-surface-800">Barra</option><option value="cocina" className="bg-surface-800">Cocina</option><option value="supervisor" className="bg-surface-800">Supervisor</option><option value="admin" className="bg-surface-800">Admin</option></select></div>
           </div>
-          <div><label className="label">Email</label><input type="email" className="input" value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
+          <div><label className="label">Email opcional</label><input type="email" className="input" placeholder="Puede quedar vacio" value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="label">Username</label><input className="input" placeholder="Automático" value={form.username} onChange={e=>setForm(p=>({...p,username:e.target.value}))}/></div>
-            <div><label className="label">Teléfono</label><input className="input" value={form.telefono} onChange={e=>setForm(p=>({...p,telefono:e.target.value}))}/></div>
+            <div><label className="label">Username</label><input className="input" placeholder="Automatico" value={form.username} onChange={e=>setForm(p=>({...p,username:e.target.value}))}/></div>
+            <div><label className="label">Telefono</label><input className="input" value={form.telefono} onChange={e=>setForm(p=>({...p,telefono:e.target.value}))}/></div>
           </div>
-          <div><label className="label">Contraseña *</label><input type="password" className="input" value={form.password} onChange={e=>setForm(p=>({...p,password:e.target.value}))}/></div>
+          <div><label className="label">Contrasena *</label><input type="password" className="input" value={form.password} onChange={e=>setForm(p=>({...p,password:e.target.value}))}/></div>
         </div>
       </Modal>
     </div>

@@ -20,10 +20,10 @@ export default function LoginPage() {
       const saved = localStorage.getItem('pos_user')
       if (saved) {
         const u = JSON.parse(saved)
-        navigate(u.rol === 'superadmin' ? '/superadmin' : '/app/dashboard', { replace: true })
+        navigate(u.rol === 'superadmin' ? '/superadmin' : ['mesero','barra','cajero'].includes(u.rol) ? '/mesero' : '/app/dashboard', { replace: true })
       }
     } catch (e: any) {
-      toast.error(e?.response?.data?.msg ?? e?.response?.data?.message ?? 'Credenciales inválidas')
+      toast.error(e?.response?.data?.msg ?? e?.response?.data?.message ?? 'Credenciales invalidas')
     } finally { setLoading(false) }
   }
 
@@ -46,7 +46,7 @@ export default function LoginPage() {
             <span className="text-xl font-bold text-surface-50">POS Manager</span>
           </div>
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-surface-50 mb-2">Iniciar sesión</h2>
+            <h2 className="text-2xl font-bold text-surface-50 mb-2">Iniciar sesion</h2>
             <p className="text-surface-200/50">Ingresa tus credenciales para continuar</p>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -59,10 +59,10 @@ export default function LoginPage() {
               {errors.username && <p className="text-xs text-red-400 mt-1">{errors.username.message}</p>}
             </div>
             <div>
-              <label className="label">Contraseña</label>
+              <label className="label">Contrasena</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-200/30"/>
-                <input {...register('password',{required:'Contraseña requerida'})} type={showPassword?'text':'password'} className="input pl-10 pr-10" placeholder="Tu contraseña" autoComplete="current-password"/>
+                <input {...register('password',{required:'Contrasena requerida'})} type={showPassword?'text':'password'} className="input pl-10 pr-10" placeholder="Tu contrasena" autoComplete="current-password"/>
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-200/30 hover:text-surface-200/60">
                   {showPassword?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}
                 </button>
@@ -73,7 +73,7 @@ export default function LoginPage() {
               {loading ? <span className="flex items-center gap-2 justify-center"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Ingresando...</span> : 'Ingresar'}
             </button>
           </form>
-          <p className="text-center text-xs text-surface-200/25 mt-8">POS Manager © {new Date().getFullYear()}</p>
+          <p className="text-center text-xs text-surface-200/25 mt-8">POS Manager {new Date().getFullYear()}</p>
         </div>
       </div>
     </div>

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Plus, Minus, Send, CreditCard, Clock, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, Send, CreditCard, Clock, ShoppingBag, ChevronDown, ChevronUp, LayoutDashboard } from 'lucide-react'
 import api from '@/lib/axios'
 import type { Mesa, Producto, Pedido, Categoria } from '@/types'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 
 function tiempo(f?: string): string {
   if (!f) return ''
@@ -19,6 +20,7 @@ export default function MesaPedidoPage() {
   const { mesaId } = useParams<{ mesaId: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { isAdmin } = useAuth()
   const [catActiva, setCatActiva] = useState<string | null>(null)
   const [carrito, setCarrito] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(false)
@@ -89,7 +91,7 @@ export default function MesaPedidoPage() {
       qc.invalidateQueries({ queryKey: ['pedido-detalle', (pedidoActivo as any)?.id] })
       qc.invalidateQueries({ queryKey: ['mesa', mesaId] })
       refetchPedido()
-      toast.success('✓ Pedido enviado')
+      toast.success('Pedido enviado')
     } catch { toast.error('Error al enviar') }
     finally { setLoading(false) }
   }
@@ -104,19 +106,24 @@ export default function MesaPedidoPage() {
       {/* Header */}
       <div className="sticky top-0 z-20 bg-surface-800 border-b border-white/5 px-4 py-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/mesero')} className="p-1.5 rounded-lg hover:bg-white/5">
+          <button onClick={() => navigate(isAdmin ? '/app/mesas' : '/mesero')} className="p-1.5 rounded-lg hover:bg-white/5" title="Volver">
             <ArrowLeft className="w-5 h-5 text-white/60"/>
           </button>
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <p className="font-bold text-white text-lg">Mesa {mesa?.numero}</p>
-              {mesa?.nombre && <span className="text-white/40 text-sm">· {mesa.nombre}</span>}
+              {mesa?.nombre && <span className="text-white/40 text-sm">- {mesa.nombre}</span>}
             </div>
             <div className="flex items-center gap-3 mt-0.5">
               {t && <div className="flex items-center gap-1"><Clock className="w-3 h-3 text-white/30"/><span className="text-xs text-white/40">{t}</span></div>}
               {totalAcumulado > 0 && <span className="text-xs font-semibold text-brand-400">Total: {formatCurrency(totalAcumulado)}</span>}
             </div>
           </div>
+          {isAdmin && (
+            <button onClick={() => navigate('/app/dashboard')} className="p-2 rounded-xl bg-white/5 text-white/50 hover:text-white hover:bg-white/10" title="Panel principal">
+              <LayoutDashboard className="w-4 h-4"/>
+            </button>
+          )}
           {pedidoActivo && (
             <button
               onClick={async () => {
@@ -144,7 +151,7 @@ export default function MesaPedidoPage() {
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-brand-400"/>
               <span className="text-sm font-semibold text-white">Pedido actual</span>
-              <span className="text-xs bg-brand-600/30 text-brand-400 px-2 py-0.5 rounded-full">{itemsPedido.length} ítems</span>
+              <span className="text-xs bg-brand-600/30 text-brand-400 px-2 py-0.5 rounded-full">{itemsPedido.length} items</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-brand-400">{formatCurrency(totalAcumulado)}</span>
@@ -157,7 +164,7 @@ export default function MesaPedidoPage() {
               {itemsPedido.map((item: any) => (
                 <div key={item.id} className="flex items-center justify-between py-1.5 border-t border-white/5">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-xs font-bold text-brand-400 w-5 text-center">{item.cantidad}×</span>
+                    <span className="text-xs font-bold text-brand-400 w-5 text-center">{item.cantidad}x</span>
                     <span className="text-sm text-white truncate">{item.nombre || 'Producto'}</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -182,7 +189,7 @@ export default function MesaPedidoPage() {
         </div>
       )}
 
-      {/* Filtros categoría */}
+      {/* Filtros categoria */}
       <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-none border-b border-white/5 bg-surface-900 sticky top-[65px] z-10">
         <button
           onClick={() => setCatActiva(null)}
@@ -251,7 +258,7 @@ export default function MesaPedidoPage() {
         )}
       </div>
 
-      {/* Botón enviar carrito */}
+      {/* Boton enviar carrito */}
       {totalItems > 0 && (
         <div className="sticky bottom-0 p-4 bg-surface-900/95 backdrop-blur border-t border-white/5">
           {/* Resumen del carrito actual */}
@@ -261,13 +268,13 @@ export default function MesaPedidoPage() {
               if (!p) return null
               return (
                 <div key={id} className="flex justify-between text-xs text-white/50">
-                  <span>{q}× {p.nombre}</span>
+                  <span>{q}x {p.nombre}</span>
                   <span>{formatCurrency(p.precio_venta * q)}</span>
                 </div>
               )
             })}
             <div className="flex justify-between text-sm font-bold text-white pt-1 border-t border-white/10">
-              <span>Nuevo pedido ({totalItems} ítems)</span>
+              <span>Nuevo pedido ({totalItems} items)</span>
               <span>{formatCurrency(totalCarrito)}</span>
             </div>
             {totalAcumulado > 0 && (

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Clock, Users, RefreshCw } from 'lucide-react'
+import { LogOut, Clock, Users, RefreshCw, LayoutDashboard } from 'lucide-react'
 import api from '@/lib/axios'
 import type { Mesa } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
@@ -24,7 +24,7 @@ const ESTADO_CFG = {
 }
 
 export default function MeseroPage() {
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   const { data: mesas = [], isLoading, refetch } = useQuery({
@@ -44,25 +44,28 @@ export default function MeseroPage() {
 
   return (
     <div className="min-h-screen bg-surface-900">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-surface-800 border-b border-white/5 px-4 py-3">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
           <div>
             <p className="font-bold text-white">{user?.nombre}</p>
-            <p className="text-xs text-surface-200/50 capitalize">{user?.rol} · {activas.length} mesas</p>
+            <p className="text-xs text-surface-200/50 capitalize">{user?.rol} - {activas.length} mesas</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => refetch()} className="p-2 rounded-lg text-surface-200/40 hover:text-white hover:bg-white/5">
+            {isAdmin && (
+              <button onClick={() => navigate('/app/dashboard')} className="p-2 rounded-lg text-surface-200/40 hover:text-white hover:bg-white/5" title="Panel principal">
+                <LayoutDashboard className="w-4 h-4"/>
+              </button>
+            )}
+            <button onClick={() => refetch()} className="p-2 rounded-lg text-surface-200/40 hover:text-white hover:bg-white/5" title="Actualizar">
               <RefreshCw className="w-4 h-4"/>
             </button>
-            <button onClick={logout} className="p-2 rounded-lg text-surface-200/40 hover:text-red-400 hover:bg-red-500/10">
+            <button onClick={logout} className="p-2 rounded-lg text-surface-200/40 hover:text-red-400 hover:bg-red-500/10" title="Cerrar sesion">
               <LogOut className="w-4 h-4"/>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Stats rápidas */}
       <div className="max-w-2xl mx-auto px-4 pt-4 pb-2">
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div className="bg-surface-800 rounded-xl p-3 text-center border border-white/5">
@@ -79,7 +82,6 @@ export default function MeseroPage() {
           </div>
         </div>
 
-        {/* Grid de mesas */}
         {activas.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-surface-200/30">No hay mesas disponibles</p>
@@ -93,15 +95,7 @@ export default function MeseroPage() {
               const hayPedido = !!mesa.pedido_id
 
               return (
-                <button
-                  key={mesa.id}
-                  onClick={() => navigate(`/mesero/mesa/${mesa.id}`)}
-                  className={cn(
-                    'rounded-2xl border p-4 text-left transition-all active:scale-95',
-                    cfg.bg, cfg.border
-                  )}
-                >
-                  {/* Número y estado */}
+                <button key={mesa.id} onClick={() => navigate(`/mesero/mesa/${mesa.id}`)} className={cn('rounded-2xl border p-4 text-left transition-all active:scale-95', cfg.bg, cfg.border)}>
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div className="flex items-center gap-2 mb-0.5">
@@ -110,31 +104,16 @@ export default function MeseroPage() {
                       </div>
                       {mesa.nombre && <p className="text-xs text-white/40 ml-4">{mesa.nombre}</p>}
                     </div>
-                    <span className={cn('text-[10px] font-semibold uppercase tracking-wide mt-1', cfg.text)}>
-                      {cfg.label}
-                    </span>
+                    <span className={cn('text-[10px] font-semibold uppercase tracking-wide mt-1', cfg.text)}>{cfg.label}</span>
                   </div>
 
-                  {/* Info del pedido activo */}
                   {hayPedido ? (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-white">
-                          {formatCurrency(mesa.pedido_total ?? 0)}
-                        </span>
-                      </div>
-                      {t && (
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="w-3 h-3 text-white/30"/>
-                          <span className="text-xs text-white/40">{t}</span>
-                        </div>
-                      )}
+                      <span className="text-lg font-bold text-white">{formatCurrency(mesa.pedido_total ?? 0)}</span>
+                      {t && <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-white/30"/><span className="text-xs text-white/40">{t}</span></div>}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <Users className="w-3.5 h-3.5 text-white/20"/>
-                      <span className="text-xs text-white/30">Cap. {mesa.capacidad}</span>
-                    </div>
+                    <div className="flex items-center gap-1.5 mt-2"><Users className="w-3.5 h-3.5 text-white/20"/><span className="text-xs text-white/30">Cap. {mesa.capacidad}</span></div>
                   )}
                 </button>
               )

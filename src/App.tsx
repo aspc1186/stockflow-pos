@@ -36,6 +36,14 @@ function RequireSuperAdmin({children}:{children:React.ReactNode}){
   if(!isSuperAdmin) return <Navigate to="/app/dashboard" replace/>
   return <>{children}</>
 }
+function RequireApp({children}:{children:React.ReactNode}){
+  const {user,loading,isMesero,isAdmin,isSuperAdmin}=useAuth()
+  if(loading) return null
+  if(!user) return <Navigate to="/login" replace/>
+  if(isSuperAdmin) return <Navigate to="/superadmin" replace/>
+  if(isMesero && !isAdmin) return <Navigate to="/mesero" replace/>
+  return <>{children}</>
+}
 
 export default function App(){
   const {user,isSuperAdmin,isMesero}=useAuth()
@@ -53,7 +61,7 @@ export default function App(){
     </Route>
     <Route path="/mesero" element={<RequireAuth><MeseroPage/></RequireAuth>}/>
     <Route path="/mesero/mesa/:mesaId" element={<RequireAuth><MesaPedidoPage/></RequireAuth>}/>
-    <Route path="/app" element={<RequireAuth><DashboardLayout/></RequireAuth>}>
+    <Route path="/app" element={<RequireApp><DashboardLayout/></RequireApp>}>
       <Route index element={<Navigate to="dashboard" replace/>}/>
       <Route path="dashboard" element={<DashboardPage/>}/>
       <Route path="mesas" element={<MesasPage/>}/>
