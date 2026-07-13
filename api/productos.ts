@@ -2,6 +2,27 @@ import { v4 as uuid } from 'uuid'
 import { query, queryOne } from '../_db.js'
 import { authenticate, cors } from '../_auth.js'
 
+let schemaReady: Promise<void> | null = null
+
+function ensureProductosSchema() {
+  if (!schemaReady) {
+    schemaReady = query(`
+      ALTER TABLE productos
+        ADD COLUMN IF NOT EXISTS descripcion TEXT,
+        ADD COLUMN IF NOT EXISTS codigo VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS precio_costo NUMERIC(12,2) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS impuesto_pct NUMERIC(5,2) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS tipo VARCHAR(50) DEFAULT 'unidad',
+        ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(30) DEFAULT 'unidad',
+        ADD COLUMN IF NOT EXISTS destino VARCHAR(30) DEFAULT 'barra',
+        ADD COLUMN IF NOT EXISTS imagen_url TEXT,
+        ADD COLUMN IF NOT EXISTS disponible BOOLEAN DEFAULT true,
+        ADD COLUMN IF NOT EXISTS controla_stock BOOLEAN DEFAULT true,
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()
+    `).then(() => undefined)
+  }
+  return schemaReady
+}
 export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
@@ -30,6 +51,7 @@ export default async function handler(req: any, res: any) {
       const { categoria_id,nombre,descripcion,codigo,precio_venta,precio_costo,impuesto_pct,tipo,unidad_medida,destino,imagen_url,disponible,controla_stock,stock_inicial,stock_minimo } = req.body||{}
       if (!nombre || precio_venta===undefined) return res.status(400).json({ ok: false, msg: 'Nombre y precio requeridos' })
       try {
+        await ensureProductosSchema()
         const pid=uuid()
         const [prod]=await query(
           `INSERT INTO productos (id,empresa_id,categoria_id,nombre,descripcion,codigo,precio_venta,precio_costo,impuesto_pct,tipo,unidad_medida,destino,imagen_url,disponible,controla_stock)
@@ -47,6 +69,7 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'GET') return res.status(200).json({ ok: true, data: prod })
     if (req.method === 'PATCH') {
       const { nombre,precio_venta,precio_costo,disponible,categoria_id,descripcion,impuesto_pct,imagen_url,destino,tipo } = req.body||{}
+      await ensureProductosSchema()
       const [u]=await query(
         `UPDATE productos SET nombre=COALESCE($1,nombre),precio_venta=COALESCE($2,precio_venta),precio_costo=COALESCE($3,precio_costo),disponible=COALESCE($4,disponible),categoria_id=COALESCE($5,categoria_id),descripcion=COALESCE($6,descripcion),impuesto_pct=COALESCE($7,impuesto_pct),imagen_url=COALESCE($8,imagen_url),destino=COALESCE($9,destino),tipo=COALESCE($10,tipo),updated_at=NOW() WHERE id=$11 AND empresa_id=$12 RETURNING *`,
         [nombre,precio_venta,precio_costo,disponible,categoria_id,descripcion,impuesto_pct,imagen_url,destino,tipo,id,eid])
@@ -59,3 +82,4 @@ export default async function handler(req: any, res: any) {
   }
   return res.status(405).end()
 }
+
