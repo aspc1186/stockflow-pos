@@ -29,11 +29,12 @@ export default async function handler(req: any, res: any) {
 
   // Dashboard stats
   try {
-    const [vh,vm2,pa,em,ic,ca,tp2,vph]=await Promise.all([
+    const [vh,vm2,pa,em,capacidades,ic,ca,tp2,vph]=await Promise.all([
       queryOne(`SELECT COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE(cierre_at)=CURRENT_DATE`,[eid]),
       queryOne(`SELECT COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE_TRUNC('month',cierre_at)=DATE_TRUNC('month',CURRENT_DATE)`,[eid]),
       queryOne(`SELECT COUNT(*) as total FROM pedidos WHERE empresa_id=$1 AND estado IN ('abierto','en_preparacion','listo')`,[eid]),
       query(`SELECT estado,COUNT(*) as total FROM mesas WHERE empresa_id=$1 AND activa=true GROUP BY estado`,[eid]),
+      queryOne(`SELECT COALESCE(SUM(capacidad),0) as total,COALESCE(SUM(CASE WHEN estado IN ('ocupada','reservada') THEN capacidad ELSE 0 END),0) as ocupada FROM mesas WHERE empresa_id=$1 AND activa=true`,[eid]),
       queryOne(`SELECT COUNT(*) as total FROM inventario WHERE empresa_id=$1 AND stock_actual<=stock_minimo AND stock_minimo>0`,[eid]),
       queryOne(`SELECT saldo_inicial,total_ventas,total_ingresos,total_egresos FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]),
       query(`SELECT pr.nombre,SUM(pi.cantidad) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id WHERE pi.empresa_id=$1 AND DATE(p.created_at)=CURRENT_DATE GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 8`,[eid]),
@@ -47,6 +48,8 @@ export default async function handler(req: any, res: any) {
       pedidos_activos:parseInt((pa as any)?.total??'0'),
       mesas_ocupadas:(mp['ocupada']??0)+(mp['reservada']??0),
       mesas_libres:mp['libre']??0,
+      capacidad_total:parseInt((capacidades as any)?.total??'0'),
+      capacidad_ocupada:parseInt((capacidades as any)?.ocupada??'0'),
       inventario_critico:parseInt((ic as any)?.total??'0'),
       caja_actual:caja,
       productos_mas_vendidos:tp2.map((r: any)=>({nombre:r.nombre,total:parseFloat(r.total)})),

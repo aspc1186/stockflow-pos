@@ -30,6 +30,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Mesas ocupadas" value={data.mesas_ocupadas ?? 0} icon={<Wine className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
         <StatCard label="Mesas libres" value={data.mesas_libres ?? 0} icon={<Users className="w-5 h-5 text-emerald-400"/>} iconBg="bg-emerald-500/20"/>
+        <StatCard label="Capacidad total" value={data.capacidad_total ?? 0} icon={<Users className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
+        <StatCard label="Puestos en mesas ocupadas" value={data.capacidad_ocupada ?? 0} icon={<Users className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
         <StatCard label="Stock crítico" value={data.inventario_critico ?? 0} icon={<AlertTriangle className="w-5 h-5 text-red-400"/>} iconBg="bg-red-500/20"/>
         <StatCard label="Ticket promedio" value={formatCurrency(data.pedidos_activos > 0 ? (data.ventas_hoy / Math.max(data.pedidos_activos,1)) : 0)} icon={<CreditCard className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
       </div>

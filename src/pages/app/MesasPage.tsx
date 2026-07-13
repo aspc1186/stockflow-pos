@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCw, Users, Clock, MapPin, UtensilsCrossed, ClipboardList, UserRoundCheck } from 'lucide-react'
+import { Plus, RefreshCw, Users, Clock, MapPin, UtensilsCrossed, ClipboardList, UserRoundCheck, Pencil } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
 import type { Mesa, EstadoMesa } from '@/types'
@@ -52,6 +52,8 @@ export default function MesasPage() {
   const [filtro, setFiltro] = useState<EstadoMesa|'todas'>('todas')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({numero:'',nombre:'',capacidad:'4',tipo:'mesa',consumo_minimo:'0'})
+  const [mesaEditando, setMesaEditando] = useState<Mesa | null>(null)
+  const [edicion, setEdicion] = useState({nombre:'',capacidad:'4'})
 
   const { data: mesas = [], isLoading, refetch } = useQuery({
     queryKey: ['mesas'],
@@ -75,6 +77,11 @@ export default function MesasPage() {
     mutationFn: ({ mesaId, meseroId }: { mesaId: string; meseroId: string }) => api.patch(`/mesas/${mesaId}`, { mesero_id: meseroId || null }),
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success('Mesa asignada') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo asignar la mesa'),
+  })
+  const editarMesa = useMutation({
+    mutationFn: () => api.patch(`/mesas/${mesaEditando?.id}`, { nombre: edicion.nombre.trim() || null, capacidad: Math.max(1, parseInt(edicion.capacidad) || 1) }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); setMesaEditando(null); toast.success('Mesa actualizada') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo actualizar la mesa'),
   })
 
   const filtradas = filtro === 'todas' ? mesas : mesas.filter(m => m.estado === filtro)
@@ -118,7 +125,14 @@ export default function MesasPage() {
                     </div>
                     {mesa.nombre && <p className="text-sm text-surface-200/60 truncate">{mesa.nombre}</p>}
                   </div>
-                  <div className="flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1"><Users className="w-3 h-3 text-surface-200/40"/><span className="text-xs text-surface-200/60">{mesa.capacidad}</span></div>
+                  <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1"><Users className="w-3 h-3 text-surface-200/40"/><span className="text-xs text-surface-200/60">{mesa.capacidad}</span></div>
+                    {isAdmin && <button
+                      onClick={() => { setMesaEditando(mesa); setEdicion({ nombre: mesa.nombre || '', capacidad: String(mesa.capacidad || 1) }) }}
+                      className="btn-ghost btn-sm h-7 w-7 p-0"
+                      title="Editar nombre y capacidad"
+                    ><Pencil className="w-3.5 h-3.5"/></button>}
+                  </div>
                 </div>
 
                 {mesa.zona_nombre && <div className="flex items-center gap-1 mt-2"><MapPin className="w-3 h-3 text-surface-200/30"/><span className="text-xs text-surface-200/40 truncate">{mesa.zona_nombre}</span></div>}
@@ -165,6 +179,13 @@ export default function MesasPage() {
             <div><label className="label">Capacidad</label><input type="number" min={1} className="input" value={form.capacidad} onChange={e=>setForm(p=>({...p,capacidad:e.target.value}))}/></div>
             <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))}><option value="mesa">Mesa</option><option value="barra">Barra</option><option value="vip">VIP</option><option value="cabina">Cabina</option><option value="terraza">Terraza</option></select></div>
           </div>
+        </div>
+      </Modal>
+      <Modal open={!!mesaEditando} onClose={() => setMesaEditando(null)} title={`Editar mesa ${mesaEditando?.numero || ''}`} size="sm"
+        footer={<div className="flex gap-3"><button onClick={() => setMesaEditando(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => editarMesa.mutate()} disabled={editarMesa.isPending || !edicion.capacidad} className="btn-primary flex-1">{editarMesa.isPending ? 'Guardando...' : 'Guardar cambios'}</button></div>}>
+        <div className="space-y-4">
+          <div><label className="label">Nombre de la mesa</label><input className="input" placeholder="Ej: Terraza 1" value={edicion.nombre} onChange={e => setEdicion(p => ({...p, nombre:e.target.value}))}/></div>
+          <div><label className="label">Cantidad de personas</label><input type="number" min={1} className="input" value={edicion.capacidad} onChange={e => setEdicion(p => ({...p, capacidad:e.target.value}))}/></div>
         </div>
       </Modal>
     </div>
