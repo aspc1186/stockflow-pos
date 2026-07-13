@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, UserCheck, X } from 'lucide-react'
+import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 const groups=[
@@ -12,7 +12,6 @@ const groups=[
   {label:'Gestión',items:[
     {to:'/app/productos',label:'Productos',icon:Package,roles:['admin','supervisor']},
     {to:'/app/inventario',label:'Inventario',icon:Package,roles:['admin','supervisor']},
-    {to:'/app/clientes',label:'Clientes',icon:UserCheck,roles:[]},
   ]},
   {label:'Admin',items:[
     {to:'/app/usuarios',label:'Usuarios',icon:Users,roles:['admin','supervisor']},

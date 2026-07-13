@@ -1,7 +1,7 @@
 export interface Empresa { id:string; nombre:string; slug:string; tipo:string; ciudad?:string; activa:boolean; plan?:string; logo_url?:string; color_primario?:string; licencia_fin?:string; created_at:string; updated_at:string }
 export interface Usuario { id:string; empresa_id?:string; nombre:string; email:string; username:string; activo:boolean; ultimo_acceso?:string; created_at:string; updated_at:string }
 export type EstadoMesa = 'libre'|'ocupada'|'reservada'|'limpieza'|'cerrada'
-export interface Mesa { id:string; empresa_id:string; numero:number; nombre?:string; capacidad:number; tipo?:string; estado:EstadoMesa; activa:boolean; zona_nombre?:string; pedido_id?:string; pedido_total?:number; apertura_at?:string; pos_x:number; pos_y:number }
+export interface Mesa { id:string; empresa_id:string; numero:number; nombre?:string; capacidad:number; tipo?:string; estado:EstadoMesa; activa:boolean; zona_nombre?:string; pedido_id?:string; pedido_total?:number; apertura_at?:string; mesero_id?:string | null; mesero_asignado_nombre?:string | null; pos_x:number; pos_y:number }
 export interface Categoria { id:string; empresa_id:string; nombre:string; icono?:string; orden:number; activa:boolean }
 export interface Producto { id:string; empresa_id:string; categoria_id?:string; categoria_nombre?:string; nombre:string; descripcion?:string; precio_venta:number; precio_costo:number; impuesto_pct:number; unidad_medida:string; disponible:boolean; controla_stock:boolean; destino:string; stock_actual?:number; stock_minimo?:number }
 export type EstadoPedido = 'abierto'|'en_preparacion'|'listo'|'cobrado'|'cancelado'

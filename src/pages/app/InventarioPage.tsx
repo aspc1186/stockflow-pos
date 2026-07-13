@@ -37,7 +37,7 @@ export default function InventarioPage() {
         <button onClick={() => setCritico(v => !v)} className={cn('btn btn-sm',critico?'btn-primary':'btn-secondary')}><AlertTriangle className="w-4 h-4"/>Solo criticos</button>
       </div>
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
-        <thead><tr><th>Producto</th><th>Stock</th><th>Minimo</th><th>Costo unit.</th><th>Valor costo</th><th>Venta</th><th>Margen</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Producto</th><th>Stock disponible</th><th>Minimo</th><th>Costo unit.</th><th>Valor costo</th><th>Venta</th><th>Margen</th><th>Estado</th></tr></thead>
         <tbody>
           {inv.map((item:any) => { const c = Number(item.stock_actual)<=Number(item.stock_minimo)&&Number(item.stock_minimo)>0; return (
             <tr key={item.producto_id}>

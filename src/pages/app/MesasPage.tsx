@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCw, Users, Clock, MapPin, UtensilsCrossed, ClipboardList } from 'lucide-react'
+import { Plus, RefreshCw, Users, Clock, MapPin, UtensilsCrossed, ClipboardList, UserRoundCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
 import type { Mesa, EstadoMesa } from '@/types'
@@ -58,10 +58,23 @@ export default function MesasPage() {
     queryFn: async () => { const { data } = await api.get<any>('/mesas'); return (data.data||data) as Mesa[] },
     refetchInterval: 15_000,
   })
+  const { data: meseros = [] } = useQuery({
+    queryKey: ['meseros-asignables'],
+    queryFn: async () => {
+      const { data } = await api.get<any>('/usuarios')
+      return ((data.data || data) as any[]).filter(usuario => usuario.rol === 'mesero' && usuario.activo)
+    },
+    enabled: isAdmin,
+  })
   const crear = useMutation({
     mutationFn: (d:any) => api.post('/mesas', d),
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); setModal(false); setForm({numero:'',nombre:'',capacidad:'4',tipo:'mesa',consumo_minimo:'0'}); toast.success('Mesa creada') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
+  })
+  const asignarMesero = useMutation({
+    mutationFn: ({ mesaId, meseroId }: { mesaId: string; meseroId: string }) => api.patch(`/mesas/${mesaId}`, { mesero_id: meseroId || null }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success('Mesa asignada') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo asignar la mesa'),
   })
 
   const filtradas = filtro === 'todas' ? mesas : mesas.filter(m => m.estado === filtro)
@@ -109,6 +122,19 @@ export default function MesasPage() {
                 </div>
 
                 {mesa.zona_nombre && <div className="flex items-center gap-1 mt-2"><MapPin className="w-3 h-3 text-surface-200/30"/><span className="text-xs text-surface-200/40 truncate">{mesa.zona_nombre}</span></div>}
+
+                {isAdmin && <div className="mt-3">
+                  <label className="mb-1 flex items-center gap-1 text-xs text-surface-200/50"><UserRoundCheck className="w-3 h-3"/>Mesero asignado</label>
+                  <select
+                    className="input h-9 py-1 text-xs"
+                    value={mesa.mesero_id || ''}
+                    onChange={e => asignarMesero.mutate({ mesaId: mesa.id, meseroId: e.target.value })}
+                    disabled={asignarMesero.isPending}
+                  >
+                    <option value="">Sin asignar</option>
+                    {meseros.map((mesero:any) => <option key={mesero.id} value={mesero.id}>{mesero.nombre} ({mesero.username})</option>)}
+                  </select>
+                </div>}
 
                 <div className="mt-3 min-h-[42px]">
                   {mesa.pedido_id && mesa.pedido_total !== undefined ? (

@@ -2,6 +2,22 @@ import { v4 as uuid } from 'uuid'
 import { query, queryOne } from '../_db.js'
 import { authenticate, cors } from '../_auth.js'
 
+let mesasSchemaReady: Promise<void> | null = null
+
+function ensureMesasSchema() {
+  if (!mesasSchemaReady) mesasSchemaReady = query(`ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mesero_id UUID`).then(() => undefined)
+  return mesasSchemaReady
+}
+
+function puedeAdministrarPedidos(rol: string) {
+  return ['admin', 'supervisor', 'superadmin'].includes(rol)
+}
+
+async function puedeAccederMesa(empresaId: string, mesaId: string, auth: any) {
+  const mesa = await queryOne(`SELECT mesero_id FROM mesas WHERE id=$1 AND empresa_id=$2 AND activa=true`, [mesaId, empresaId]) as any
+  return !!mesa && (puedeAdministrarPedidos(auth.rol) || mesa.mesero_id === auth.id)
+}
+
 async function moverInventario(empresaId: string, productoId: string, usuarioId: string, cantidad: any, tipo: 'venta' | 'devolucion', notas: string) {
   const q = Math.abs(parseFloat(String(cantidad)) || 0)
   if (!q) return
@@ -57,6 +73,7 @@ export default async function handler(req: any, res: any) {
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return
   const eid = auth.empresa_id
+  await ensureMesasSchema()
   const urlPath = (req.url||'').split('?')[0]
   const parts = urlPath.split('/').filter(Boolean)
   const pedidoId = parts[2]||null
@@ -64,6 +81,9 @@ export default async function handler(req: any, res: any) {
   const itemId = parts[4]||null
 
   if (pedidoId && isItems && itemId) {
+    const pedidoDelItem = await queryOne(`SELECT mesa_id FROM pedidos WHERE id=$1 AND empresa_id=$2`, [pedidoId, eid]) as any
+    if (!pedidoDelItem) return res.status(404).json({ ok: false, msg: 'Pedido no encontrado' })
+    if (pedidoDelItem.mesa_id && !(await puedeAccederMesa(eid, pedidoDelItem.mesa_id, auth))) return res.status(403).json({ ok: false, msg: 'No tienes acceso a este pedido' })
     if (req.method==='PATCH') {
       const actual = await queryOne(`SELECT * FROM pedido_items WHERE id=$1 AND pedido_id=$2 AND empresa_id=$3`, [itemId, pedidoId, eid]) as any
       if (!actual) return res.status(404).json({ ok: false, msg: 'Item no encontrado' })
@@ -105,6 +125,8 @@ export default async function handler(req: any, res: any) {
   if (!pedidoId) {
     if (req.method==='GET') {
       const { estado, mesa_id, limit=50 } = req.query||{}
+      if (!puedeAdministrarPedidos(auth.rol) && !mesa_id) return res.status(403).json({ ok: false, msg: 'Debes consultar una mesa asignada' })
+      if (mesa_id && !(await puedeAccederMesa(eid, String(mesa_id), auth))) return res.status(403).json({ ok: false, msg: 'Esta mesa no esta asignada a tu usuario' })
       let where=`p.empresa_id=$1`; const params:any[]=[eid]; let idx=2
       if (estado) { const estados=estado.split(','); where+=` AND p.estado=ANY($${idx++})`; params.push(estados) }
       if (mesa_id) { where+=` AND p.mesa_id=$${idx++}`; params.push(mesa_id) }
@@ -121,6 +143,7 @@ export default async function handler(req: any, res: any) {
     if (req.method==='POST') {
       const { mesa_id,cliente_id,tipo,notas,items } = req.body||{}
       if (!items?.length) return res.status(400).json({ ok: false, msg: 'Items requeridos' })
+      if (mesa_id && !(await puedeAccederMesa(eid, String(mesa_id), auth))) return res.status(403).json({ ok: false, msg: 'Esta mesa no esta asignada a tu usuario' })
       try {
         const pid=uuid(); let subtotal=0,impuestos=0
         for (const item of items) {
@@ -149,6 +172,7 @@ export default async function handler(req: any, res: any) {
   } else {
     const pedido=await queryOne(`SELECT * FROM pedidos WHERE id=$1 AND empresa_id=$2`,[pedidoId,eid]) as any
     if (!pedido) return res.status(404).json({ ok: false, msg: 'Pedido no encontrado' })
+    if (pedido.mesa_id && !(await puedeAccederMesa(eid, pedido.mesa_id, auth))) return res.status(403).json({ ok: false, msg: 'No tienes acceso a este pedido' })
 
     if (req.method==='GET') {
       const d=await queryOne(
