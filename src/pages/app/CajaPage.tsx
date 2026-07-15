@@ -16,7 +16,7 @@ export default function CajaPage() {
   const [mov, setMov] = useState({tipo:'ingreso',monto:'',descripcion:'',metodo_pago:'efectivo'})
   const { data, isLoading } = useQuery({
     queryKey: ['caja'],
-    queryFn: async () => { const { data } = await api.get<any>('/caja'); return (data.data||data) as {caja:Caja;movimientos:CajaMovimiento[]} },
+    queryFn: async () => { const { data } = await api.get<any>('/caja'); return (data.data||data) as {caja:Caja;movimientos:CajaMovimiento[];ultimo_cierre:Caja|null} },
     refetchInterval: 15_000,
   })
   const op = useMutation({
@@ -25,8 +25,8 @@ export default function CajaPage() {
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
   if (isLoading) return <PageLoader />
-  const { caja, movimientos = [] } = data ?? {}
-  const saldo = caja ? caja.saldo_inicial+caja.total_ventas+caja.total_ingresos-caja.total_egresos : 0
+  const { caja, movimientos = [], ultimo_cierre: ultimoCierre } = data ?? {}
+  const saldo = caja ? Number(caja.saldo_inicial || 0) + Number(caja.total_ventas || 0) + Number(caja.total_ingresos || 0) - Number(caja.total_egresos || 0) : 0
 
   return (
     <div className="space-y-5">
@@ -64,6 +64,12 @@ export default function CajaPage() {
         </div>
       </>}
       {!caja && <div className="flex flex-col items-center justify-center py-20 text-center"><CreditCard className="w-16 h-16 text-surface-200/15 mb-4"/><p className="text-surface-200/40">La caja está cerrada</p></div>}
+      {!caja && ultimoCierre && <div className="card p-5">
+        <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Ultimo cierre</h3><span className="text-xs text-surface-200/40">{ultimoCierre.cierre_at ? formatDate(ultimoCierre.cierre_at, 'DD/MM/YYYY HH:mm') : ''}</span></div>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {[{label:'Saldo inicial',value:ultimoCierre.saldo_inicial},{label:'Ventas',value:ultimoCierre.total_ventas},{label:'Ingresos',value:ultimoCierre.total_ingresos},{label:'Egresos',value:ultimoCierre.total_egresos},{label:'Saldo final',value:ultimoCierre.saldo_final,color:'text-brand-400'}].map(i => <div key={i.label}><p className="text-xs text-surface-200/45">{i.label}</p><p className={cn('mt-1 font-bold',i.color || 'text-surface-50')}>{formatCurrency(Number(i.value || 0))}</p></div>)}
+        </div>
+      </div>}
       <Modal open={modalAbrir} onClose={() => setModalAbrir(false)} title="Abrir caja" size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setModalAbrir(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => op.mutate({accion:'abrir',saldo_inicial:parseFloat(saldoI)||0})} disabled={op.isPending} className="btn-primary flex-1">Abrir</button></div>}>
         <div><label className="label">Saldo inicial en efectivo</label><input type="number" min="0" className="input" value={saldoI} onChange={e => setSaldoI(e.target.value)}/></div>

@@ -12,7 +12,8 @@ export default async function handler(req: any, res: any) {
   if (req.method==='GET') {
     const caja=await queryOne(`SELECT c.*,u.nombre as cajero_nombre FROM cajas c LEFT JOIN usuarios u ON u.id=c.usuario_id WHERE c.empresa_id=$1 AND c.estado='abierta' ORDER BY c.apertura_at DESC LIMIT 1`,[eid])
     const movs=caja?await query(`SELECT cm.*,u.nombre as usuario_nombre FROM caja_movimientos cm LEFT JOIN usuarios u ON u.id=cm.usuario_id WHERE cm.caja_id=$1 ORDER BY cm.created_at DESC LIMIT 100`,[(caja as any).id]):[]
-    return res.status(200).json({ ok:true, data:{caja,movimientos:movs} })
+    const ultimoCierre=await queryOne(`SELECT c.*,u.nombre as cajero_nombre FROM cajas c LEFT JOIN usuarios u ON u.id=c.usuario_id WHERE c.empresa_id=$1 AND c.estado='cerrada' ORDER BY c.cierre_at DESC NULLS LAST LIMIT 1`,[eid])
+    return res.status(200).json({ ok:true, data:{caja,movimientos:movs,ultimo_cierre:ultimoCierre} })
   }
   if (req.method==='POST') {
     const { accion,saldo_inicial,tipo,metodo_pago,monto,descripcion,pedido_id,notas } = req.body||{}
@@ -26,11 +27,15 @@ export default async function handler(req: any, res: any) {
       const caja=await queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]) as any
       if (!caja) return res.status(400).json({ ok:false, msg:'Sin caja abierta' })
       const [m]=await query(`INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,pedido_id,tipo,metodo_pago,monto,descripcion) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[uuid(),eid,caja.id,auth.id,pedido_id||null,tipo||'ingreso',metodo_pago||'efectivo',monto,descripcion||null])
+      const campo = tipo === 'egreso' ? 'total_egresos' : 'total_ingresos'
+      await query(`UPDATE cajas SET ${campo}=${campo}+$1 WHERE id=$2`, [parseFloat(String(monto)) || 0, caja.id])
       return res.status(201).json({ ok:true, data:m })
     }
     if (accion==='cerrar') {
       const caja=await queryOne(`SELECT * FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]) as any
       if (!caja) return res.status(400).json({ ok:false, msg:'Sin caja abierta' })
+      const pedidosActivos=await queryOne(`SELECT COUNT(*) as total FROM pedidos WHERE empresa_id=$1 AND estado IN ('abierto','en_preparacion','listo')`,[eid]) as any
+      if (parseInt(pedidosActivos?.total || '0') > 0) return res.status(400).json({ ok:false, msg:'No puedes cerrar caja mientras existan pedidos activos' })
       const sf=parseFloat(caja.saldo_inicial)+parseFloat(caja.total_ventas)+parseFloat(caja.total_ingresos)-parseFloat(caja.total_egresos)
       const [u]=await query(`UPDATE cajas SET estado='cerrada',saldo_final=$1,cierre_at=NOW(),notas=$2 WHERE id=$3 RETURNING *`,[sf,notas||null,caja.id])
       return res.status(200).json({ ok:true, data:u })

@@ -18,6 +18,10 @@ async function puedeAccederMesa(empresaId: string, mesaId: string, auth: any) {
   return !!mesa && (puedeAdministrarPedidos(auth.rol) || mesa.mesero_id === auth.id)
 }
 
+async function cajaAbierta(empresaId: string) {
+  return queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`, [empresaId]) as Promise<any>
+}
+
 async function moverInventario(empresaId: string, productoId: string, usuarioId: string, cantidad: any, tipo: 'venta' | 'devolucion', notas: string) {
   const q = Math.abs(parseFloat(String(cantidad)) || 0)
   if (!q) return
@@ -144,6 +148,7 @@ export default async function handler(req: any, res: any) {
       const { mesa_id,cliente_id,tipo,notas,items } = req.body||{}
       if (!items?.length) return res.status(400).json({ ok: false, msg: 'Items requeridos' })
       if (mesa_id && !(await puedeAccederMesa(eid, String(mesa_id), auth))) return res.status(403).json({ ok: false, msg: 'Esta mesa no esta asignada a tu usuario' })
+      if (!(await cajaAbierta(eid))) return res.status(400).json({ ok: false, msg: 'Abre la caja antes de iniciar pedidos en las mesas' })
       try {
         const pid=uuid(); let subtotal=0,impuestos=0
         for (const item of items) {
@@ -191,6 +196,7 @@ export default async function handler(req: any, res: any) {
     if (req.method==='POST') {
       const { items } = req.body||{}
       if (!items?.length) return res.status(400).json({ ok: false, msg: 'Items requeridos' })
+      if (!(await cajaAbierta(eid))) return res.status(400).json({ ok: false, msg: 'Abre la caja antes de agregar productos al pedido' })
       for (const item of items) {
         const prod=await queryOne(`SELECT precio_venta,impuesto_pct,destino,disponible FROM productos WHERE id=$1 AND empresa_id=$2`,[item.producto_id,eid]) as any
         if (!prod||!prod.disponible) continue
@@ -204,7 +210,7 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method==='PATCH') {
-      const { estado,descuento,propina,notas,cliente_id } = req.body||{}
+      const { estado,descuento,propina,notas,cliente_id,metodo_pago } = req.body||{}
       const ups:string[]=[],params:any[]=[]; let idx=1
       if (estado){ups.push(`estado=$${idx++}`);params.push(estado)}
       if (descuento!==undefined){ups.push(`descuento=$${idx++}`);params.push(descuento)}
@@ -216,6 +222,19 @@ export default async function handler(req: any, res: any) {
         const items = await query(`SELECT producto_id,cantidad FROM pedido_items WHERE pedido_id=$1 AND empresa_id=$2 AND estado!='cancelado'`, [pedidoId, eid])
         for (const item of items as any[]) await moverInventario(eid, item.producto_id, auth.id, item.cantidad, 'devolucion', `Cancelacion pedido ${pedidoId}`)
         await query(`UPDATE pedido_items SET estado='cancelado' WHERE pedido_id=$1 AND empresa_id=$2 AND estado!='cancelado'`, [pedidoId, eid])
+      }
+      if (estado==='cobrado') {
+        const caja = await cajaAbierta(eid)
+        if (!caja) return res.status(400).json({ ok: false, msg: 'Abre la caja antes de cobrar un pedido' })
+        if (pedido.estado !== 'cobrado') {
+          const monto = parseFloat(String(pedido.total)) || 0
+          await query(`UPDATE cajas SET total_ventas=total_ventas+$1 WHERE id=$2`, [monto, caja.id])
+          await query(
+            `INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,pedido_id,tipo,metodo_pago,monto,descripcion)
+             VALUES ($1,$2,$3,$4,$5,'venta',$6,$7,$8)`,
+            [uuid(), eid, caja.id, auth.id, pedidoId, metodo_pago || 'efectivo', monto, `Cobro pedido ${pedido.numero || pedidoId}`]
+          )
+        }
       }
       if (estado==='cobrado'||estado==='cancelado') {
         ups.push('cierre_at=NOW()')

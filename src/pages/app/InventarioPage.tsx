@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Plus } from 'lucide-react'
+import { AlertTriangle, Plus, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
 import api from '@/lib/axios'
 import Modal from '@/components/ui/Modal'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -13,9 +13,9 @@ export default function InventarioPage() {
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:''})
-  const { data: inv = [], isLoading } = useQuery({
+  const { data: inventarioData, isLoading } = useQuery({
     queryKey: ['inventario',critico,search],
-    queryFn: async () => { const p = new URLSearchParams(); if(critico)p.set('critico','true'); if(search)p.set('search',search); const { data } = await api.get<any>(`/inventario?${p}`); return (data.data||data) as any[] },
+    queryFn: async () => { const p = new URLSearchParams(); p.set('detalle','true'); if(critico)p.set('critico','true'); if(search)p.set('search',search); const { data } = await api.get<any>(`/inventario?${p}`); const payload = data.data || data; return Array.isArray(payload) ? { productos: payload, movimientos: [] } : payload },
     refetchInterval: 20_000,
   })
   const { data: productos = [] } = useQuery({ queryKey: ['prods-inv'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as any[] }, enabled: modal })
@@ -25,11 +25,13 @@ export default function InventarioPage() {
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
   if (isLoading) return <PageLoader />
+  const inv = inventarioData?.productos || []
+  const movimientos = inventarioData?.movimientos || []
   const valorTotal = inv.reduce((s:any, item:any) => s + Number(item.valor_costo || 0), 0)
   return (
     <div className="space-y-5">
       <div className="page-header">
-        <div><h1 className="page-title">Inventario</h1><p className="page-subtitle">{inv.length} productos - Valor costo {formatCurrency(valorTotal)}</p></div>
+        <div><h1 className="page-title">Inventario</h1><p className="page-subtitle">{inv.length} productos - Saldo actual disponible - Valor costo {formatCurrency(valorTotal)}</p></div>
         <button onClick={() => setModal(true)} className="btn-primary"><Plus className="w-4 h-4"/>Movimiento</button>
       </div>
       <div className="flex gap-3">
@@ -37,7 +39,7 @@ export default function InventarioPage() {
         <button onClick={() => setCritico(v => !v)} className={cn('btn btn-sm',critico?'btn-primary':'btn-secondary')}><AlertTriangle className="w-4 h-4"/>Solo criticos</button>
       </div>
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
-        <thead><tr><th>Producto</th><th>Stock disponible</th><th>Minimo</th><th>Costo unit.</th><th>Valor costo</th><th>Venta</th><th>Margen</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Producto</th><th>Saldo disponible</th><th>Minimo</th><th>Costo unit.</th><th>Valor costo</th><th>Venta</th><th>Margen</th><th>Estado</th></tr></thead>
         <tbody>
           {inv.map((item:any) => { const c = Number(item.stock_actual)<=Number(item.stock_minimo)&&Number(item.stock_minimo)>0; return (
             <tr key={item.producto_id}>
@@ -53,6 +55,14 @@ export default function InventarioPage() {
           )})}
           {inv.length===0&&<tr><td colSpan={8} className="text-center py-12 text-surface-200/30">Sin resultados</td></tr>}
         </tbody>
+      </table></div></div>
+      <div className="card overflow-hidden"><div className="px-5 py-4 border-b border-white/5"><h3 className="text-sm font-semibold">Ultimas salidas y movimientos</h3></div><div className="overflow-x-auto"><table className="table-base">
+        <thead><tr><th>Fecha</th><th>Producto</th><th>Movimiento</th><th>Cantidad</th><th>Saldo despues</th><th>Usuario</th></tr></thead>
+        <tbody>{movimientos.map((mov:any) => { const esSalida = ['venta','salida','merma','rotura'].includes(mov.tipo); return <tr key={mov.id}>
+          <td className="text-xs text-surface-200/60">{new Date(mov.created_at).toLocaleString('es-CO')}</td><td className="font-medium text-surface-50">{mov.producto_nombre}</td>
+          <td><span className={cn('inline-flex items-center gap-1 text-xs font-medium', esSalida ? 'text-red-400' : 'text-emerald-400')}>{esSalida ? <ArrowDownCircle className="w-3.5 h-3.5"/> : <ArrowUpCircle className="w-3.5 h-3.5"/>}{mov.tipo}</span></td>
+          <td className={esSalida ? 'font-semibold text-red-400' : 'font-semibold text-emerald-400'}>{esSalida ? '-' : '+'}{Number(mov.cantidad).toFixed(1)}</td><td className="font-bold text-surface-50">{Number(mov.stock_despues).toFixed(1)}</td><td className="text-surface-200/60">{mov.usuario_nombre || '-'}</td>
+        </tr> })}{movimientos.length===0 && <tr><td colSpan={6} className="py-8 text-center text-surface-200/30">Sin movimientos registrados</td></tr>}</tbody>
       </table></div></div>
       <Modal open={modal} onClose={() => setModal(false)} title="Movimiento de inventario" size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => ajustar.mutate()} disabled={ajustar.isPending||!form.producto_id||!form.cantidad} className="btn-primary flex-1">{ajustar.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Guardar'}</button></div>}>

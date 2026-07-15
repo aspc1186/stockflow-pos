@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import Modal from '@/components/ui/Modal'
 
 function tiempo(f?: string): string {
   if (!f) return ''
@@ -25,12 +26,20 @@ export default function MesaPedidoPage() {
   const [carrito, setCarrito] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(false)
   const [verResumen, setVerResumen] = useState(true)
+  const [modalCobro, setModalCobro] = useState(false)
+  const [metodoPago, setMetodoPago] = useState('efectivo')
 
   const { data: mesa } = useQuery({
     queryKey: ['mesa', mesaId],
     queryFn: async () => { const { data } = await api.get<any>(`/mesas/${mesaId}`); return (data.data || data) as Mesa },
     refetchInterval: 15_000,
   })
+  const { data: estadoCaja } = useQuery({
+    queryKey: ['caja-operativa'],
+    queryFn: async () => { const { data } = await api.get<any>('/caja'); return data.data || data },
+    refetchInterval: 15_000,
+  })
+  const cajaAbierta = !!estadoCaja?.caja
 
   const { data: cats = [] } = useQuery({
     queryKey: ['categorias'],
@@ -78,6 +87,7 @@ export default function MesaPedidoPage() {
 
   const enviar = async () => {
     if (!totalItems) return
+    if (!cajaAbierta) { toast.error('Abre la caja antes de iniciar pedidos'); return }
     setLoading(true)
     try {
       const items = Object.entries(carrito).map(([pid, q]) => ({ producto_id: pid, cantidad: q }))
@@ -93,6 +103,18 @@ export default function MesaPedidoPage() {
       refetchPedido()
       toast.success('Pedido enviado')
     } catch { toast.error('Error al enviar') }
+    finally { setLoading(false) }
+  }
+
+  const cobrar = async () => {
+    if (!pedidoActivo) return
+    setLoading(true)
+    try {
+      await api.patch(`/pedidos/${(pedidoActivo as any).id}`, { estado: 'cobrado', metodo_pago: metodoPago })
+      toast.success('Cobro registrado en caja')
+      setModalCobro(false)
+      navigate('/mesero')
+    } catch (e:any) { toast.error(e?.response?.data?.msg ?? 'No se pudo registrar el cobro') }
     finally { setLoading(false) }
   }
 
@@ -126,13 +148,7 @@ export default function MesaPedidoPage() {
           )}
           {pedidoActivo && (
             <button
-              onClick={async () => {
-                try {
-                  await api.patch(`/pedidos/${(pedidoActivo as any).id}`, { estado: 'cobrado' })
-                  toast.success('Cuenta solicitada')
-                  navigate('/mesero')
-                } catch { toast.error('Error') }
-              }}
+              onClick={() => setModalCobro(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-500/20 text-orange-400 text-xs font-semibold border border-orange-500/20"
             >
               <CreditCard className="w-3.5 h-3.5"/>Cuenta
@@ -140,6 +156,8 @@ export default function MesaPedidoPage() {
           )}
         </div>
       </div>
+
+      {!cajaAbierta && <div className="mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-sm text-amber-300">Caja cerrada. El administrador debe abrir la caja antes de tomar pedidos.</div>}
 
       {/* Resumen pedido activo */}
       {itemsPedido.length > 0 && (
@@ -292,6 +310,10 @@ export default function MesaPedidoPage() {
           </button>
         </div>
       )}
+      <Modal open={modalCobro} onClose={() => setModalCobro(false)} title="Cobrar mesa" size="sm"
+        footer={<div className="flex gap-3"><button onClick={() => setModalCobro(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={cobrar} disabled={loading || !cajaAbierta} className="btn-primary flex-1">{loading ? 'Cobrando...' : `Cobrar ${formatCurrency(totalAcumulado)}`}</button></div>}>
+        <div className="space-y-4"><div><label className="label">Metodo de pago</label><select className="input" value={metodoPago} onChange={e => setMetodoPago(e.target.value)}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m => <option key={m} value={m}>{m.replaceAll('_', ' ')}</option>)}</select></div><p className="text-sm text-surface-200/60">El cobro se registrara en la caja abierta y liberara la mesa.</p></div>
+      </Modal>
     </div>
   )
 }
