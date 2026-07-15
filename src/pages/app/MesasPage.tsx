@@ -54,6 +54,7 @@ export default function MesasPage() {
   const [form, setForm] = useState({numero:'',nombre:'',capacidad:'4',tipo:'mesa',consumo_minimo:'0'})
   const [mesaEditando, setMesaEditando] = useState<Mesa | null>(null)
   const [edicion, setEdicion] = useState({nombre:'',capacidad:'4'})
+  const [meseroMasivo, setMeseroMasivo] = useState('')
 
   const { data: mesas = [], isLoading, refetch } = useQuery({
     queryKey: ['mesas'],
@@ -78,6 +79,14 @@ export default function MesasPage() {
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success('Mesa asignada') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo asignar la mesa'),
   })
+  const asignarTodas = useMutation({
+    mutationFn: async () => {
+      const pendientes = mesas.filter(mesa => (mesa.mesero_id || '') !== meseroMasivo)
+      await Promise.all(pendientes.map(mesa => api.patch(`/mesas/${mesa.id}`, { mesero_id: meseroMasivo || null })))
+    },
+    onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success(meseroMasivo ? 'Todas las mesas fueron asignadas' : 'Todas las mesas quedaron sin asignar') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudieron asignar todas las mesas'),
+  })
   const editarMesa = useMutation({
     mutationFn: () => api.patch(`/mesas/${mesaEditando?.id}`, { nombre: edicion.nombre.trim() || null, capacidad: Math.max(1, parseInt(edicion.capacidad) || 1) }),
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); setMesaEditando(null); toast.success('Mesa actualizada') },
@@ -97,6 +106,11 @@ export default function MesasPage() {
           {isAdmin && <button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nueva mesa</button>}
         </div>
       </div>
+      {isAdmin && <div className="card p-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex-1"><p className="text-sm font-medium text-surface-50">Asignacion masiva</p><p className="text-xs text-surface-200/45">Puedes asignar todas las mesas activas al mismo mesero, sin limite de cantidad.</p></div>
+        <select className="input sm:w-56" value={meseroMasivo} onChange={e => setMeseroMasivo(e.target.value)}><option value="">Sin asignar</option>{meseros.map((mesero:any) => <option key={mesero.id} value={mesero.id}>{mesero.nombre} ({mesero.username})</option>)}</select>
+        <button onClick={() => asignarTodas.mutate()} disabled={asignarTodas.isPending} className="btn-secondary whitespace-nowrap">{asignarTodas.isPending ? 'Asignando...' : 'Asignar todas'}</button>
+      </div>}
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setFiltro('todas')} className={cn('btn btn-sm',filtro==='todas'?'btn-primary':'btn-secondary')}>Todas ({mesas.length})</button>
         {(['libre','ocupada','reservada','limpieza','cerrada'] as EstadoMesa[]).map(e => (

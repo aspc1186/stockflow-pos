@@ -14,7 +14,7 @@ const lbl: Record<string,string> = {abierto:'Abierto',en_preparacion:'En prepara
 
 export default function PedidosPage() {
   const navigate = useNavigate(); const [params] = useSearchParams(); const qc = useQueryClient(); const { on, off } = useSocket()
-  const [filtro, setFiltro] = useState(params.get('estado') || 'activos')
+  const [filtro, setFiltro] = useState(params.get('estado') || 'todos')
   const estadoQ = filtro === 'activos' ? 'abierto,en_preparacion,listo' : filtro === 'todos' ? '' : filtro
   const { data: pedidos = [], isLoading } = useQuery({
     queryKey: ['pedidos', estadoQ],
@@ -29,12 +29,16 @@ export default function PedidosPage() {
         <div><h1 className="page-title">Pedidos</h1><p className="page-subtitle">{pedidos.length} pedidos</p></div>
         <button onClick={() => navigate('/app/mesas')} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nuevo</button>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
         {[{value:'activos',label:'Activos'},{value:'cobrado',label:'Cobrados'},{value:'cancelado',label:'Cancelados'},{value:'todos',label:'Todos'}].map(f => (
           <button key={f.value} onClick={() => setFiltro(f.value)} className={cn('btn btn-sm', filtro===f.value?'btn-primary':'btn-secondary')}>{f.label}</button>
         ))}
       </div>
-      <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
+      <div className="space-y-3 md:hidden">{pedidos.map(p => { const r = p as any; return <button key={p.id} onClick={() => navigate(`/app/pedidos/${p.id}`)} className="card w-full p-4 text-left">
+        <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-surface-50">{r.mesa_numero ? `Mesa ${r.mesa_numero}` : 'Pedido sin mesa'}</p><p className="mt-1 text-xs text-surface-200/50">{r.mesero_nombre || 'Sin mesero'} - {formatDate(p.apertura_at,'HH:mm')}</p></div><span className={badge[p.estado]}>{lbl[p.estado]}</span></div>
+        <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3"><span className="text-xs text-surface-200/50">#{p.numero || '-'}</span><span className="font-bold text-surface-50">{formatCurrency(p.total)}</span></div>
+      </button>})}{pedidos.length === 0 && <div className="card py-12 text-center text-sm text-surface-200/40">No hay pedidos para este filtro</div>}</div>
+      <div className="card hidden overflow-hidden md:block"><div className="overflow-x-auto"><table className="table-base">
         <thead><tr><th>#</th><th>Mesa</th><th>Estado</th><th>Mesero</th><th>Total</th><th>Hora</th><th>Tiempo</th></tr></thead>
         <tbody>
           {pedidos.map(p => { const r = p as any; return (
@@ -48,7 +52,7 @@ export default function PedidosPage() {
               <td className="text-surface-200/50 text-xs">{calcularTiempoTranscurrido(p.apertura_at)}</td>
             </tr>
           )})}
-          {pedidos.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-surface-200/30">Sin pedidos</td></tr>}
+          {pedidos.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-surface-200/30">No hay pedidos para este filtro</td></tr>}
         </tbody>
       </table></div></div>
     </div>

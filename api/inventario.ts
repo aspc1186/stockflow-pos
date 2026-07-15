@@ -9,7 +9,7 @@ export default async function handler(req: any, res: any) {
   const eid = auth.empresa_id
 
   if (req.method==='GET') {
-    const { critico,search,detalle } = req.query||{}
+    const { critico,search } = req.query||{}
     let where=`p.empresa_id=$1 AND COALESCE(p.controla_stock,true)=true`; const params: any[]=[eid]; let idx=2
     if (critico==='true') where+=` AND COALESCE(i.stock_actual,0)<=COALESCE(i.stock_minimo,0) AND COALESCE(i.stock_minimo,0)>0`
     if (search) { where+=` AND p.nombre ILIKE $${idx++}`; params.push(`%${search}%`) }
@@ -25,24 +25,13 @@ export default async function handler(req: any, res: any) {
          COALESCE(i.stock_minimo,0) as stock_minimo,
          COALESCE(i.stock_actual,0) * COALESCE(p.precio_costo,0) as valor_costo,
          COALESCE(i.stock_actual,0) * COALESCE(p.precio_venta,0) as valor_venta,
-         COALESCE(p.precio_venta,0) - COALESCE(p.precio_costo,0) as margen_unitario
+         COALESCE(p.precio_venta,0) - COALESCE(p.precio_costo,0) as margen_unitario,
+         COALESCE((SELECT SUM(mi.cantidad) FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') AND mi.created_at::date=CURRENT_DATE),0) as salidas_hoy,
+         (SELECT mi.created_at FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') ORDER BY mi.created_at DESC LIMIT 1) as ultima_salida_at
        FROM productos p
        LEFT JOIN inventario i ON i.producto_id=p.id AND i.empresa_id=p.empresa_id
        WHERE ${where}
        ORDER BY p.nombre`,params)
-    if (detalle === 'true') {
-      const movimientos = await query(
-        `SELECT mi.*,p.nombre as producto_nombre,u.nombre as usuario_nombre
-         FROM movimientos_inventario mi
-         JOIN productos p ON p.id=mi.producto_id
-         LEFT JOIN usuarios u ON u.id=mi.usuario_id
-         WHERE mi.empresa_id=$1
-         ORDER BY mi.created_at DESC
-         LIMIT 100`,
-        [eid]
-      )
-      return res.status(200).json({ ok:true, data:{productos:rows,movimientos} })
-    }
     return res.status(200).json({ ok:true, data:rows })
   }
 
