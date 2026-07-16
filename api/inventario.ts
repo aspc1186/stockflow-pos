@@ -1,11 +1,18 @@
 import { query, queryOne } from '../_db.js'
 import { authenticate, cors } from '../_auth.js'
 
+let cajaSchemaReady: Promise<void> | null = null
+function ensureCajaSchema() {
+  if (!cajaSchemaReady) cajaSchemaReady = query(`ALTER TABLE cajas ADD COLUMN IF NOT EXISTS total_compras_inventario NUMERIC NOT NULL DEFAULT 0`).then(() => undefined)
+  return cajaSchemaReady
+}
+
 export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return
+  await ensureCajaSchema()
   const eid = auth.empresa_id
 
   if (req.method==='GET') {
@@ -50,9 +57,11 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method==='POST') {
-    const { producto_id,tipo: tipoRecibido,cantidad,notas,costo_unit } = req.body||{}
+    const { producto_id,tipo: tipoRecibido,cantidad,notas,costo_unit,pagar_desde_caja,metodo_pago } = req.body||{}
     const tipo = tipoRecibido === 'compra' ? 'entrada' : tipoRecibido
     if (!producto_id||!tipo||cantidad===undefined) return res.status(400).json({ ok:false, msg:'Datos requeridos' })
+    const producto = await queryOne(`SELECT nombre,precio_costo FROM productos WHERE id=$1 AND empresa_id=$2`, [producto_id,eid]) as any
+    if (!producto) return res.status(404).json({ ok:false, msg:'Producto no encontrado' })
     let inv=await queryOne(`SELECT stock_actual FROM inventario WHERE producto_id=$1 AND empresa_id=$2`,[producto_id,eid]) as any
     if (!inv) {
       await query(
@@ -67,12 +76,27 @@ export default async function handler(req: any, res: any) {
     else if (['salida','merma','rotura','venta'].includes(tipo)) despues=Math.max(0,antes-q)
     else if (tipo==='ajuste') despues=q
 
+    const costoFinal = costo_unit !== undefined && costo_unit !== null && costo_unit !== '' ? parseFloat(String(costo_unit)) || 0 : parseFloat(String(producto.precio_costo)) || 0
+    const compraTotal = Math.abs(q) * costoFinal
+    let cajaPago: any = null
+    if (pagar_desde_caja) {
+      if (tipo !== 'entrada') return res.status(400).json({ ok:false, msg:'Solo las entradas de producto pueden pagarse desde caja' })
+      if (compraTotal <= 0) return res.status(400).json({ ok:false, msg:'Indica el costo unitario para registrar el pago desde caja' })
+      cajaPago = await queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`, [eid])
+      if (!cajaPago) return res.status(400).json({ ok:false, msg:'Abre la caja antes de pagar una compra de inventario' })
+    }
     if (costo_unit !== undefined && costo_unit !== null && costo_unit !== '') {
-      await query(`UPDATE productos SET precio_costo=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`, [parseFloat(String(costo_unit))||0, producto_id, eid])
+      await query(`UPDATE productos SET precio_costo=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`, [costoFinal, producto_id, eid])
     }
 
     await query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE producto_id=$2 AND empresa_id=$3`,[despues,producto_id,eid])
-    await query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9)`,[eid,producto_id,auth.id,tipo,Math.abs(q),antes,despues,costo_unit||null,notas||null])
+    const notasFinal = pagar_desde_caja && tipo === 'entrada' ? `${notas ? `${notas} - ` : ''}Pagado desde caja` : notas || null
+    await query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9)`,[eid,producto_id,auth.id,tipo,Math.abs(q),antes,despues,costoFinal||null,notasFinal])
+
+    if (cajaPago) {
+      await query(`INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,tipo,metodo_pago,monto,descripcion) VALUES (gen_random_uuid(),$1,$2,$3,'compra_inventario',$4,$5,$6)`, [eid,cajaPago.id,auth.id,metodo_pago || 'efectivo',compraTotal,`Compra inventario: ${producto.nombre}`])
+      await query(`UPDATE cajas SET total_compras_inventario=total_compras_inventario+$1 WHERE id=$2`, [compraTotal,cajaPago.id])
+    }
     return res.status(201).json({ ok:true, data:{producto_id,tipo,cantidad:q,stock_antes:antes,stock_despues:despues} })
   }
   return res.status(405).end()

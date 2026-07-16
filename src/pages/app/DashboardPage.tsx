@@ -24,7 +24,7 @@ export default function DashboardPage() {
         <button onClick={() => refetch()} className="btn-ghost btn-sm">Actualizar</button>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard label="Ventas caja actual" value={formatCurrency(data.ventas_hoy ?? 0)} icon={<TrendingUp className="w-5 h-5 text-brand-400"/>} iconBg="bg-brand-600/20"/>
+        <StatCard label="Ventas del dia" value={formatCurrency(data.ventas_hoy ?? 0)} icon={<TrendingUp className="w-5 h-5 text-brand-400"/>} iconBg="bg-brand-600/20"/>
         <StatCard label="Ventas mes" value={formatCurrency(data.ventas_mes ?? 0)} icon={<TrendingUp className="w-5 h-5 text-purple-400"/>} iconBg="bg-purple-500/20"/>
         <StatCard label="Valor inventario" value={formatCurrency(data.valor_inventario ?? 0)} icon={<Package className="w-5 h-5 text-violet-400"/>} iconBg="bg-violet-500/20"/>
         <StatCard label="Pedidos activos" value={data.pedidos_activos ?? 0} icon={<ShoppingBag className="w-5 h-5 text-amber-400"/>} iconBg="bg-amber-500/20"/>
@@ -34,9 +34,9 @@ export default function DashboardPage() {
         <StatCard label="Mesas ocupadas" value={data.mesas_ocupadas ?? 0} icon={<Wine className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
         <StatCard label="Mesas libres" value={data.mesas_libres ?? 0} icon={<Users className="w-5 h-5 text-emerald-400"/>} iconBg="bg-emerald-500/20"/>
         <StatCard label="Capacidad total" value={data.capacidad_total ?? 0} icon={<Users className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
-        <StatCard label="Puestos en mesas ocupadas" value={data.capacidad_ocupada ?? 0} icon={<Users className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
+        <StatCard label="Personas atendidas" value={data.capacidad_ocupada ?? 0} icon={<Users className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
         <StatCard label="Stock crítico" value={data.inventario_critico ?? 0} icon={<AlertTriangle className="w-5 h-5 text-red-400"/>} iconBg="bg-red-500/20"/>
-        <StatCard label="Ticket promedio" value={formatCurrency(data.ventas_confirmadas > 0 ? (data.ventas_hoy / data.ventas_confirmadas) : 0)} icon={<CreditCard className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
+        <StatCard label="Consumo promedio por persona" value={formatCurrency(data.capacidad_ocupada > 0 ? (data.ventas_hoy / data.capacidad_ocupada) : 0)} icon={<CreditCard className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
       </div>
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="card p-5 lg:col-span-2">

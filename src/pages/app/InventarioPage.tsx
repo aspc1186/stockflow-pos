@@ -12,7 +12,7 @@ export default function InventarioPage() {
   const [critico, setCritico] = useState(false)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(false)
-  const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:''})
+  const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
   const { data: inventarioData, isLoading } = useQuery({
     queryKey: ['inventario',critico,search],
     queryFn: async () => { const p = new URLSearchParams(); if(critico)p.set('critico','true'); if(search)p.set('search',search); const { data } = await api.get<any>(`/inventario?${p}`); return (data.data || data) as any[] },
@@ -21,7 +21,7 @@ export default function InventarioPage() {
   const { data: productos = [] } = useQuery({ queryKey: ['prods-inv'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as any[] }, enabled: modal })
   const ajustar = useMutation({
     mutationFn: () => api.post('/inventario', {...form,cantidad:parseFloat(form.cantidad)||0,costo_unit:form.costo_unit?parseFloat(form.costo_unit):undefined}),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['inventario']}); setModal(false); setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:''}); toast.success('Movimiento registrado') },
+    onSuccess: () => { qc.invalidateQueries({queryKey:['inventario']}); qc.invalidateQueries({queryKey:['caja']}); qc.invalidateQueries({queryKey:['dashboard-stats']}); setModal(false); setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'}); toast.success('Movimiento registrado') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
   const descargarMovimientos = async () => {
@@ -71,9 +71,10 @@ export default function InventarioPage() {
         footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => ajustar.mutate()} disabled={ajustar.isPending||!form.producto_id||!form.cantidad} className="btn-primary flex-1">{ajustar.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Guardar'}</button></div>}>
         <div className="space-y-4">
           <div><label className="label">Producto *</label><select className="input" value={form.producto_id} onChange={e=>setForm(p=>({...p,producto_id:e.target.value}))}><option value="" className="bg-surface-800">Selecciona un producto</option>{productos.map((p:any)=><option key={p.id} value={p.id} className="bg-surface-800">{p.nombre}</option>)}</select></div>
-          <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))}><option value="entrada" className="bg-surface-800">Ingreso de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
+          <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value,pagar_desde_caja:e.target.value==='entrada'?p.pagar_desde_caja:false}))}><option value="entrada" className="bg-surface-800">Entrada de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
           <div><label className="label">Cantidad *</label><input type="number" min="0" className="input" value={form.cantidad} onChange={e=>setForm(p=>({...p,cantidad:e.target.value}))}/></div>
           <div><label className="label">Costo unitario</label><input type="number" min="0" className="input" placeholder="Solo si cambia el costo" value={form.costo_unit} onChange={e=>setForm(p=>({...p,costo_unit:e.target.value}))}/></div>
+          {form.tipo==='entrada' && <div className="space-y-3 rounded-lg border border-white/10 bg-surface-900/40 p-3"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={form.pagar_desde_caja} onChange={e=>setForm(p=>({...p,pagar_desde_caja:e.target.checked}))}/><span>Pagado desde caja</span></label>{form.pagar_desde_caja && <div><label className="label">Metodo de pago</label><select className="input" value={form.metodo_pago} onChange={e=>setForm(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>}</div>}
           <div><label className="label">Notas</label><input className="input" value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))}/></div>
         </div>
       </Modal>

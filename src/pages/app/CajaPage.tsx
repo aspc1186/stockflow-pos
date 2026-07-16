@@ -26,7 +26,7 @@ export default function CajaPage() {
   })
   if (isLoading) return <PageLoader />
   const { caja, movimientos = [], ultimo_cierre: ultimoCierre, movimientos_ultimo_cierre: movimientosUltimoCierre = [] } = data ?? {}
-  const saldo = caja ? Number(caja.saldo_inicial || 0) + Number(caja.total_ventas || 0) + Number(caja.total_ingresos || 0) - Number(caja.total_egresos || 0) : 0
+  const saldo = caja ? Number(caja.saldo_inicial || 0) + Number(caja.total_ventas || 0) + Number(caja.total_ingresos || 0) - Number(caja.total_egresos || 0) - Number(caja.total_compras_inventario || 0) : 0
 
   return (
     <div className="space-y-5">
@@ -39,8 +39,8 @@ export default function CajaPage() {
           </div>}
       </div>
       {caja && <>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {[{label:'Saldo inicial',value:caja.saldo_inicial,color:'text-surface-50'},{label:'Ventas',value:caja.total_ventas,color:'text-emerald-400'},{label:'Ingresos adicionales',value:caja.total_ingresos,color:'text-sky-400'},{label:'Gastos / egresos',value:caja.total_egresos,color:'text-red-400'},{label:'Saldo actual',value:saldo,color:'text-brand-400'}].map(i => (
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          {[{label:'Saldo inicial',value:caja.saldo_inicial,color:'text-surface-50'},{label:'Ventas',value:caja.total_ventas,color:'text-emerald-400'},{label:'Ingresos adicionales',value:caja.total_ingresos,color:'text-sky-400'},{label:'Gastos / egresos',value:caja.total_egresos,color:'text-red-400'},{label:'Compras inventario',value:caja.total_compras_inventario || 0,color:'text-amber-400'},{label:'Saldo actual',value:saldo,color:'text-brand-400'}].map(i => (
             <div key={i.label} className="card p-4"><p className="text-xs text-surface-200/50 uppercase tracking-wide mb-1">{i.label}</p><p className={cn('text-2xl font-bold',i.color)}>{formatCurrency(i.value)}</p></div>
           ))}
         </div>
@@ -53,10 +53,10 @@ export default function CajaPage() {
                 <tr key={m.id}>
                   <td className="text-xs whitespace-nowrap">{formatDate(m.created_at,'dd/MM/yyyy')}</td>
                   <td className="text-xs">{formatDate(m.created_at,'HH:mm')}</td>
-                  <td><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':m.tipo==='egreso','badge-yellow':m.tipo==='propina'})}>{m.tipo}</span></td>
+                  <td><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':m.tipo==='egreso','badge-yellow':m.tipo==='propina'||m.tipo==='compra_inventario'})}>{m.tipo==='compra_inventario'?'compra inventario':m.tipo}</span></td>
                   <td className="text-surface-200/70">{m.descripcion ?? '—'}</td>
                   <td className="capitalize text-surface-200/60 text-xs">{m.metodo_pago}</td>
-                  <td className={cn('font-semibold',m.tipo==='egreso'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'?'-':'+'}{formatCurrency(m.monto)}</td>
+                  <td className={cn('font-semibold',m.tipo==='egreso'||m.tipo==='compra_inventario'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'||m.tipo==='compra_inventario'?'-':'+'}{formatCurrency(m.monto)}</td>
                 </tr>
               ))}
               {movimientos.length===0&&<tr><td colSpan={6} className="text-center py-8 text-surface-200/30">Sin movimientos</td></tr>}
@@ -67,13 +67,13 @@ export default function CajaPage() {
       {!caja && <div className="flex flex-col items-center justify-center py-20 text-center"><CreditCard className="w-16 h-16 text-surface-200/15 mb-4"/><p className="text-surface-200/40">La caja está cerrada</p></div>}
       {!caja && ultimoCierre && <div className="card p-5">
         <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Ultimo cierre</h3><span className="text-xs text-surface-200/40">{ultimoCierre.cierre_at ? formatDate(ultimoCierre.cierre_at, 'dd/MM/yyyy HH:mm') : ''}</span></div>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {[{label:'Saldo inicial',value:ultimoCierre.saldo_inicial},{label:'Ventas',value:ultimoCierre.total_ventas},{label:'Ingresos',value:ultimoCierre.total_ingresos},{label:'Egresos',value:ultimoCierre.total_egresos},{label:'Saldo final',value:ultimoCierre.saldo_final,color:'text-brand-400'}].map(i => <div key={i.label}><p className="text-xs text-surface-200/45">{i.label}</p><p className={cn('mt-1 font-bold',i.color || 'text-surface-50')}>{formatCurrency(Number(i.value || 0))}</p></div>)}
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          {[{label:'Saldo inicial',value:ultimoCierre.saldo_inicial},{label:'Ventas',value:ultimoCierre.total_ventas},{label:'Ingresos adicionales',value:ultimoCierre.total_ingresos},{label:'Gastos / egresos',value:ultimoCierre.total_egresos},{label:'Compras inventario',value:ultimoCierre.total_compras_inventario || 0},{label:'Saldo final',value:ultimoCierre.saldo_final,color:'text-brand-400'}].map(i => <div key={i.label}><p className="text-xs text-surface-200/45">{i.label}</p><p className={cn('mt-1 font-bold',i.color || 'text-surface-50')}>{formatCurrency(Number(i.value || 0))}</p></div>)}
         </div>
         <div className="mt-5 border-t border-white/5 pt-4">
           <h4 className="text-sm font-semibold mb-3">Movimientos del ultimo cierre</h4>
           <div className="overflow-x-auto"><table className="table-base"><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Usuario</th><th>Metodo</th><th>Monto</th></tr></thead><tbody>
-            {movimientosUltimoCierre.map((m:any) => <tr key={m.id}><td className="text-xs whitespace-nowrap">{formatDate(m.created_at,'dd/MM/yyyy')}</td><td className="text-xs">{formatDate(m.created_at,'HH:mm')}</td><td><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':m.tipo==='egreso'})}>{m.tipo}</span></td><td className="text-sm text-surface-200/70">{m.usuario_nombre || 'Sistema'}</td><td className="capitalize text-xs text-surface-200/60">{m.metodo_pago}</td><td className={cn('font-semibold',m.tipo==='egreso'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'?'-':'+'}{formatCurrency(m.monto)}</td></tr>)}
+            {movimientosUltimoCierre.map((m:any) => <tr key={m.id}><td className="text-xs whitespace-nowrap">{formatDate(m.created_at,'dd/MM/yyyy')}</td><td className="text-xs">{formatDate(m.created_at,'HH:mm')}</td><td><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':m.tipo==='egreso','badge-yellow':m.tipo==='compra_inventario'})}>{m.tipo==='compra_inventario'?'compra inventario':m.tipo}</span></td><td className="text-sm text-surface-200/70">{m.usuario_nombre || 'Sistema'}</td><td className="capitalize text-xs text-surface-200/60">{m.metodo_pago}</td><td className={cn('font-semibold',m.tipo==='egreso'||m.tipo==='compra_inventario'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'||m.tipo==='compra_inventario'?'-':'+'}{formatCurrency(m.monto)}</td></tr>)}
             {movimientosUltimoCierre.length===0 && <tr><td colSpan={6} className="py-6 text-center text-sm text-surface-200/30">No hay movimientos registrados</td></tr>}
           </tbody></table></div>
         </div>

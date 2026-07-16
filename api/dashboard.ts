@@ -7,13 +7,19 @@ function ensurePedidoSchema() {
   return pedidoSchemaReady
 }
 
+let cajaSchemaReady: Promise<void> | null = null
+function ensureCajaSchema() {
+  if (!cajaSchemaReady) cajaSchemaReady = query(`ALTER TABLE cajas ADD COLUMN IF NOT EXISTS total_compras_inventario NUMERIC NOT NULL DEFAULT 0`).then(() => undefined)
+  return cajaSchemaReady
+}
+
 export default async function handler(req: any, res: any) {
   cors(res)
   res.setHeader('Cache-Control', 'no-store, max-age=0')
   if (req.method === 'OPTIONS') return res.status(200).end()
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return
-  await ensurePedidoSchema()
+  await Promise.all([ensurePedidoSchema(), ensureCajaSchema()])
   const eid = auth.empresa_id
   const urlPath = (req.url||'').split('?')[0]
 
@@ -64,13 +70,13 @@ export default async function handler(req: any, res: any) {
       queryOne(`SELECT COALESCE(SUM(capacidad),0) as total,COALESCE(SUM(CASE WHEN estado IN ('ocupada','reservada') THEN capacidad ELSE 0 END),0) as ocupada FROM mesas WHERE empresa_id=$1 AND activa=true`,[eid]),
       queryOne(`SELECT COUNT(*) as total FROM inventario WHERE empresa_id=$1 AND stock_actual<=stock_minimo AND stock_minimo>0`,[eid]),
       queryOne(`SELECT COALESCE(SUM(i.stock_actual * p.precio_costo),0) as total FROM inventario i JOIN productos p ON p.id=i.producto_id AND p.empresa_id=i.empresa_id WHERE i.empresa_id=$1`,[eid]),
-      queryOne(`SELECT id,saldo_inicial,total_ventas,total_ingresos,total_egresos FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]),
+      queryOne(`SELECT id,saldo_inicial,total_ventas,total_ingresos,total_egresos,total_compras_inventario FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]),
       query(`SELECT pr.nombre,SUM(pi.cantidad) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.empresa_id=p.empresa_id JOIN cajas c ON c.id=cm.caja_id AND c.estado='abierta' WHERE p.empresa_id=$1 AND p.estado='cobrado' AND cm.tipo='venta' GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 8`,[eid]),
       query(`SELECT TO_CHAR(cm.created_at AT TIME ZONE 'America/Bogota','HH24:00') as hora,COALESCE(SUM(cm.monto),0) as total FROM caja_movimientos cm JOIN cajas c ON c.id=cm.caja_id AND c.estado='abierta' WHERE cm.empresa_id=$1 AND cm.tipo='venta' GROUP BY hora ORDER BY hora`,[eid]),
       queryOne(`SELECT COUNT(cm.id) as cantidad FROM caja_movimientos cm JOIN cajas c ON c.id=cm.caja_id AND c.estado='abierta' WHERE cm.empresa_id=$1 AND cm.tipo='venta'`,[eid]),
     ])
     const mp=em.reduce((a: any,r: any)=>{a[r.estado]=parseInt(r.total);return a},{})
-    const caja=ca?parseFloat(ca.saldo_inicial)+parseFloat(ca.total_ventas)+parseFloat(ca.total_ingresos)-parseFloat(ca.total_egresos):0
+    const caja=ca?parseFloat(ca.saldo_inicial)+parseFloat(ca.total_ventas)+parseFloat(ca.total_ingresos)-parseFloat(ca.total_egresos)-parseFloat((ca as any).total_compras_inventario || 0):0
     return res.status(200).json({ ok:true, data:{
       ventas_hoy:parseFloat((ca as any)?.total_ventas??'0'),
       ventas_confirmadas:parseInt((ventasCaja as any)?.cantidad??'0'),
