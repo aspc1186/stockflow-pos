@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import AuthLayout from './components/layouts/AuthLayout'
@@ -29,8 +30,13 @@ function RequireAuth({children}:{children:React.ReactNode}){
   return <>{children}</>
 }
 function RequireSuperAdmin({children}:{children:React.ReactNode}){
-  const {user,isSuperAdmin,loading}=useAuth()
-  if(loading) return null
+  const {user,isSuperAdmin,loading,refreshUser}=useAuth()
+  const [verificando, setVerificando] = useState(true)
+  useEffect(() => {
+    if (!user) { setVerificando(false); return }
+    refreshUser().finally(() => setVerificando(false))
+  }, [user?.id])
+  if(loading || verificando) return <div className="min-h-screen bg-surface-900 flex items-center justify-center"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"/></div>
   if(!user) return <Navigate to="/login" replace/>
   if(!isSuperAdmin) return <Navigate to="/app/dashboard" replace/>
   return <>{children}</>
