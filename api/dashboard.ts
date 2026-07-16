@@ -11,7 +11,7 @@ function ensurePedidoSchema() {
 
 let cajaSchemaReady: Promise<void> | null = null
 function ensureCajaSchema() {
-  if (!cajaSchemaReady) cajaSchemaReady = query(`ALTER TABLE cajas ADD COLUMN IF NOT EXISTS total_compras_inventario NUMERIC NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS fecha_operativa DATE`)
+  if (!cajaSchemaReady) cajaSchemaReady = query(`ALTER TABLE cajas ADD COLUMN IF NOT EXISTS total_compras_inventario NUMERIC NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS total_compras_no_inventario NUMERIC NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS fecha_operativa DATE`)
     .then(() => query(`UPDATE cajas SET fecha_operativa=(apertura_at AT TIME ZONE 'America/Bogota')::date WHERE fecha_operativa IS NULL`))
     .then(() => undefined)
   return cajaSchemaReady
@@ -74,14 +74,14 @@ export default async function handler(req: any, res: any) {
       queryOne(`SELECT COALESCE(SUM(capacidad),0) as total,COALESCE(SUM(CASE WHEN estado IN ('ocupada','reservada') THEN capacidad ELSE 0 END),0) as ocupada FROM mesas WHERE empresa_id=$1 AND activa=true`,[eid]),
       queryOne(`SELECT COUNT(*) as total FROM inventario WHERE empresa_id=$1 AND stock_actual<=stock_minimo AND stock_minimo>0`,[eid]),
       queryOne(`SELECT COALESCE(SUM(i.stock_actual * p.precio_costo),0) as total FROM inventario i JOIN productos p ON p.id=i.producto_id AND p.empresa_id=i.empresa_id WHERE i.empresa_id=$1`,[eid]),
-      queryOne(`SELECT id,saldo_inicial,total_ventas,total_ingresos,total_egresos,total_compras_inventario,fecha_operativa FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]),
+      queryOne(`SELECT id,saldo_inicial,total_ventas,total_ingresos,total_egresos,total_compras_inventario,total_compras_no_inventario,fecha_operativa FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]),
       queryOne(`SELECT COALESCE(SUM((pi.precio_unit-COALESCE(pi.costo_unit,mi.costo_unit,pr.precio_costo,0))*pi.cantidad),0) as utilidad,COALESCE(SUM(pi.precio_unit*pi.cantidad),0) as ventas FROM pedido_items pi JOIN pedidos p ON p.id=pi.pedido_id JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id AND c.estado='abierta' JOIN productos pr ON pr.id=pi.producto_id LEFT JOIN LATERAL (SELECT costo_unit FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=pi.producto_id AND mi.tipo='venta' AND mi.notas=CONCAT('Pedido ',p.id) ORDER BY mi.created_at ASC LIMIT 1) mi ON true WHERE p.empresa_id=$1 AND p.estado='cobrado' AND pi.estado!='cancelado'`,[eid]),
       query(`SELECT pr.nombre,SUM(pi.cantidad) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.empresa_id=p.empresa_id JOIN cajas c ON c.id=cm.caja_id AND c.estado='abierta' WHERE p.empresa_id=$1 AND p.estado='cobrado' AND cm.tipo='venta' GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 8`,[eid]),
       query(`SELECT TO_CHAR(cm.created_at AT TIME ZONE 'America/Bogota','HH24:00') as hora,COALESCE(SUM(cm.monto),0) as total FROM caja_movimientos cm JOIN cajas c ON c.id=cm.caja_id AND c.estado='abierta' WHERE cm.empresa_id=$1 AND cm.tipo='venta' GROUP BY hora ORDER BY hora`,[eid]),
       queryOne(`SELECT COUNT(p.id) as cantidad FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id AND c.estado='abierta' WHERE p.empresa_id=$1 AND p.estado='cobrado'`,[eid]),
     ])
     const mp=em.reduce((a: any,r: any)=>{a[r.estado]=parseInt(r.total);return a},{})
-    const caja=ca?parseFloat(ca.saldo_inicial)+parseFloat(ca.total_ventas)+parseFloat(ca.total_ingresos)-parseFloat(ca.total_egresos)-parseFloat((ca as any).total_compras_inventario || 0):0
+    const caja=ca?parseFloat(ca.saldo_inicial)+parseFloat(ca.total_ventas)+parseFloat(ca.total_ingresos)-parseFloat(ca.total_egresos)-parseFloat((ca as any).total_compras_inventario || 0)-parseFloat((ca as any).total_compras_no_inventario || 0):0
     const ventasUtilidadDia = parseFloat((utilidadDiaData as any)?.ventas??'0')
     const ventasUtilidadMes = parseFloat((utilidadMesData as any)?.ventas??'0')
     const utilidadDia = parseFloat((utilidadDiaData as any)?.utilidad??'0')
