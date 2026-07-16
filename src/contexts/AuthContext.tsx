@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null; loading: boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => void; refreshUser: () => Promise<void>
+  startSupport: (empresaId: string) => Promise<void>; exitSupport: () => void; supportMode: boolean
   isAdmin: boolean; isSuperAdmin: boolean; isMesero: boolean
   isRole: (...roles: string[]) => boolean
 }
@@ -39,10 +40,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser({ ...(data.user || data.data), token: data.token })
   }, [])
 
+  const restoreSuperAdmin = useCallback(() => {
+    const token = localStorage.getItem('pos_superadmin_token')
+    const saved = localStorage.getItem('pos_superadmin_user')
+    if (!token || !saved) return false
+    try {
+      const superUser = JSON.parse(saved)
+      localStorage.setItem('pos_token', token)
+      localStorage.setItem('pos_user', saved)
+      localStorage.removeItem('pos_superadmin_token')
+      localStorage.removeItem('pos_superadmin_user')
+      localStorage.removeItem('pos_support_mode')
+      setUser({ ...superUser, token })
+      return true
+    } catch { return false }
+  }, [])
+
+  const startSupport = useCallback(async (empresaId: string) => {
+    const currentToken = localStorage.getItem('pos_token')
+    const currentUser = localStorage.getItem('pos_user')
+    if (!currentToken || !currentUser) throw new Error('Sesion de superadministrador no disponible')
+    const { data } = await api.post<any>(`/superadmin/empresas/${empresaId}/support-session`)
+    const session = data.data || data
+    if (!session?.token || !session?.user) throw new Error('No fue posible iniciar el modo de soporte')
+    localStorage.setItem('pos_superadmin_token', currentToken)
+    localStorage.setItem('pos_superadmin_user', currentUser)
+    localStorage.setItem('pos_support_mode', '1')
+    localStorage.setItem('pos_token', session.token)
+    localStorage.setItem('pos_user', JSON.stringify(session.user))
+    setUser({ ...session.user, token: session.token })
+  }, [])
+
   const logout = useCallback(() => {
-    localStorage.removeItem('pos_token'); localStorage.removeItem('pos_user')
+    localStorage.removeItem('pos_token'); localStorage.removeItem('pos_user'); localStorage.removeItem('pos_superadmin_token'); localStorage.removeItem('pos_superadmin_user'); localStorage.removeItem('pos_support_mode')
     setUser(null); window.location.href = '/login'
   }, [])
+
+  const exitSupport = useCallback(() => {
+    if (!restoreSuperAdmin()) {
+      localStorage.removeItem('pos_support_mode')
+      localStorage.removeItem('pos_superadmin_token')
+      localStorage.removeItem('pos_superadmin_user')
+      logout()
+      return
+    }
+    window.location.href = '/superadmin'
+  }, [restoreSuperAdmin, logout])
 
   const refreshUser = useCallback(async () => {
     try {
@@ -51,8 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = data.data || data
       localStorage.setItem('pos_user', JSON.stringify(u))
       setUser({ ...u, token })
-    } catch { logout() }
-  }, [logout])
+    } catch {
+      if (localStorage.getItem('pos_support_mode') === '1' && restoreSuperAdmin()) { window.location.href = '/superadmin'; return }
+      logout()
+    }
+  }, [logout, restoreSuperAdmin])
 
   useEffect(() => {
     if (!user) return
@@ -67,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isMesero = isRole('mesero', 'barra', 'cajero')
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, isAdmin, isSuperAdmin, isMesero, isRole }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, startSupport, exitSupport, supportMode: localStorage.getItem('pos_support_mode') === '1', isAdmin, isSuperAdmin, isMesero, isRole }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
 import { query, queryOne } from '../_db.js'
-import { authenticate, authSuperAdmin, cors } from '../_auth.js'
+import { authenticate, authSuperAdmin, cors, signToken } from '../_auth.js'
 
 let empresaSchemaReady: Promise<void> | null = null
 function ensureEmpresaSchema() {
@@ -103,6 +103,29 @@ export default async function handler(req: any, res: any) {
       }
     }
   } else {
+    // POST /api/superadmin/empresas/[id]/support-session
+    // A short-lived delegated session lets support correct the same modules an admin can manage.
+    if (parts[4] === 'support-session' && req.method === 'POST') {
+      const empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,licencia_fin,tema,fondo_url FROM empresas WHERE id=$1`, [empresaId]) as any
+      if (!empresa) return res.status(404).json({ ok: false, msg: 'Empresa no encontrada' })
+      const token = signToken({ sub: auth.id, support: true, support_empresa_id: empresaId }, '2h')
+      return res.status(200).json({
+        ok: true,
+        data: {
+          token,
+          user: {
+            id: auth.id,
+            nombre: auth.nombre,
+            email: auth.email,
+            username: auth.username,
+            rol: 'admin',
+            empresa_id: empresa.id,
+            empresa,
+            modo_soporte: true
+          }
+        }
+      })
+    }
     // GET /api/superadmin/empresas/[id]
     if (req.method === 'GET') {
       const e = await queryOne(`SELECT * FROM empresas WHERE id=$1`, [empresaId])
