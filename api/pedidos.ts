@@ -81,6 +81,7 @@ async function recalcularPedido(pedidoId: string) {
 
 export default async function handler(req: any, res: any) {
   cors(res)
+  res.setHeader('Cache-Control', 'no-store, max-age=0')
   if (req.method === 'OPTIONS') return res.status(200).end()
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return

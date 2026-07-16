@@ -9,6 +9,7 @@ function ensurePedidoSchema() {
 
 export default async function handler(req: any, res: any) {
   cors(res)
+  res.setHeader('Cache-Control', 'no-store, max-age=0')
   if (req.method === 'OPTIONS') return res.status(200).end()
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return
@@ -53,8 +54,8 @@ export default async function handler(req: any, res: any) {
   // Dashboard stats
   try {
     const [vh,vm2,pa,em,capacidades,ic,valorInventario,ca,tp2,vph]=await Promise.all([
-      queryOne(`SELECT COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE(cierre_at)=CURRENT_DATE`,[eid]),
-      queryOne(`SELECT COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE_TRUNC('month',cierre_at)=DATE_TRUNC('month',CURRENT_DATE)`,[eid]),
+      queryOne(`SELECT COALESCE(SUM(cm.monto),0) as total,COUNT(cm.id) as cantidad FROM caja_movimientos cm WHERE cm.empresa_id=$1 AND cm.tipo='venta' AND (cm.created_at AT TIME ZONE 'America/Bogota')::date=(NOW() AT TIME ZONE 'America/Bogota')::date`,[eid]),
+      queryOne(`SELECT COALESCE(SUM(cm.monto),0) as total FROM caja_movimientos cm WHERE cm.empresa_id=$1 AND cm.tipo='venta' AND DATE_TRUNC('month',cm.created_at AT TIME ZONE 'America/Bogota')=DATE_TRUNC('month',NOW() AT TIME ZONE 'America/Bogota')`,[eid]),
       queryOne(`SELECT COUNT(*) as total FROM pedidos WHERE empresa_id=$1 AND estado IN ('abierto','en_preparacion','listo','precierre')`,[eid]),
       query(`SELECT estado,COUNT(*) as total FROM mesas WHERE empresa_id=$1 AND activa=true GROUP BY estado`,[eid]),
       queryOne(`SELECT COALESCE(SUM(capacidad),0) as total,COALESCE(SUM(CASE WHEN estado IN ('ocupada','reservada') THEN capacidad ELSE 0 END),0) as ocupada FROM mesas WHERE empresa_id=$1 AND activa=true`,[eid]),
@@ -62,12 +63,13 @@ export default async function handler(req: any, res: any) {
       queryOne(`SELECT COALESCE(SUM(i.stock_actual * p.precio_costo),0) as total FROM inventario i JOIN productos p ON p.id=i.producto_id AND p.empresa_id=i.empresa_id WHERE i.empresa_id=$1`,[eid]),
       queryOne(`SELECT saldo_inicial,total_ventas,total_ingresos,total_egresos FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]),
       query(`SELECT pr.nombre,SUM(pi.cantidad) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id WHERE pi.empresa_id=$1 AND DATE(p.created_at)=CURRENT_DATE GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 8`,[eid]),
-      query(`SELECT TO_CHAR(cierre_at,'HH24:00') as hora,COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE(cierre_at)=CURRENT_DATE GROUP BY hora ORDER BY hora`,[eid]),
+      query(`SELECT TO_CHAR(cm.created_at AT TIME ZONE 'America/Bogota','HH24:00') as hora,COALESCE(SUM(cm.monto),0) as total FROM caja_movimientos cm WHERE cm.empresa_id=$1 AND cm.tipo='venta' AND (cm.created_at AT TIME ZONE 'America/Bogota')::date=(NOW() AT TIME ZONE 'America/Bogota')::date GROUP BY hora ORDER BY hora`,[eid]),
     ])
     const mp=em.reduce((a: any,r: any)=>{a[r.estado]=parseInt(r.total);return a},{})
     const caja=ca?parseFloat(ca.saldo_inicial)+parseFloat(ca.total_ventas)+parseFloat(ca.total_ingresos)-parseFloat(ca.total_egresos):0
     return res.status(200).json({ ok:true, data:{
       ventas_hoy:parseFloat((vh as any)?.total??'0'),
+      ventas_confirmadas:parseInt((vh as any)?.cantidad??'0'),
       ventas_mes:parseFloat((vm2 as any)?.total??'0'),
       pedidos_activos:parseInt((pa as any)?.total??'0'),
       mesas_ocupadas:(mp['ocupada']??0)+(mp['reservada']??0),

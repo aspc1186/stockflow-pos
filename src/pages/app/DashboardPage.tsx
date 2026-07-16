@@ -11,7 +11,9 @@ export default function DashboardPage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => { const { data } = await api.get<any>('/dashboard'); return (data.data || data) as DashboardStats },
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: 'always',
   })
   if (isLoading) return <PageLoader />
   if (!data) return <div className="flex items-center justify-center h-64"><div className="text-center"><p className="text-surface-200/50 mb-3">Sin datos</p><button onClick={() => refetch()} className="btn-primary btn-sm">Recargar</button></div></div>
@@ -34,7 +36,7 @@ export default function DashboardPage() {
         <StatCard label="Capacidad total" value={data.capacidad_total ?? 0} icon={<Users className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
         <StatCard label="Puestos en mesas ocupadas" value={data.capacidad_ocupada ?? 0} icon={<Users className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
         <StatCard label="Stock crítico" value={data.inventario_critico ?? 0} icon={<AlertTriangle className="w-5 h-5 text-red-400"/>} iconBg="bg-red-500/20"/>
-        <StatCard label="Ticket promedio" value={formatCurrency(data.pedidos_activos > 0 ? (data.ventas_hoy / Math.max(data.pedidos_activos,1)) : 0)} icon={<CreditCard className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
+        <StatCard label="Ticket promedio" value={formatCurrency(data.ventas_confirmadas > 0 ? (data.ventas_hoy / data.ventas_confirmadas) : 0)} icon={<CreditCard className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
       </div>
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="card p-5 lg:col-span-2">

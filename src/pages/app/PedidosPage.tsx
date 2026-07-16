@@ -20,13 +20,17 @@ export default function PedidosPage() {
   const { data: pedidos = [], isLoading } = useQuery({
     queryKey: ['pedidos', estadoQ],
     queryFn: async () => { const p = estadoQ ? `?estado=${estadoQ}` : ''; const { data } = await api.get<any>(`/pedidos${p}`); return (data.data || data) as Pedido[] },
-    refetchInterval: 15_000,
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: 'always',
   })
   const { data: arqueo = [] } = useQuery({
     queryKey: ['arqueo-meseros'],
     queryFn: async () => { const { data } = await api.get<any>('/dashboard/arqueo'); return (data.data || data) as any[] },
     enabled: isAdmin,
-    refetchInterval: 15_000,
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: 'always',
   })
   useEffect(() => { const h = () => qc.invalidateQueries({queryKey:['pedidos']}); on('pedido_nuevo',h); on('pedido_actualizado',h); return () => { off('pedido_nuevo',h); off('pedido_actualizado',h) } }, [on,off,qc])
   if (isLoading) return <PageLoader />
