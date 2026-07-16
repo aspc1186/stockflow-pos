@@ -25,7 +25,16 @@ export default async function handler(req: any, res: any) {
     const ultimoCierre=await queryOne(`SELECT c.*,u.nombre as cajero_nombre FROM cajas c LEFT JOIN usuarios u ON u.id=c.usuario_id WHERE c.empresa_id=$1 AND c.estado='cerrada' ORDER BY c.cierre_at DESC NULLS LAST LIMIT 1`,[eid])
     const movimientosUltimoCierre=ultimoCierre ? await query(`SELECT cm.*,u.nombre as usuario_nombre FROM caja_movimientos cm LEFT JOIN usuarios u ON u.id=cm.usuario_id WHERE cm.caja_id=$1 ORDER BY cm.created_at DESC LIMIT 200`, [(ultimoCierre as any).id]) : []
     const cierres=await query(`SELECT c.*,u.nombre as cajero_nombre FROM cajas c LEFT JOIN usuarios u ON u.id=c.usuario_id WHERE c.empresa_id=$1 AND c.estado='cerrada' ORDER BY c.cierre_at DESC NULLS LAST LIMIT 20`, [eid])
-    return res.status(200).json({ ok:true, data:{caja,movimientos:movs,ultimo_cierre:ultimoCierre,movimientos_ultimo_cierre:movimientosUltimoCierre,cierres} })
+    const movimientosCierresMes=await query(`
+      SELECT cm.*,u.nombre as usuario_nombre,c.fecha_operativa,c.cierre_at,c.saldo_final
+      FROM caja_movimientos cm
+      JOIN cajas c ON c.id=cm.caja_id
+      LEFT JOIN usuarios u ON u.id=cm.usuario_id
+      WHERE c.empresa_id=$1 AND c.estado='cerrada'
+        AND DATE_TRUNC('month',COALESCE(c.fecha_operativa,(c.apertura_at AT TIME ZONE 'America/Bogota')::date))=DATE_TRUNC('month',(NOW() AT TIME ZONE 'America/Bogota')::date)
+      ORDER BY c.cierre_at DESC NULLS LAST,cm.created_at DESC
+      LIMIT 1000`, [eid])
+    return res.status(200).json({ ok:true, data:{caja,movimientos:movs,ultimo_cierre:ultimoCierre,movimientos_ultimo_cierre:movimientosUltimoCierre,cierres,movimientos_cierres_mes:movimientosCierresMes} })
   }
   if (req.method==='POST') {
     const { accion,saldo_inicial,tipo,metodo_pago,monto,descripcion,pedido_id,notas } = req.body||{}

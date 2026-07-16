@@ -25,7 +25,7 @@ export default function CajaPage() {
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
   if (isLoading) return <PageLoader />
-  const { caja, movimientos = [], ultimo_cierre: ultimoCierre, movimientos_ultimo_cierre: movimientosUltimoCierre = [] } = data ?? {}
+  const { caja, movimientos = [], ultimo_cierre: ultimoCierre, movimientos_ultimo_cierre: movimientosUltimoCierre = [], movimientos_cierres_mes: movimientosCierresMes = [] } = data ?? {}
   const saldo = caja ? Number(caja.saldo_inicial || 0) + Number(caja.total_ventas || 0) + Number(caja.total_ingresos || 0) - Number(caja.total_egresos || 0) - Number(caja.total_compras_inventario || 0) - Number(caja.total_compras_no_inventario || 0) : 0
 
   return (
@@ -41,7 +41,7 @@ export default function CajaPage() {
       {caja && <>
         <div className="grid grid-cols-2 lg:grid-cols-7 gap-4">
           {[{label:'Saldo inicial',value:caja.saldo_inicial,color:'text-surface-50'},{label:'Ventas',value:caja.total_ventas,color:'text-emerald-400'},{label:'Ingresos adicionales',value:caja.total_ingresos,color:'text-sky-400'},{label:'Gastos / egresos',value:caja.total_egresos,color:'text-red-400'},{label:'Compras inventario',value:caja.total_compras_inventario || 0,color:'text-amber-400'},{label:'Compras sin inventario',value:caja.total_compras_no_inventario || 0,color:'text-orange-400'},{label:'Saldo actual',value:saldo,color:'text-brand-400'}].map(i => (
-            <div key={i.label} className="card p-4"><p className="text-xs text-surface-200/50 uppercase tracking-wide mb-1">{i.label}</p><p className={cn('text-2xl font-bold',i.color)}>{formatCurrency(i.value)}</p></div>
+            <div key={i.label} className="card min-w-0 p-3 sm:p-4"><p className="text-xs leading-tight text-surface-200/50 uppercase tracking-wide mb-1 break-words">{i.label}</p><p className={cn('text-lg sm:text-2xl leading-tight font-bold break-words tabular-nums',i.color)}>{formatCurrency(i.value)}</p></div>
           ))}
         </div>
         <div className="card overflow-hidden">
@@ -67,8 +67,8 @@ export default function CajaPage() {
       {!caja && <div className="flex flex-col items-center justify-center py-20 text-center"><CreditCard className="w-16 h-16 text-surface-200/15 mb-4"/><p className="text-surface-200/40">La caja está cerrada</p></div>}
       {!caja && ultimoCierre && <div className="card p-5">
         <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Ultimo cierre</h3><span className="text-xs text-surface-200/40">{ultimoCierre.cierre_at ? formatDate(ultimoCierre.cierre_at, 'dd/MM/yyyy HH:mm') : ''}</span></div>
-        <div className="grid grid-cols-2 lg:grid-cols-7 gap-4">
-          {[{label:'Saldo inicial',value:ultimoCierre.saldo_inicial},{label:'Ventas',value:ultimoCierre.total_ventas},{label:'Ingresos adicionales',value:ultimoCierre.total_ingresos},{label:'Gastos / egresos',value:ultimoCierre.total_egresos},{label:'Compras inventario',value:ultimoCierre.total_compras_inventario || 0},{label:'Compras sin inventario',value:ultimoCierre.total_compras_no_inventario || 0},{label:'Saldo final',value:ultimoCierre.saldo_final,color:'text-brand-400'}].map(i => <div key={i.label}><p className="text-xs text-surface-200/45">{i.label}</p><p className={cn('mt-1 font-bold',i.color || 'text-surface-50')}>{formatCurrency(Number(i.value || 0))}</p></div>)}
+        <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 sm:gap-4">
+          {[{label:'Saldo inicial',value:ultimoCierre.saldo_inicial},{label:'Ventas',value:ultimoCierre.total_ventas},{label:'Ingresos adicionales',value:ultimoCierre.total_ingresos},{label:'Gastos / egresos',value:ultimoCierre.total_egresos},{label:'Compras inventario',value:ultimoCierre.total_compras_inventario || 0},{label:'Compras sin inventario',value:ultimoCierre.total_compras_no_inventario || 0},{label:'Saldo final',value:ultimoCierre.saldo_final,color:'text-brand-400'}].map(i => <div key={i.label} className="min-w-0"><p className="text-xs leading-tight text-surface-200/45 break-words">{i.label}</p><p className={cn('mt-1 text-base sm:text-lg leading-tight font-bold break-words tabular-nums',i.color || 'text-surface-50')}>{formatCurrency(Number(i.value || 0))}</p></div>)}
         </div>
         <div className="mt-5 border-t border-white/5 pt-4">
           <h4 className="text-sm font-semibold mb-3">Movimientos del ultimo cierre</h4>
@@ -78,6 +78,27 @@ export default function CajaPage() {
           </tbody></table></div>
         </div>
       </div>}
+      <div className="card overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-3 sm:px-5 sm:py-4">
+          <div><h3 className="text-sm font-semibold">Trazabilidad de cierres del mes</h3><p className="mt-1 text-xs text-surface-200/45">Movimientos registrados en cada jornada cerrada.</p></div>
+          <span className="badge badge-blue">Mes actual</span>
+        </div>
+        {movimientosCierresMes.length === 0 ? <p className="p-8 text-center text-sm text-surface-200/35">No hay movimientos de cierres en este mes</p> : <>
+          <div className="space-y-2 p-3 md:hidden">
+            {movimientosCierresMes.map((m:any) => {
+              const esSalida = ['egreso','compra_inventario','compra_no_inventario'].includes(m.tipo)
+              const tipo = m.tipo==='compra_inventario'?'Compra inventario':m.tipo==='compra_no_inventario'?'Compra sin inventario':m.tipo
+              return <div key={m.id} className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-medium text-surface-50 truncate">{m.descripcion || tipo}</p><p className="mt-1 text-xs text-surface-200/45">Jornada {m.fecha_operativa ? formatDate(m.fecha_operativa,'dd/MM/yyyy') : 'sin fecha'} · {formatDate(m.created_at,'HH:mm')}</p></div><p className={cn('flex-shrink-0 text-sm font-bold tabular-nums',esSalida?'text-red-400':'text-emerald-400')}>{esSalida?'-':'+'}{formatCurrency(m.monto)}</p></div>
+                <div className="mt-2 flex items-center justify-between gap-2"><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':esSalida,'badge-yellow':m.tipo==='propina'})}>{tipo}</span><span className="truncate text-xs text-surface-200/50">{m.usuario_nombre || 'Sistema'} · {String(m.metodo_pago || '').replace('_',' ')}</span></div>
+              </div>
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block"><table className="table-base"><thead><tr><th>Jornada</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>DescripciÃ³n</th><th>Usuario</th><th>MÃ©todo</th><th>Monto</th></tr></thead><tbody>
+            {movimientosCierresMes.map((m:any) => { const esSalida = ['egreso','compra_inventario','compra_no_inventario'].includes(m.tipo); const tipo = m.tipo==='compra_inventario'?'compra inventario':m.tipo==='compra_no_inventario'?'compra sin inventario':m.tipo; return <tr key={m.id}><td className="text-xs whitespace-nowrap">{m.fecha_operativa ? formatDate(m.fecha_operativa,'dd/MM/yyyy') : '—'}</td><td className="text-xs whitespace-nowrap">{formatDate(m.created_at,'dd/MM/yyyy')}</td><td className="text-xs">{formatDate(m.created_at,'HH:mm')}</td><td><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':esSalida,'badge-yellow':m.tipo==='propina'})}>{tipo}</span></td><td className="max-w-[16rem] truncate text-surface-200/70">{m.descripcion || '—'}</td><td className="text-sm text-surface-200/70">{m.usuario_nombre || 'Sistema'}</td><td className="capitalize text-xs text-surface-200/60">{String(m.metodo_pago || '').replace('_',' ')}</td><td className={cn('font-semibold',esSalida?'text-red-400':'text-emerald-400')}>{esSalida?'-':'+'}{formatCurrency(m.monto)}</td></tr> })}
+          </tbody></table></div>
+        </>}
+      </div>
       <Modal open={modalAbrir} onClose={() => setModalAbrir(false)} title="Abrir caja" size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setModalAbrir(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => op.mutate({accion:'abrir',saldo_inicial:parseFloat(saldoI)||0})} disabled={op.isPending} className="btn-primary flex-1">Abrir</button></div>}>
         <div><label className="label">Saldo inicial en efectivo</label><input type="number" min="0" className="input" value={saldoI} onChange={e => setSaldoI(e.target.value)}/></div>

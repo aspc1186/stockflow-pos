@@ -18,19 +18,19 @@ export default function DashboardPage() {
   if (isLoading) return <PageLoader />
   if (!data) return <div className="flex items-center justify-center h-64"><div className="text-center"><p className="text-surface-200/50 mb-3">Sin datos</p><button onClick={() => refetch()} className="btn-primary btn-sm">Recargar</button></div></div>
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="page-header">
         <div><h1 className="page-title">Dashboard</h1><p className="page-subtitle">{data.fecha_operativa ? `Jornada operativa: ${formatDate(data.fecha_operativa, 'dd/MM/yyyy')}` : 'Resumen en tiempo real'}</p></div>
         <button onClick={() => refetch()} className="btn-ghost btn-sm">Actualizar</button>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         <StatCard label="Ventas del dia" value={formatCurrency(data.ventas_hoy ?? 0)} icon={<TrendingUp className="w-5 h-5 text-brand-400"/>} iconBg="bg-brand-600/20"/>
         <StatCard label="Ventas mes" value={formatCurrency(data.ventas_mes ?? 0)} icon={<TrendingUp className="w-5 h-5 text-purple-400"/>} iconBg="bg-purple-500/20"/>
         <StatCard label="Valor inventario" value={formatCurrency(data.valor_inventario ?? 0)} icon={<Package className="w-5 h-5 text-violet-400"/>} iconBg="bg-violet-500/20"/>
         <StatCard label="Pedidos activos" value={data.pedidos_activos ?? 0} icon={<ShoppingBag className="w-5 h-5 text-amber-400"/>} iconBg="bg-amber-500/20"/>
         <StatCard label="Caja actual" value={formatCurrency(data.caja_actual ?? 0)} icon={<CreditCard className="w-5 h-5 text-green-400"/>} iconBg="bg-green-500/20"/>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard label="Mesas ocupadas" value={data.mesas_ocupadas ?? 0} icon={<Wine className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
         <StatCard label="Mesas libres" value={data.mesas_libres ?? 0} icon={<Users className="w-5 h-5 text-emerald-400"/>} iconBg="bg-emerald-500/20"/>
         <StatCard label="Capacidad total" value={data.capacidad_total ?? 0} icon={<Users className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
