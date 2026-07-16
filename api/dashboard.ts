@@ -16,6 +16,21 @@ export default async function handler(req: any, res: any) {
   const eid = auth.empresa_id
   const urlPath = (req.url||'').split('?')[0]
 
+  if (urlPath.includes('/arqueo')) {
+    if (!['admin','supervisor','superadmin'].includes(auth.rol)) return res.status(403).json({ ok:false, msg:'Sin permisos' })
+    try {
+      const rows = await query(`
+        SELECT u.id,u.nombre,u.username,COUNT(p.id) as ventas_precierre,COALESCE(SUM(p.total),0) as dinero_por_entregar
+        FROM pedidos p
+        JOIN usuarios u ON u.id=COALESCE(p.mesero_id,p.usuario_id)
+        WHERE p.empresa_id=$1 AND p.estado='precierre'
+        GROUP BY u.id,u.nombre,u.username
+        ORDER BY dinero_por_entregar DESC
+      `, [eid])
+      return res.status(200).json({ ok:true, data:rows })
+    } catch (e:any) { return res.status(500).json({ ok:false, msg:e.message }) }
+  }
+
   // Reportes
   if (urlPath.includes('/reportes')) {
     const { desde, hasta, agrupacion='dia' } = req.query||{}
@@ -40,7 +55,7 @@ export default async function handler(req: any, res: any) {
     const [vh,vm2,pa,em,capacidades,ic,valorInventario,ca,tp2,vph]=await Promise.all([
       queryOne(`SELECT COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE(cierre_at)=CURRENT_DATE`,[eid]),
       queryOne(`SELECT COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE_TRUNC('month',cierre_at)=DATE_TRUNC('month',CURRENT_DATE)`,[eid]),
-      queryOne(`SELECT COUNT(*) as total FROM pedidos WHERE empresa_id=$1 AND estado IN ('abierto','en_preparacion','listo')`,[eid]),
+      queryOne(`SELECT COUNT(*) as total FROM pedidos WHERE empresa_id=$1 AND estado IN ('abierto','en_preparacion','listo','precierre')`,[eid]),
       query(`SELECT estado,COUNT(*) as total FROM mesas WHERE empresa_id=$1 AND activa=true GROUP BY estado`,[eid]),
       queryOne(`SELECT COALESCE(SUM(capacidad),0) as total,COALESCE(SUM(CASE WHEN estado IN ('ocupada','reservada') THEN capacidad ELSE 0 END),0) as ocupada FROM mesas WHERE empresa_id=$1 AND activa=true`,[eid]),
       queryOne(`SELECT COUNT(*) as total FROM inventario WHERE empresa_id=$1 AND stock_actual<=stock_minimo AND stock_minimo>0`,[eid]),

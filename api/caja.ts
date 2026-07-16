@@ -37,7 +37,7 @@ export default async function handler(req: any, res: any) {
     if (accion==='cerrar') {
       const caja=await queryOne(`SELECT * FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]) as any
       if (!caja) return res.status(400).json({ ok:false, msg:'Sin caja abierta' })
-      const pedidosActivos=await queryOne(`SELECT COUNT(*) as total FROM pedidos WHERE empresa_id=$1 AND estado IN ('abierto','en_preparacion','listo')`,[eid]) as any
+      const pedidosActivos=await queryOne(`SELECT COUNT(*) as total FROM pedidos WHERE empresa_id=$1 AND estado IN ('abierto','en_preparacion','listo','precierre')`,[eid]) as any
       if (parseInt(pedidosActivos?.total || '0') > 0) return res.status(400).json({ ok:false, msg:'No puedes cerrar caja mientras existan pedidos activos' })
       const sf=parseFloat(caja.saldo_inicial)+parseFloat(caja.total_ventas)+parseFloat(caja.total_ingresos)-parseFloat(caja.total_egresos)
       const [u]=await query(`UPDATE cajas SET estado='cerrada',saldo_final=$1,cierre_at=NOW(),notas=$2 WHERE id=$3 RETURNING *`,[sf,notas||null,caja.id])

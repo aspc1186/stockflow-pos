@@ -54,7 +54,7 @@ export default function MesaPedidoPage() {
   const { data: pedidoActivo, refetch: refetchPedido } = useQuery({
     queryKey: ['pedido-activo', mesaId],
     queryFn: async () => {
-      const { data } = await api.get<any>(`/pedidos?mesa_id=${mesaId}&estado=abierto,en_preparacion,listo`)
+      const { data } = await api.get<any>(`/pedidos?mesa_id=${mesaId}&estado=abierto,en_preparacion,listo,precierre`)
       const rows = data.data || data
       return Array.isArray(rows) ? rows[0] ?? null : null
     },
@@ -86,6 +86,7 @@ export default function MesaPedidoPage() {
   })
 
   const enviar = async () => {
+    if ((pedidoActivo as any)?.estado === 'precierre') { toast.error('Este pedido esta pendiente de confirmacion del administrador'); return }
     if (!totalItems) return
     if (!cajaAbierta) { toast.error('Abre la caja antes de iniciar pedidos'); return }
     setLoading(true)
@@ -110,8 +111,9 @@ export default function MesaPedidoPage() {
     if (!pedidoActivo) return
     setLoading(true)
     try {
-      await api.patch(`/pedidos/${(pedidoActivo as any).id}`, { estado: 'cobrado', metodo_pago: metodoPago })
-      toast.success('Cobro registrado en caja')
+      const estadoCierre = isAdmin ? 'cobrado' : 'precierre'
+      await api.patch(`/pedidos/${(pedidoActivo as any).id}`, { estado: estadoCierre, metodo_pago: metodoPago })
+      toast.success(isAdmin ? 'Cobro registrado en caja' : 'Precierre enviado al administrador')
       setModalCobro(false)
       navigate('/mesero')
     } catch (e:any) { toast.error(e?.response?.data?.msg ?? 'No se pudo registrar el cobro') }
@@ -119,6 +121,7 @@ export default function MesaPedidoPage() {
   }
 
   const itemsPedido = pedidoDetalle?.items ?? []
+  const enPrecierre = (pedidoActivo as any)?.estado === 'precierre'
   const totalAcumulado = pedidoDetalle?.total ?? (pedidoActivo as any)?.total ?? 0
   const t = tiempo(mesa?.apertura_at || (pedidoActivo as any)?.apertura_at)
 
@@ -146,7 +149,7 @@ export default function MesaPedidoPage() {
               <LayoutDashboard className="w-4 h-4"/>
             </button>
           )}
-          {pedidoActivo && (
+          {pedidoActivo && !enPrecierre && (
             <button
               onClick={() => setModalCobro(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-500/20 text-orange-400 text-xs font-semibold border border-orange-500/20"
@@ -158,6 +161,7 @@ export default function MesaPedidoPage() {
       </div>
 
       {!cajaAbierta && <div className="mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-sm text-amber-300">Caja cerrada. El administrador debe abrir la caja antes de tomar pedidos.</div>}
+      {enPrecierre && <div className="mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-sm text-amber-300">Pedido en precierre. Espera la confirmacion del administrador para liberar la mesa.</div>}
 
       {/* Resumen pedido activo */}
       {itemsPedido.length > 0 && (
@@ -311,8 +315,8 @@ export default function MesaPedidoPage() {
         </div>
       )}
       <Modal open={modalCobro} onClose={() => setModalCobro(false)} title="Cobrar mesa" size="sm"
-        footer={<div className="flex gap-3"><button onClick={() => setModalCobro(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={cobrar} disabled={loading || !cajaAbierta} className="btn-primary flex-1">{loading ? 'Cobrando...' : `Cobrar ${formatCurrency(totalAcumulado)}`}</button></div>}>
-        <div className="space-y-4"><div><label className="label">Metodo de pago</label><select className="input" value={metodoPago} onChange={e => setMetodoPago(e.target.value)}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m => <option key={m} value={m}>{m.replaceAll('_', ' ')}</option>)}</select></div><p className="text-sm text-surface-200/60">El cobro se registrara en la caja abierta y liberara la mesa.</p></div>
+        footer={<div className="flex gap-3"><button onClick={() => setModalCobro(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={cobrar} disabled={loading || !cajaAbierta} className="btn-primary flex-1">{loading ? 'Procesando...' : isAdmin ? `Cobrar ${formatCurrency(totalAcumulado)}` : 'Enviar precierre'}</button></div>}>
+        <div className="space-y-4"><div><label className="label">Metodo de pago</label><select className="input" value={metodoPago} onChange={e => setMetodoPago(e.target.value)}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m => <option key={m} value={m}>{m.replaceAll('_', ' ')}</option>)}</select></div><p className="text-sm text-surface-200/60">{isAdmin ? 'El cobro se registrara en la caja abierta y liberara la mesa.' : 'El valor quedara pendiente en tu arqueo hasta que el administrador confirme la venta.'}</p></div>
       </Modal>
     </div>
   )

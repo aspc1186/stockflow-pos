@@ -6,7 +6,7 @@ let mesasSchemaReady: Promise<void> | null = null
 
 function ensureMesasSchema() {
   if (!mesasSchemaReady) mesasSchemaReady = query(`ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mesero_id UUID`)
-    .then(() => query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID, ADD COLUMN IF NOT EXISTS mesero_id UUID`))
+    .then(() => query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID, ADD COLUMN IF NOT EXISTS mesero_id UUID, ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(30)`))
     .then(() => undefined)
   return mesasSchemaReady
 }
@@ -223,11 +223,13 @@ export default async function handler(req: any, res: any) {
     if (req.method==='PATCH') {
       const { estado,descuento,propina,notas,cliente_id,metodo_pago } = req.body||{}
       const ups:string[]=[],params:any[]=[]; let idx=1
+      if (estado === 'cobrado' && !puedeAdministrarPedidos(auth.rol)) return res.status(403).json({ ok:false, msg:'El administrador debe confirmar el cierre de la venta' })
       if (estado){ups.push(`estado=$${idx++}`);params.push(estado)}
       if (descuento!==undefined){ups.push(`descuento=$${idx++}`);params.push(descuento)}
       if (propina!==undefined){ups.push(`propina=$${idx++}`);params.push(propina)}
       if (notas!==undefined){ups.push(`notas=$${idx++}`);params.push(notas)}
       if (cliente_id!==undefined){ups.push(`cliente_id=$${idx++}`);params.push(cliente_id)}
+      if (metodo_pago!==undefined){ups.push(`metodo_pago=$${idx++}`);params.push(metodo_pago)}
       const descuentoFinal = descuento !== undefined ? Math.max(0, parseFloat(String(descuento)) || 0) : parseFloat(String(pedido.descuento)) || 0
       const propinaFinal = propina !== undefined ? Math.max(0, parseFloat(String(propina)) || 0) : parseFloat(String(pedido.propina)) || 0
       const totalCobrado = Math.max(0, (parseFloat(String(pedido.subtotal)) || 0) + (parseFloat(String(pedido.impuestos)) || 0) - descuentoFinal + propinaFinal)
