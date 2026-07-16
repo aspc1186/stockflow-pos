@@ -23,7 +23,7 @@ export default async function handler(req: any, res: any) {
     }
     try {
       const user = await queryOne(
-        `SELECT u.*, LOWER(TRIM(r.nombre)) as rol_nombre
+        `SELECT u.*, CASE WHEN LOWER(TRIM(r.nombre)) IN ('superadmin','super_admin','super administrador','superadministrador') THEN 'superadmin' ELSE LOWER(TRIM(r.nombre)) END as rol_nombre
          FROM usuarios u
          JOIN roles r ON r.id = u.rol_id
          WHERE LOWER(u.username) = LOWER($1) AND u.activo = true`,

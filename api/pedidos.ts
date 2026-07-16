@@ -5,7 +5,9 @@ import { authenticate, cors } from '../_auth.js'
 let mesasSchemaReady: Promise<void> | null = null
 
 function ensureMesasSchema() {
-  if (!mesasSchemaReady) mesasSchemaReady = query(`ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mesero_id UUID`).then(() => undefined)
+  if (!mesasSchemaReady) mesasSchemaReady = query(`ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mesero_id UUID`)
+    .then(() => query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID`))
+    .then(() => undefined)
   return mesasSchemaReady
 }
 
@@ -135,10 +137,11 @@ export default async function handler(req: any, res: any) {
       if (estado) { const estados=estado.split(','); where+=` AND p.estado=ANY($${idx++})`; params.push(estados) }
       if (mesa_id) { where+=` AND p.mesa_id=$${idx++}`; params.push(mesa_id) }
       const rows=await query(
-        `SELECT p.*,m.numero as mesa_numero,u.nombre as mesero_nombre,c.nombre as cliente_nombre
+        `SELECT p.*,m.numero as mesa_numero,u.nombre as mesero_nombre,uc.nombre as usuario_cierre_nombre,c.nombre as cliente_nombre
          FROM pedidos p
          LEFT JOIN mesas m ON m.id=p.mesa_id
-         LEFT JOIN usuarios u ON u.id=p.usuario_id
+         LEFT JOIN usuarios u ON u.id=COALESCE(p.usuario_cierre_id,p.usuario_id)
+         LEFT JOIN usuarios uc ON uc.id=p.usuario_cierre_id
          LEFT JOIN clientes c ON c.id=p.cliente_id
          WHERE ${where} ORDER BY p.created_at DESC LIMIT $${idx}`,
         [...params, parseInt(String(limit))])
@@ -181,15 +184,16 @@ export default async function handler(req: any, res: any) {
 
     if (req.method==='GET') {
       const d=await queryOne(
-        `SELECT p.*,m.numero as mesa_numero,u.nombre as mesero_nombre,c.nombre as cliente_nombre,
+        `SELECT p.*,m.numero as mesa_numero,u.nombre as mesero_nombre,uc.nombre as usuario_cierre_nombre,c.nombre as cliente_nombre,
          json_agg(json_build_object('id',pi.id,'producto_id',pi.producto_id,'nombre',pr.nombre,'cantidad',pi.cantidad,'precio_unit',pi.precio_unit,'subtotal',pi.subtotal,'estado',pi.estado,'observaciones',pi.observaciones,'destino',pi.destino,'created_at',pi.created_at) ORDER BY pi.created_at) as items
          FROM pedidos p
          LEFT JOIN mesas m ON m.id=p.mesa_id
-         LEFT JOIN usuarios u ON u.id=p.usuario_id
+         LEFT JOIN usuarios u ON u.id=COALESCE(p.usuario_cierre_id,p.usuario_id)
+         LEFT JOIN usuarios uc ON uc.id=p.usuario_cierre_id
          LEFT JOIN clientes c ON c.id=p.cliente_id
          LEFT JOIN pedido_items pi ON pi.pedido_id=p.id
          LEFT JOIN productos pr ON pr.id=pi.producto_id
-         WHERE p.id=$1 AND p.empresa_id=$2 GROUP BY p.id,m.numero,u.nombre,c.nombre`,[pedidoId,eid])
+         WHERE p.id=$1 AND p.empresa_id=$2 GROUP BY p.id,m.numero,u.nombre,uc.nombre,c.nombre`,[pedidoId,eid])
       return res.status(200).json({ ok: true, data: d })
     }
 
@@ -235,6 +239,7 @@ export default async function handler(req: any, res: any) {
             [uuid(), eid, caja.id, auth.id, pedidoId, metodo_pago || 'efectivo', monto, `Cobro pedido ${pedido.numero || pedidoId}`]
           )
         }
+        ups.push(`usuario_cierre_id=$${idx++}`); params.push(auth.id)
       }
       if (estado==='cobrado'||estado==='cancelado') {
         ups.push('cierre_at=NOW()')

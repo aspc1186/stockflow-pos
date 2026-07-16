@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Building2, Users, TrendingUp, CheckCircle, XCircle, Eye, Search } from 'lucide-react'
+import { Plus, Building2, Users, TrendingUp, CheckCircle, XCircle, Eye, Search, CalendarDays, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
 import { formatCurrency } from '@/lib/utils'
@@ -14,7 +14,7 @@ export default function EmpresasPage() {
   const [modal, setModal] = useState(false); const [search, setSearch] = useState('')
   const [form, setForm] = useState({nombre:'',tipo:'bar',ciudad:'',nit:'',telefono:'',email:'',plan:'basico',licencia_fin:'',admin_nombre:'',admin_email:'',admin_username:'',admin_password:''})
 
-  const { data: empresas = [], isLoading } = useQuery({
+  const { data: empresas = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['sa-empresas'],
     queryFn: async () => { const { data } = await api.get<any>('/superadmin/empresas'); return (data.data||data) as any[] },
     refetchInterval: 30_000,
@@ -32,6 +32,7 @@ export default function EmpresasPage() {
 
   const filtradas = empresas.filter((e:any) => e.nombre?.toLowerCase().includes(search.toLowerCase()) || (e.ciudad||'').toLowerCase().includes(search.toLowerCase()))
   if (isLoading) return <PageLoader />
+  if (isError) return <div className="card p-8 text-center"><p className="font-medium text-surface-50">No fue posible cargar las empresas</p><p className="mt-2 text-sm text-surface-200/50">Ingresa con la cuenta superadministrador para administrar clientes.</p><button className="btn-primary btn-sm mt-4" onClick={()=>refetch()}><RefreshCw className="w-4 h-4"/>Reintentar</button></div>
 
   return (
     <div className="space-y-6">
@@ -53,12 +54,13 @@ export default function EmpresasPage() {
       <div className="relative max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-200/30"/><input className="input pl-9" placeholder="Buscar empresa..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
       <div className="card overflow-hidden">
         <table className="w-full">
-          <thead><tr className="border-b border-white/5"><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase">Empresa</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase">Tipo</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase hidden md:table-cell">Usuarios</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase hidden lg:table-cell">Ventas hoy</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase">Estado</th><th className="p-4"></th></tr></thead>
+          <thead><tr className="border-b border-white/5"><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase">Empresa</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase">Tipo</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase hidden md:table-cell">Plan / vencimiento</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase hidden md:table-cell">Usuarios</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase hidden lg:table-cell">Ventas hoy</th><th className="text-left p-4 text-xs font-semibold text-surface-200/50 uppercase">Estado</th><th className="p-4"></th></tr></thead>
           <tbody>
-            {filtradas.length===0?<tr><td colSpan={6} className="p-8 text-center text-sm text-surface-200/30">{search?'Sin resultados':'No hay empresas'}</td></tr>:filtradas.map((e:any)=>(
+            {filtradas.length===0?<tr><td colSpan={7} className="p-8 text-center text-sm text-surface-200/30">{search?'Sin resultados':'No hay empresas'}</td></tr>:filtradas.map((e:any)=>(
               <tr key={e.id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
                 <td className="p-4"><div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-lg bg-brand-600/20 flex items-center justify-center flex-shrink-0"><Building2 className="w-4 h-4 text-brand-400"/></div><div><p className="font-medium text-surface-50">{e.nombre}</p>{e.ciudad&&<p className="text-xs text-surface-200/40">{e.ciudad}</p>}</div></div></td>
                 <td className="p-4"><span className="text-xs bg-brand-600/20 text-brand-400 px-2 py-1 rounded-lg capitalize">{e.tipo?.replace(/_/g,' ')}</span></td>
+                <td className="p-4 hidden md:table-cell"><p className="text-sm capitalize text-surface-200/80">{e.plan||'Básico'}</p><p className="mt-1 flex items-center gap-1 text-xs text-surface-200/40"><CalendarDays className="w-3 h-3"/>{e.licencia_fin ? new Date(`${String(e.licencia_fin).slice(0,10)}T12:00:00`).toLocaleDateString('es-CO') : 'Sin vencimiento'}</p></td>
                 <td className="p-4 hidden md:table-cell"><div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-surface-200/30"/><span className="text-sm text-surface-200/70">{e.total_usuarios??0}</span></div></td>
                 <td className="p-4 hidden lg:table-cell"><div className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-emerald-400/50"/><span className="text-sm text-surface-200/70">{formatCurrency(e.ventas_hoy??0)}</span></div></td>
                 <td className="p-4"><button onClick={()=>toggle.mutate({id:e.id,activa:!e.activa})} className={cn('text-xs px-2 py-1 rounded-lg font-medium transition-colors',e.activa?'bg-emerald-500/20 text-emerald-400':'bg-red-500/20 text-red-400')}>{e.activa?'Activa':'Inactiva'}</button></td>

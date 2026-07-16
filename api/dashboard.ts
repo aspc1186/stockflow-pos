@@ -1,11 +1,18 @@
 import { query, queryOne } from '../_db.js'
 import { authenticate, cors } from '../_auth.js'
 
+let pedidoSchemaReady: Promise<void> | null = null
+function ensurePedidoSchema() {
+  if (!pedidoSchemaReady) pedidoSchemaReady = query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID`).then(() => undefined)
+  return pedidoSchemaReady
+}
+
 export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return
+  await ensurePedidoSchema()
   const eid = auth.empresa_id
   const urlPath = (req.url||'').split('?')[0]
 
@@ -20,7 +27,7 @@ export default async function handler(req: any, res: any) {
       const [vpp,tp,vm,vmesa,resumen]=await Promise.all([
         query(`SELECT TO_CHAR(cierre_at,'${fmt}') as periodo,COUNT(*) as pedidos,COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND cierre_at::date BETWEEN $2 AND $3 GROUP BY 1 ORDER BY 1`,[eid,fd,fh]),
         query(`SELECT pr.nombre,SUM(pi.cantidad) as unidades,SUM(pi.subtotal) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id WHERE pi.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 20`,[eid,fd,fh]),
-        query(`SELECT u.nombre,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN usuarios u ON u.id=p.usuario_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY u.id,u.nombre ORDER BY total DESC`,[eid,fd,fh]),
+        query(`SELECT u.nombre,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN usuarios u ON u.id=COALESCE(p.usuario_cierre_id,p.usuario_id) WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY u.id,u.nombre ORDER BY total DESC`,[eid,fd,fh]),
         query(`SELECT COALESCE(m.numero::text,'Sin mesa') as mesa,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p LEFT JOIN mesas m ON m.id=p.mesa_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY m.numero ORDER BY total DESC`,[eid,fd,fh]),
         queryOne(`SELECT COUNT(*) as total_pedidos,COALESCE(SUM(total),0) as total_ventas,COALESCE(AVG(total),0) as ticket_promedio FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND cierre_at::date BETWEEN $2 AND $3`,[eid,fd,fh]),
       ])

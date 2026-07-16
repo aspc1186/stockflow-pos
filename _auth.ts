@@ -26,7 +26,8 @@ async function authenticate(req: any, res: any): Promise<any | null> {
   try {
     const payload = verifyToken(token)
     const user = await queryOne(
-      `SELECT u.id, u.empresa_id, u.nombre, u.email, u.username, LOWER(TRIM(r.nombre)) as rol
+      `SELECT u.id, u.empresa_id, u.nombre, u.email, u.username,
+       CASE WHEN LOWER(TRIM(r.nombre)) IN ('superadmin','super_admin','super administrador','superadministrador') THEN 'superadmin' ELSE LOWER(TRIM(r.nombre)) END as rol
        FROM usuarios u
        JOIN roles r ON r.id = u.rol_id
        WHERE u.id = $1 AND u.activo = true`,
