@@ -40,12 +40,13 @@ export default async function handler(req: any, res: any) {
     const fmtMap: any={dia:'YYYY-MM-DD',semana:'IYYY-IW',mes:'YYYY-MM'}
     const fmt=fmtMap[agrupacion]||'YYYY-MM-DD'
     try {
+      const fechaVenta = "COALESCE(p.cierre_at,p.created_at)"
       const [vpp,tp,vm,vmesa,resumen]=await Promise.all([
-        query(`SELECT TO_CHAR(cierre_at,'${fmt}') as periodo,COUNT(*) as pedidos,COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND cierre_at::date BETWEEN $2 AND $3 GROUP BY 1 ORDER BY 1`,[eid,fd,fh]),
-        query(`SELECT pr.nombre,SUM(pi.cantidad) as unidades,SUM(pi.subtotal) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id WHERE pi.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 20`,[eid,fd,fh]),
-        query(`SELECT u.nombre,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN usuarios u ON u.id=COALESCE(p.mesero_id,p.usuario_id) WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY u.id,u.nombre ORDER BY total DESC`,[eid,fd,fh]),
-        query(`SELECT COALESCE(m.numero::text,'Sin mesa') as mesa,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p LEFT JOIN mesas m ON m.id=p.mesa_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY m.numero ORDER BY total DESC`,[eid,fd,fh]),
-        queryOne(`SELECT COUNT(*) as total_pedidos,COALESCE(SUM(total),0) as total_ventas,COALESCE(AVG(total),0) as ticket_promedio FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND cierre_at::date BETWEEN $2 AND $3`,[eid,fd,fh]),
+        query(`SELECT TO_CHAR(${fechaVenta},'${fmt}') as periodo,COUNT(*) as pedidos,COALESCE(SUM(p.total),0) as total FROM pedidos p WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaVenta}::date BETWEEN $2 AND $3 GROUP BY 1 ORDER BY 1`,[eid,fd,fh]),
+        query(`SELECT pr.nombre,SUM(pi.cantidad) as unidades,SUM(pi.subtotal) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id WHERE pi.empresa_id=$1 AND p.estado='cobrado' AND ${fechaVenta}::date BETWEEN $2 AND $3 GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 20`,[eid,fd,fh]),
+        query(`SELECT u.nombre,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN usuarios u ON u.id=COALESCE(p.mesero_id,p.usuario_id) WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaVenta}::date BETWEEN $2 AND $3 GROUP BY u.id,u.nombre ORDER BY total DESC`,[eid,fd,fh]),
+        query(`SELECT COALESCE(m.numero::text,'Sin mesa') as mesa,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p LEFT JOIN mesas m ON m.id=p.mesa_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaVenta}::date BETWEEN $2 AND $3 GROUP BY m.numero ORDER BY total DESC`,[eid,fd,fh]),
+        queryOne(`SELECT COUNT(*) as total_pedidos,COALESCE(SUM(p.total),0) as total_ventas,COALESCE(AVG(p.total),0) as ticket_promedio FROM pedidos p WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaVenta}::date BETWEEN $2 AND $3`,[eid,fd,fh]),
       ])
       return res.status(200).json({ ok:true, data:{periodo:{desde:fd,hasta:fh},resumen,ventas_por_periodo:vpp,top_productos:tp,ventas_por_mesero:vm,ventas_por_mesa:vmesa} })
     } catch(e: any) { return res.status(500).json({ ok:false, msg:e.message }) }
@@ -53,7 +54,9 @@ export default async function handler(req: any, res: any) {
 
   // Dashboard stats
   try {
-    const fechaVenta = "COALESCE(p.cierre_at,p.updated_at,p.created_at)"
+    // Orders created before cierre_at existed must keep their original sale date.
+    // updated_at is deliberately excluded because edits can move an old sale into today.
+    const fechaVenta = "COALESCE(p.cierre_at,p.created_at)"
     const [vh,vm2,pa,em,capacidades,ic,valorInventario,ca,tp2,vph]=await Promise.all([
       queryOne(`SELECT COALESCE(SUM(p.total),0) as total,COUNT(p.id) as cantidad FROM pedidos p WHERE p.empresa_id=$1 AND p.estado='cobrado' AND (${fechaVenta} AT TIME ZONE 'America/Bogota')::date=(NOW() AT TIME ZONE 'America/Bogota')::date`,[eid]),
       queryOne(`SELECT COALESCE(SUM(p.total),0) as total FROM pedidos p WHERE p.empresa_id=$1 AND p.estado='cobrado' AND DATE_TRUNC('month',${fechaVenta} AT TIME ZONE 'America/Bogota')=DATE_TRUNC('month',NOW() AT TIME ZONE 'America/Bogota')`,[eid]),
