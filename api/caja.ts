@@ -28,6 +28,7 @@ export default async function handler(req: any, res: any) {
     }
     if (accion==='movimiento') {
       if (!['ingreso','egreso'].includes(tipo)) return res.status(400).json({ ok:false, msg:'Los movimientos manuales solo pueden ser ingresos o egresos' })
+      if (!String(descripcion || '').trim()) return res.status(400).json({ ok:false, msg:'Describe el ingreso o gasto para conservar la trazabilidad' })
       const caja=await queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]) as any
       if (!caja) return res.status(400).json({ ok:false, msg:'Sin caja abierta' })
       const [m]=await query(`INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,pedido_id,tipo,metodo_pago,monto,descripcion) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[uuid(),eid,caja.id,auth.id,pedido_id||null,tipo||'ingreso',metodo_pago||'efectivo',monto,descripcion||null])

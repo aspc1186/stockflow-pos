@@ -24,7 +24,7 @@ export default function DashboardPage() {
         <button onClick={() => refetch()} className="btn-ghost btn-sm">Actualizar</button>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard label="Ventas hoy" value={formatCurrency(data.ventas_hoy ?? 0)} icon={<TrendingUp className="w-5 h-5 text-brand-400"/>} iconBg="bg-brand-600/20"/>
+        <StatCard label="Ventas caja actual" value={formatCurrency(data.ventas_hoy ?? 0)} icon={<TrendingUp className="w-5 h-5 text-brand-400"/>} iconBg="bg-brand-600/20"/>
         <StatCard label="Ventas mes" value={formatCurrency(data.ventas_mes ?? 0)} icon={<TrendingUp className="w-5 h-5 text-purple-400"/>} iconBg="bg-purple-500/20"/>
         <StatCard label="Valor inventario" value={formatCurrency(data.valor_inventario ?? 0)} icon={<Package className="w-5 h-5 text-violet-400"/>} iconBg="bg-violet-500/20"/>
         <StatCard label="Pedidos activos" value={data.pedidos_activos ?? 0} icon={<ShoppingBag className="w-5 h-5 text-amber-400"/>} iconBg="bg-amber-500/20"/>
@@ -40,7 +40,7 @@ export default function DashboardPage() {
       </div>
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="card p-5 lg:col-span-2">
-          <h3 className="text-sm font-semibold text-surface-200/70 mb-4 uppercase tracking-wide">Ventas por hora — hoy</h3>
+          <h3 className="text-sm font-semibold text-surface-200/70 mb-4 uppercase tracking-wide">Ventas por hora - caja actual</h3>
           {data.ventas_por_hora?.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={data.ventas_por_hora}>
@@ -50,10 +50,10 @@ export default function DashboardPage() {
                 <Area type="monotone" dataKey="total" stroke="#6366f1" fill="url(#gv)" strokeWidth={2}/>
               </AreaChart>
             </ResponsiveContainer>
-          ) : <div className="h-[200px] flex items-center justify-center"><div className="text-center"><Wine className="w-10 h-10 text-surface-200/20 mx-auto mb-2"/><p className="text-sm text-surface-200/30">Sin ventas hoy</p></div></div>}
+          ) : <div className="h-[200px] flex items-center justify-center"><div className="text-center"><Wine className="w-10 h-10 text-surface-200/20 mx-auto mb-2"/><p className="text-sm text-surface-200/30">Sin ventas en la caja actual</p></div></div>}
         </div>
         <div className="card p-5">
-          <h3 className="text-sm font-semibold text-surface-200/70 mb-4 uppercase tracking-wide">Top productos — hoy</h3>
+          <h3 className="text-sm font-semibold text-surface-200/70 mb-4 uppercase tracking-wide">Top productos - caja actual</h3>
           {data.productos_mas_vendidos?.length > 0 ? (
             <div className="space-y-3">
               {data.productos_mas_vendidos.slice(0,7).map((p,i) => (
@@ -66,7 +66,7 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          ) : <div className="flex items-center justify-center h-40"><p className="text-sm text-surface-200/30">Sin datos hoy</p></div>}
+          ) : <div className="flex items-center justify-center h-40"><p className="text-sm text-surface-200/30">Sin datos en la caja actual</p></div>}
         </div>
       </div>
     </div>

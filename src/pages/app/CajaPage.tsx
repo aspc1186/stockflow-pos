@@ -40,17 +40,18 @@ export default function CajaPage() {
       </div>
       {caja && <>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {[{label:'Saldo inicial',value:caja.saldo_inicial,color:'text-surface-50'},{label:'Ventas',value:caja.total_ventas,color:'text-emerald-400'},{label:'Ingresos',value:caja.total_ingresos,color:'text-sky-400'},{label:'Egresos',value:caja.total_egresos,color:'text-red-400'},{label:'Saldo actual',value:saldo,color:'text-brand-400'}].map(i => (
+          {[{label:'Saldo inicial',value:caja.saldo_inicial,color:'text-surface-50'},{label:'Ventas',value:caja.total_ventas,color:'text-emerald-400'},{label:'Ingresos adicionales',value:caja.total_ingresos,color:'text-sky-400'},{label:'Gastos / egresos',value:caja.total_egresos,color:'text-red-400'},{label:'Saldo actual',value:saldo,color:'text-brand-400'}].map(i => (
             <div key={i.label} className="card p-4"><p className="text-xs text-surface-200/50 uppercase tracking-wide mb-1">{i.label}</p><p className={cn('text-2xl font-bold',i.color)}>{formatCurrency(i.value)}</p></div>
           ))}
         </div>
         <div className="card overflow-hidden">
           <div className="px-5 py-4 border-b border-white/5"><h3 className="text-sm font-semibold">Movimientos</h3></div>
           <div className="overflow-x-auto"><table className="table-base">
-            <thead><tr><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Método</th><th>Monto</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Método</th><th>Monto</th></tr></thead>
             <tbody>
               {movimientos.map(m => (
                 <tr key={m.id}>
+                  <td className="text-xs whitespace-nowrap">{formatDate(m.created_at,'dd/MM/yyyy')}</td>
                   <td className="text-xs">{formatDate(m.created_at,'HH:mm')}</td>
                   <td><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':m.tipo==='egreso','badge-yellow':m.tipo==='propina'})}>{m.tipo}</span></td>
                   <td className="text-surface-200/70">{m.descripcion ?? '—'}</td>
@@ -58,22 +59,22 @@ export default function CajaPage() {
                   <td className={cn('font-semibold',m.tipo==='egreso'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'?'-':'+'}{formatCurrency(m.monto)}</td>
                 </tr>
               ))}
-              {movimientos.length===0&&<tr><td colSpan={5} className="text-center py-8 text-surface-200/30">Sin movimientos</td></tr>}
+              {movimientos.length===0&&<tr><td colSpan={6} className="text-center py-8 text-surface-200/30">Sin movimientos</td></tr>}
             </tbody>
           </table></div>
         </div>
       </>}
       {!caja && <div className="flex flex-col items-center justify-center py-20 text-center"><CreditCard className="w-16 h-16 text-surface-200/15 mb-4"/><p className="text-surface-200/40">La caja está cerrada</p></div>}
       {!caja && ultimoCierre && <div className="card p-5">
-        <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Ultimo cierre</h3><span className="text-xs text-surface-200/40">{ultimoCierre.cierre_at ? formatDate(ultimoCierre.cierre_at, 'DD/MM/YYYY HH:mm') : ''}</span></div>
+        <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Ultimo cierre</h3><span className="text-xs text-surface-200/40">{ultimoCierre.cierre_at ? formatDate(ultimoCierre.cierre_at, 'dd/MM/yyyy HH:mm') : ''}</span></div>
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[{label:'Saldo inicial',value:ultimoCierre.saldo_inicial},{label:'Ventas',value:ultimoCierre.total_ventas},{label:'Ingresos',value:ultimoCierre.total_ingresos},{label:'Egresos',value:ultimoCierre.total_egresos},{label:'Saldo final',value:ultimoCierre.saldo_final,color:'text-brand-400'}].map(i => <div key={i.label}><p className="text-xs text-surface-200/45">{i.label}</p><p className={cn('mt-1 font-bold',i.color || 'text-surface-50')}>{formatCurrency(Number(i.value || 0))}</p></div>)}
         </div>
         <div className="mt-5 border-t border-white/5 pt-4">
           <h4 className="text-sm font-semibold mb-3">Movimientos del ultimo cierre</h4>
-          <div className="overflow-x-auto"><table className="table-base"><thead><tr><th>Hora</th><th>Tipo</th><th>Usuario</th><th>Metodo</th><th>Monto</th></tr></thead><tbody>
-            {movimientosUltimoCierre.map((m:any) => <tr key={m.id}><td className="text-xs">{formatDate(m.created_at,'HH:mm')}</td><td><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':m.tipo==='egreso'})}>{m.tipo}</span></td><td className="text-sm text-surface-200/70">{m.usuario_nombre || 'Sistema'}</td><td className="capitalize text-xs text-surface-200/60">{m.metodo_pago}</td><td className={cn('font-semibold',m.tipo==='egreso'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'?'-':'+'}{formatCurrency(m.monto)}</td></tr>)}
-            {movimientosUltimoCierre.length===0 && <tr><td colSpan={5} className="py-6 text-center text-sm text-surface-200/30">No hay movimientos registrados</td></tr>}
+          <div className="overflow-x-auto"><table className="table-base"><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Usuario</th><th>Metodo</th><th>Monto</th></tr></thead><tbody>
+            {movimientosUltimoCierre.map((m:any) => <tr key={m.id}><td className="text-xs whitespace-nowrap">{formatDate(m.created_at,'dd/MM/yyyy')}</td><td className="text-xs">{formatDate(m.created_at,'HH:mm')}</td><td><span className={cn('badge',{'badge-green':m.tipo==='ingreso'||m.tipo==='venta','badge-red':m.tipo==='egreso'})}>{m.tipo}</span></td><td className="text-sm text-surface-200/70">{m.usuario_nombre || 'Sistema'}</td><td className="capitalize text-xs text-surface-200/60">{m.metodo_pago}</td><td className={cn('font-semibold',m.tipo==='egreso'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'?'-':'+'}{formatCurrency(m.monto)}</td></tr>)}
+            {movimientosUltimoCierre.length===0 && <tr><td colSpan={6} className="py-6 text-center text-sm text-surface-200/30">No hay movimientos registrados</td></tr>}
           </tbody></table></div>
         </div>
       </div>}
@@ -82,12 +83,12 @@ export default function CajaPage() {
         <div><label className="label">Saldo inicial en efectivo</label><input type="number" min="0" className="input" value={saldoI} onChange={e => setSaldoI(e.target.value)}/></div>
       </Modal>
       <Modal open={modalMov} onClose={() => setModalMov(false)} title="Registrar movimiento" size="sm"
-        footer={<div className="flex gap-3"><button onClick={() => setModalMov(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => op.mutate({accion:'movimiento',...mov,monto:parseFloat(mov.monto)||0})} disabled={!mov.monto||op.isPending} className="btn-primary flex-1">Registrar</button></div>}>
+        footer={<div className="flex gap-3"><button onClick={() => setModalMov(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => op.mutate({accion:'movimiento',...mov,monto:parseFloat(mov.monto)||0})} disabled={!mov.monto || !mov.descripcion.trim() || op.isPending} className="btn-primary flex-1">Registrar</button></div>}>
         <div className="space-y-4">
-          <div><label className="label">Tipo</label><select className="input" value={mov.tipo} onChange={e=>setMov(p=>({...p,tipo:e.target.value}))}><option value="ingreso" className="bg-surface-800">Ingreso</option><option value="egreso" className="bg-surface-800">Egreso</option></select></div>
+          <div><label className="label">Tipo</label><select className="input" value={mov.tipo} onChange={e=>setMov(p=>({...p,tipo:e.target.value}))}><option value="ingreso" className="bg-surface-800">Ingreso adicional</option><option value="egreso" className="bg-surface-800">Gasto / egreso</option></select></div>
           <div><label className="label">Monto</label><input type="number" min="0" className="input" value={mov.monto} onChange={e=>setMov(p=>({...p,monto:e.target.value}))}/></div>
           <div><label className="label">Método</label><select className="input" value={mov.metodo_pago} onChange={e=>setMov(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>
-          <div><label className="label">Descripción</label><input className="input" value={mov.descripcion} onChange={e=>setMov(p=>({...p,descripcion:e.target.value}))}/></div>
+          <div><label className="label">Descripción</label><input className="input" value={mov.descripcion} onChange={e=>setMov(p=>({...p,descripcion:e.target.value}))} placeholder="Ej.: compra de hielo, pago de transporte"/></div>
         </div>
       </Modal>
       <Modal open={modalCerrar} onClose={() => setModalCerrar(false)} title="Cerrar caja" size="sm"

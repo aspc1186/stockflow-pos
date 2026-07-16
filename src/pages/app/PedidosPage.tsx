@@ -56,7 +56,7 @@ export default function PedidosPage() {
         ))}
       </div>
       <div className="space-y-3 md:hidden">{pedidos.map(p => { const r = p as any; return <button key={p.id} onClick={() => navigate(`/app/pedidos/${p.id}`)} className="card w-full p-4 text-left">
-        <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-surface-50">{r.mesa_numero ? `Mesa ${r.mesa_numero}` : 'Pedido sin mesa'}</p><p className="mt-1 text-xs text-surface-200/50">{r.mesero_nombre || 'Sin mesero'} - {formatDate(p.apertura_at,'DD/MM/YYYY HH:mm')}</p></div><span className={badge[p.estado]}>{lbl[p.estado] || (p.estado === 'precierre' ? 'Precierre' : p.estado)}</span></div>
+        <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-surface-50">{r.mesa_numero ? `Mesa ${r.mesa_numero}` : 'Pedido sin mesa'}</p><p className="mt-1 text-xs text-surface-200/50">{r.mesero_nombre || 'Sin mesero'} - {formatDate(p.apertura_at,'dd/MM/yyyy HH:mm')}</p></div><span className={badge[p.estado]}>{lbl[p.estado] || (p.estado === 'precierre' ? 'Precierre' : p.estado)}</span></div>
         <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3"><span className="text-xs text-surface-200/50">#{p.numero || '-'}</span><span className="font-bold text-surface-50">{formatCurrency(p.total)}</span></div>
       </button>})}{pedidos.length === 0 && <div className="card py-12 text-center text-sm text-surface-200/40">No hay pedidos para este filtro</div>}</div>
       <div className="card hidden overflow-hidden md:block"><div className="overflow-x-auto"><table className="table-base">
@@ -69,7 +69,7 @@ export default function PedidosPage() {
               <td><span className={badge[p.estado]}>{lbl[p.estado] || (p.estado === 'precierre' ? 'Precierre' : p.estado)}</span></td>
               <td className="text-surface-200/70">{r.mesero_nombre || r.usuario_nombre || '—'}</td>
               <td className="font-semibold text-surface-50">{formatCurrency(p.total)}</td>
-              <td className="text-surface-200/50 text-xs whitespace-nowrap">{formatDate(p.apertura_at,'DD/MM/YYYY')}</td>
+              <td className="text-surface-200/50 text-xs whitespace-nowrap">{formatDate(p.apertura_at,'dd/MM/yyyy')}</td>
               <td className="text-surface-200/50 text-xs">{formatDate(p.apertura_at,'HH:mm')}</td>
               <td className="text-surface-200/50 text-xs">{calcularTiempoTranscurrido(p.apertura_at)}</td>
             </tr>
