@@ -7,6 +7,7 @@ let mesasSchemaReady: Promise<void> | null = null
 function ensureMesasSchema() {
   if (!mesasSchemaReady) mesasSchemaReady = query(`ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mesero_id UUID`)
     .then(() => query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID, ADD COLUMN IF NOT EXISTS mesero_id UUID, ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(30)`))
+    .then(() => query(`ALTER TABLE pedido_items ADD COLUMN IF NOT EXISTS costo_unit NUMERIC`))
     .then(() => undefined)
   return mesasSchemaReady
 }
@@ -172,12 +173,12 @@ export default async function handler(req: any, res: any) {
            VALUES ($1,$2,$3,$4,$5,$6,'abierto',$7,$8,$9,$10,$11)`,
           [pid,eid,mesa_id||null,cliente_id||null,auth.id,meseroId,tipo||'mesa',subtotal,impuestos,subtotal+impuestos,notas||null])
         for (const item of items) {
-          const prod=await queryOne(`SELECT precio_venta,impuesto_pct,destino FROM productos WHERE id=$1 AND empresa_id=$2`,[item.producto_id,eid]) as any
+          const prod=await queryOne(`SELECT precio_venta,precio_costo,impuesto_pct,destino FROM productos WHERE id=$1 AND empresa_id=$2`,[item.producto_id,eid]) as any
           if (!prod) continue
           await query(
-            `INSERT INTO pedido_items (id,pedido_id,empresa_id,producto_id,cantidad,precio_unit,impuesto_pct,subtotal,observaciones,destino)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-            [uuid(),pid,eid,item.producto_id,item.cantidad,prod.precio_venta,prod.impuesto_pct,prod.precio_venta*item.cantidad,item.observaciones||null,prod.destino||'barra'])
+            `INSERT INTO pedido_items (id,pedido_id,empresa_id,producto_id,cantidad,precio_unit,costo_unit,impuesto_pct,subtotal,observaciones,destino)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            [uuid(),pid,eid,item.producto_id,item.cantidad,prod.precio_venta,prod.precio_costo || 0,prod.impuesto_pct,prod.precio_venta*item.cantidad,item.observaciones||null,prod.destino||'barra'])
           await moverInventario(eid, item.producto_id, auth.id, item.cantidad, 'venta', `Pedido ${pid}`)
         }
         if (mesa_id) await query(`UPDATE mesas SET estado='ocupada' WHERE id=$1 AND empresa_id=$2`,[mesa_id,eid])
@@ -210,10 +211,10 @@ export default async function handler(req: any, res: any) {
       if (!items?.length) return res.status(400).json({ ok: false, msg: 'Items requeridos' })
       if (!(await cajaAbierta(eid))) return res.status(400).json({ ok: false, msg: 'Abre la caja antes de agregar productos al pedido' })
       for (const item of items) {
-        const prod=await queryOne(`SELECT precio_venta,impuesto_pct,destino,disponible FROM productos WHERE id=$1 AND empresa_id=$2`,[item.producto_id,eid]) as any
+        const prod=await queryOne(`SELECT precio_venta,precio_costo,impuesto_pct,destino,disponible FROM productos WHERE id=$1 AND empresa_id=$2`,[item.producto_id,eid]) as any
         if (!prod||!prod.disponible) continue
-        await query(`INSERT INTO pedido_items (id,pedido_id,empresa_id,producto_id,cantidad,precio_unit,impuesto_pct,subtotal,observaciones,destino) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [uuid(),pedidoId,eid,item.producto_id,item.cantidad,prod.precio_venta,prod.impuesto_pct,prod.precio_venta*item.cantidad,item.observaciones||null,prod.destino||'barra'])
+        await query(`INSERT INTO pedido_items (id,pedido_id,empresa_id,producto_id,cantidad,precio_unit,costo_unit,impuesto_pct,subtotal,observaciones,destino) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [uuid(),pedidoId,eid,item.producto_id,item.cantidad,prod.precio_venta,prod.precio_costo || 0,prod.impuesto_pct,prod.precio_venta*item.cantidad,item.observaciones||null,prod.destino||'barra'])
         await moverInventario(eid, item.producto_id, auth.id, item.cantidad, 'venta', `Pedido ${pedidoId}`)
       }
       await recalcularPedido(pedidoId)

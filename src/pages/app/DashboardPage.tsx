@@ -11,7 +11,7 @@ export default function DashboardPage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => { const { data } = await api.get<any>('/dashboard'); return (data.data || data) as DashboardStats },
-    refetchInterval: 10_000,
+    refetchInterval: 3_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: 'always',
   })
@@ -39,12 +39,12 @@ export default function DashboardPage() {
         <StatCard label="Consumo promedio por persona" value={formatCurrency(data.capacidad_ocupada > 0 ? (data.ventas_hoy / data.capacidad_ocupada) : 0)} icon={<CreditCard className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
         <div className="col-span-2 grid grid-cols-2 gap-4">
           <div className="card p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-surface-100"><CircleDollarSign className="h-4 w-4 text-amber-400"/>Utilidad del dia</div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-surface-100"><CircleDollarSign className="h-4 w-4 text-amber-400"/>Utilidad del Día</div>
             <p className="mt-3 text-xl font-bold text-surface-50">{formatCurrency(data.utilidad_dia ?? 0)}</p>
             <p className="mt-3 border-t border-white/10 pt-3 text-xs text-surface-200/60">Margen {Number(data.margen_dia ?? 0).toFixed(1)}%</p>
           </div>
           <div className="card p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-surface-100"><BarChart3 className="h-4 w-4 text-emerald-400"/>Utilidad del mes</div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-surface-100"><BarChart3 className="h-4 w-4 text-emerald-400"/>Utilidad del Mes</div>
             <p className="mt-3 text-xl font-bold text-surface-50">{formatCurrency(data.utilidad_mes ?? 0)}</p>
             <p className="mt-3 border-t border-white/10 pt-3 text-xs text-surface-200/60">Margen {Number(data.margen_mes ?? 0).toFixed(1)}%</p>
           </div>
