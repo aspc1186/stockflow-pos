@@ -26,7 +26,7 @@ async function authenticate(req: any, res: any): Promise<any | null> {
   try {
     const payload = verifyToken(token)
     const user = await queryOne(
-      `SELECT u.id, u.empresa_id, u.nombre, u.email, u.username, r.nombre as rol
+      `SELECT u.id, u.empresa_id, u.nombre, u.email, u.username, LOWER(TRIM(r.nombre)) as rol
        FROM usuarios u
        JOIN roles r ON r.id = u.rol_id
        WHERE u.id = $1 AND u.activo = true`,
@@ -46,7 +46,7 @@ async function authenticate(req: any, res: any): Promise<any | null> {
 async function authSuperAdmin(req: any, res: any): Promise<any | null> {
   const user = await authenticate(req, res)
   if (!user) return null
-  if (user.rol !== 'superadmin') {
+  if (String(user.rol).toLowerCase() !== 'superadmin') {
     res.status(403).json({ ok: false, msg: 'Solo superadmin' })
     return null
   }

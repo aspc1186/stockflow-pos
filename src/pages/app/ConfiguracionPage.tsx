@@ -12,7 +12,7 @@ export default function ConfiguracionPage() {
   const guardar = useMutation({
     mutationFn: () => api.patch(`/empresas/${empresa?.id}`, form),
     onSuccess: async () => { await refreshUser(); toast.success('Configuración guardada') },
-    onError: () => toast.error('Error al guardar'),
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo guardar la configuracion'),
   })
   if (!empresa) return <div className="flex items-center justify-center h-64"><p className="text-surface-200/40">Sin empresa configurada</p></div>
   return (

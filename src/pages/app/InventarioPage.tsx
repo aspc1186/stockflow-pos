@@ -39,7 +39,7 @@ export default function InventarioPage() {
   return (
     <div className="space-y-5">
       <div className="page-header">
-        <div><h1 className="page-title">Inventario</h1><p className="page-subtitle">Saldo actual despues de todas las ventas y salidas registradas</p></div>
+        <div><h1 className="page-title">Inventario</h1><p className="page-subtitle">Valor total a costo: {formatCurrency(valorTotal)} - Saldo actual despues de ventas y salidas</p></div>
         <div className="flex gap-2"><button onClick={descargarMovimientos} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Movimientos</button><button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Movimiento</button></div>
       </div>
       <div className="flex gap-3">

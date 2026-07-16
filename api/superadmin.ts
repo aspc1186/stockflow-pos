@@ -24,10 +24,10 @@ export default async function handler(req: any, res: any) {
       return res.status(e ? 200 : 404).json(e ? { ok: true, data: e } : { ok: false, msg: 'No encontrada' })
     }
     if (req.method === 'PATCH') {
-      const { nombre, telefono, email, ciudad, direccion, logo_url, color_primario } = req.body || {}
+      const { nombre, tipo, telefono, email, ciudad, direccion, logo_url, color_primario } = req.body || {}
       const [u] = await query(
-        `UPDATE empresas SET nombre=COALESCE($1,nombre),telefono=COALESCE($2,telefono),email=COALESCE($3,email),ciudad=COALESCE($4,ciudad),direccion=COALESCE($5,direccion),logo_url=COALESCE($6,logo_url),color_primario=COALESCE($7,color_primario),updated_at=NOW() WHERE id=$8 RETURNING *`,
-        [nombre, telefono, email, ciudad, direccion, logo_url, color_primario, id]
+        `UPDATE empresas SET nombre=COALESCE($1,nombre),tipo=COALESCE($2,tipo),telefono=COALESCE($3,telefono),email=COALESCE($4,email),ciudad=COALESCE($5,ciudad),direccion=COALESCE($6,direccion),logo_url=COALESCE($7,logo_url),color_primario=COALESCE($8,color_primario),updated_at=NOW() WHERE id=$9 RETURNING *`,
+        [nombre, tipo, telefono, email, ciudad, direccion, logo_url, color_primario, id]
       )
       return res.status(200).json({ ok: true, data: u })
     }

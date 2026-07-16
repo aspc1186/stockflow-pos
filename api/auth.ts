@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
     }
     try {
       const user = await queryOne(
-        `SELECT u.*, r.nombre as rol_nombre
+        `SELECT u.*, LOWER(TRIM(r.nombre)) as rol_nombre
          FROM usuarios u
          JOIN roles r ON r.id = u.rol_id
          WHERE LOWER(u.username) = LOWER($1) AND u.activo = true`,
@@ -38,7 +38,7 @@ export default async function handler(req: any, res: any) {
       }
       let empresa = null
       if (user.empresa_id) {
-        empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario FROM empresas WHERE id=$1`, [user.empresa_id])
+        empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad FROM empresas WHERE id=$1`, [user.empresa_id])
         if (!empresa?.activa) {
           return res.status(403).json({ ok: false, msg: 'Empresa inactiva' })
         }
@@ -70,7 +70,7 @@ export default async function handler(req: any, res: any) {
     if (!auth) return
     let empresa = null
     if (auth.empresa_id) {
-      empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario FROM empresas WHERE id=$1`, [auth.empresa_id])
+      empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad FROM empresas WHERE id=$1`, [auth.empresa_id])
     }
     return res.status(200).json({ ok: true, data: { ...auth, empresa } })
   }

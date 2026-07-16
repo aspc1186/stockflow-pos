@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, ShoppingBag, Users, AlertTriangle, CreditCard, Wine } from 'lucide-react'
+import { TrendingUp, ShoppingBag, Users, AlertTriangle, CreditCard, Wine, Package } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '@/lib/axios'
 import type { DashboardStats } from '@/types'
@@ -32,6 +32,7 @@ export default function DashboardPage() {
         <StatCard label="Mesas libres" value={data.mesas_libres ?? 0} icon={<Users className="w-5 h-5 text-emerald-400"/>} iconBg="bg-emerald-500/20"/>
         <StatCard label="Capacidad total" value={data.capacidad_total ?? 0} icon={<Users className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
         <StatCard label="Puestos en mesas ocupadas" value={data.capacidad_ocupada ?? 0} icon={<Users className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
+        <StatCard label="Valor inventario" value={formatCurrency(data.valor_inventario ?? 0)} icon={<Package className="w-5 h-5 text-violet-400"/>} iconBg="bg-violet-500/20"/>
         <StatCard label="Stock crítico" value={data.inventario_critico ?? 0} icon={<AlertTriangle className="w-5 h-5 text-red-400"/>} iconBg="bg-red-500/20"/>
         <StatCard label="Ticket promedio" value={formatCurrency(data.pedidos_activos > 0 ? (data.ventas_hoy / Math.max(data.pedidos_activos,1)) : 0)} icon={<CreditCard className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
       </div>

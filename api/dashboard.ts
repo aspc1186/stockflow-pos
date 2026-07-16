@@ -18,7 +18,7 @@ export default async function handler(req: any, res: any) {
     const fmt=fmtMap[agrupacion]||'YYYY-MM-DD'
     try {
       const [vpp,tp,vm,vmesa,resumen]=await Promise.all([
-        query(`SELECT TO_CHAR(DATE_TRUNC($1,cierre_at),'${fmt}') as periodo,COUNT(*) as pedidos,SUM(total) as total FROM pedidos WHERE empresa_id=$2 AND estado='cobrado' AND cierre_at::date BETWEEN $3 AND $4 GROUP BY 1 ORDER BY 1`,[agrupacion,eid,fd,fh]),
+        query(`SELECT TO_CHAR(cierre_at,'${fmt}') as periodo,COUNT(*) as pedidos,COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND cierre_at::date BETWEEN $2 AND $3 GROUP BY 1 ORDER BY 1`,[eid,fd,fh]),
         query(`SELECT pr.nombre,SUM(pi.cantidad) as unidades,SUM(pi.subtotal) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id WHERE pi.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 20`,[eid,fd,fh]),
         query(`SELECT u.nombre,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN usuarios u ON u.id=p.usuario_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY u.id,u.nombre ORDER BY total DESC`,[eid,fd,fh]),
         query(`SELECT COALESCE(m.numero::text,'Sin mesa') as mesa,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p LEFT JOIN mesas m ON m.id=p.mesa_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY m.numero ORDER BY total DESC`,[eid,fd,fh]),
@@ -30,13 +30,14 @@ export default async function handler(req: any, res: any) {
 
   // Dashboard stats
   try {
-    const [vh,vm2,pa,em,capacidades,ic,ca,tp2,vph]=await Promise.all([
+    const [vh,vm2,pa,em,capacidades,ic,valorInventario,ca,tp2,vph]=await Promise.all([
       queryOne(`SELECT COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE(cierre_at)=CURRENT_DATE`,[eid]),
       queryOne(`SELECT COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE_TRUNC('month',cierre_at)=DATE_TRUNC('month',CURRENT_DATE)`,[eid]),
       queryOne(`SELECT COUNT(*) as total FROM pedidos WHERE empresa_id=$1 AND estado IN ('abierto','en_preparacion','listo')`,[eid]),
       query(`SELECT estado,COUNT(*) as total FROM mesas WHERE empresa_id=$1 AND activa=true GROUP BY estado`,[eid]),
       queryOne(`SELECT COALESCE(SUM(capacidad),0) as total,COALESCE(SUM(CASE WHEN estado IN ('ocupada','reservada') THEN capacidad ELSE 0 END),0) as ocupada FROM mesas WHERE empresa_id=$1 AND activa=true`,[eid]),
       queryOne(`SELECT COUNT(*) as total FROM inventario WHERE empresa_id=$1 AND stock_actual<=stock_minimo AND stock_minimo>0`,[eid]),
+      queryOne(`SELECT COALESCE(SUM(i.stock_actual * p.precio_costo),0) as total FROM inventario i JOIN productos p ON p.id=i.producto_id AND p.empresa_id=i.empresa_id WHERE i.empresa_id=$1`,[eid]),
       queryOne(`SELECT saldo_inicial,total_ventas,total_ingresos,total_egresos FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]),
       query(`SELECT pr.nombre,SUM(pi.cantidad) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id WHERE pi.empresa_id=$1 AND DATE(p.created_at)=CURRENT_DATE GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 8`,[eid]),
       query(`SELECT TO_CHAR(cierre_at,'HH24:00') as hora,COALESCE(SUM(total),0) as total FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND DATE(cierre_at)=CURRENT_DATE GROUP BY hora ORDER BY hora`,[eid]),
@@ -52,6 +53,7 @@ export default async function handler(req: any, res: any) {
       capacidad_total:parseInt((capacidades as any)?.total??'0'),
       capacidad_ocupada:parseInt((capacidades as any)?.ocupada??'0'),
       inventario_critico:parseInt((ic as any)?.total??'0'),
+      valor_inventario:parseFloat((valorInventario as any)?.total??'0'),
       caja_actual:caja,
       productos_mas_vendidos:tp2.map((r: any)=>({nombre:r.nombre,total:parseFloat(r.total)})),
       ventas_por_hora:vph.map((r: any)=>({hora:r.hora,total:parseFloat(r.total)}))
