@@ -5,7 +5,7 @@ import { authenticate, authSuperAdmin, cors } from '../_auth.js'
 
 let empresaSchemaReady: Promise<void> | null = null
 function ensureEmpresaSchema() {
-  if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT`).then(() => undefined)
+  if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT`).then(() => undefined)
   return empresaSchemaReady
 }
 
@@ -45,6 +45,7 @@ export default async function handler(req: any, res: any) {
   // /api/superadmin/* — solo superadmin
   const auth = await authSuperAdmin(req, res)
   if (!auth) return
+  await ensureEmpresaSchema()
 
   // parts: ['api','superadmin','empresas'] o ['api','superadmin','empresas','ID']
   const empresaId = parts[3] || null
