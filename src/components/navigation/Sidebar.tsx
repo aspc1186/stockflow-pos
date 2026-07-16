@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X } from 'lucide-react'
+import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X, ChevronDown, Phone } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 const groups=[
@@ -21,13 +22,23 @@ const groups=[
 ]
 export default function Sidebar({onClose}:{onClose?:()=>void}){
   const {user,isRole,logout}=useAuth()
+  const [providerOpen,setProviderOpen]=useState(false)
   return <div className="w-60 h-full bg-surface-800 border-r border-white/5 flex flex-col">
-    <div className="p-4 border-b border-white/5 flex items-center justify-between">
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center flex-shrink-0"><svg viewBox="0 0 32 32" fill="none" className="w-5 h-5"><rect x="3" y="8" width="10" height="16" rx="2" fill="white" fillOpacity="0.9"/><rect x="15" y="4" width="14" height="10" rx="2" fill="white" fillOpacity="0.6"/><rect x="15" y="16" width="14" height="8" rx="2" fill="white" fillOpacity="0.8"/></svg></div>
-        <div><p className="text-sm font-bold text-white leading-tight">{user?.empresa?.nombre??'POS Manager'}</p><p className="text-[10px] text-surface-200/40 capitalize">{user?.empresa?.tipo??'plataforma'}</p></div>
+    <div className="relative border-b border-white/5">
+      <div className="flex items-center justify-between px-4 py-3">
+        <button type="button" onClick={()=>setProviderOpen(!providerOpen)} aria-expanded={providerOpen} className="flex min-w-0 items-center gap-2.5 text-left" title="Informacion del proveedor">
+          <span className="h-8 w-8 flex-shrink-0 rounded-lg border border-brand-400/30 bg-surface-950 bg-[url('/images/stockflow-login.png')] bg-[length:158px_auto] bg-center shadow-sm" aria-hidden="true" />
+          <span className="min-w-0"><span className="block text-sm font-bold leading-tight text-white">{user?.empresa?.nombre??'POS Manager'}</span><span className="block text-[10px] capitalize text-surface-200/40">{user?.empresa?.tipo??'plataforma'}</span></span>
+          <ChevronDown className={cn('h-3.5 w-3.5 flex-shrink-0 text-surface-200/40 transition-transform',providerOpen&&'rotate-180')} />
+        </button>
+        
       </div>
-      {onClose&&<button onClick={onClose} className="p-1 rounded text-surface-200/50 hover:text-white"><X className="w-4 h-4"/></button>}
+      {providerOpen&&<div className="mx-3 mb-3 rounded-lg border border-white/10 bg-surface-900/70 px-3 py-2.5 text-xs">
+        <p className="mb-1.5 font-semibold text-surface-50">StockFlow POS <span className="font-normal text-surface-200/40">V.01</span></p>
+        <p className="text-surface-200/60">Creador: John F. Diaz</p>
+        <a href="tel:+573189758780" className="mt-1 flex items-center gap-1.5 text-brand-300 hover:text-brand-200"><Phone className="h-3.5 w-3.5"/>318 975 8780</a>
+      </div>}
+      {onClose&&<button onClick={onClose} className="absolute right-3 top-3 rounded p-1 text-surface-200/50 hover:text-white"><X className="w-4 h-4"/></button>}
     </div>
     <nav className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-none">
       {groups.map(g=>{
