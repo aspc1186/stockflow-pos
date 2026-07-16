@@ -53,7 +53,7 @@ export default function MesasPage() {
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({numero:'',nombre:'',capacidad:'4',tipo:'mesa',consumo_minimo:'0'})
   const [mesaEditando, setMesaEditando] = useState<Mesa | null>(null)
-  const [edicion, setEdicion] = useState({nombre:'',capacidad:'4'})
+  const [edicion, setEdicion] = useState({numero:'',nombre:'',capacidad:'4'})
   const [meseroMasivo, setMeseroMasivo] = useState('')
 
   const { data: mesas = [], isLoading, refetch } = useQuery({
@@ -73,11 +73,6 @@ export default function MesasPage() {
     mutationFn: (d:any) => api.post('/mesas', d),
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); setModal(false); setForm({numero:'',nombre:'',capacidad:'4',tipo:'mesa',consumo_minimo:'0'}); toast.success('Mesa creada') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
-  })
-  const normalizarNumeracion = useMutation({
-    mutationFn: () => api.post('/mesas', {accion:'renumerar'}),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success('Numeracion de mesas organizada consecutivamente') },
-    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No fue posible organizar la numeracion'),
   })
   const asignarMesero = useMutation({
     mutationFn: ({ mesaId, meseroId }: { mesaId: string; meseroId: string }) => api.patch(`/mesas/${mesaId}`, { mesero_id: meseroId || null }),
@@ -102,7 +97,7 @@ export default function MesasPage() {
     onError: (e:any, _variables, contexto) => { if (contexto?.anterior) qc.setQueryData(['mesas'], contexto.anterior); toast.error(e?.response?.data?.msg ?? 'No se pudieron asignar todas las mesas') },
   })
   const editarMesa = useMutation({
-    mutationFn: () => api.patch(`/mesas/${mesaEditando?.id}`, { nombre: edicion.nombre.trim() || null, capacidad: Math.max(1, parseInt(edicion.capacidad) || 1) }),
+    mutationFn: () => api.patch(`/mesas/${mesaEditando?.id}`, { numero: edicion.numero.trim(), nombre: edicion.nombre.trim() || null, capacidad: Math.max(1, parseInt(edicion.capacidad) || 1) }),
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); setMesaEditando(null); toast.success('Mesa actualizada') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo actualizar la mesa'),
   })
@@ -117,7 +112,7 @@ export default function MesasPage() {
         <div><h1 className="page-title">Mesas</h1><p className="page-subtitle">{mesas.length} mesas - {conteo.ocupada??0} ocupadas - {conteo.libre??0} libres</p></div>
         <div className="flex gap-2">
           <button onClick={() => refetch()} className="btn-ghost btn-sm"><RefreshCw className="w-4 h-4"/></button>
-          {isAdmin && <><button onClick={() => { if (window.confirm('Se ordenaran las mesas activas de forma consecutiva. Las asignaciones y pedidos se conservan. ¿Continuar?')) normalizarNumeracion.mutate() }} disabled={normalizarNumeracion.isPending} className="btn-secondary btn-sm">{normalizarNumeracion.isPending ? 'Ordenando...' : 'Ordenar mesas'}</button><button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nueva mesa</button></>}
+          {isAdmin && <button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nueva mesa</button>}
         </div>
       </div>
       {isAdmin && <div className="card p-3 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -157,9 +152,9 @@ export default function MesasPage() {
                   <div className="flex items-center gap-1">
                     <div className="flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1"><Users className="w-3 h-3 text-surface-200/40"/><span className="text-xs text-surface-200/60">{mesa.capacidad}</span></div>
                     {isAdmin && <button
-                      onClick={() => { setMesaEditando(mesa); setEdicion({ nombre: mesa.nombre || '', capacidad: String(mesa.capacidad || 1) }) }}
+                      onClick={() => { setMesaEditando(mesa); setEdicion({ numero: String(mesa.numero || ''), nombre: mesa.nombre || '', capacidad: String(mesa.capacidad || 1) }) }}
                       className="btn-ghost btn-sm h-7 w-7 p-0"
-                      title="Editar nombre y capacidad"
+                      title="Editar mesa"
                     ><Pencil className="w-3.5 h-3.5"/></button>}
                   </div>
                 </div>
@@ -211,8 +206,9 @@ export default function MesasPage() {
         </div>
       </Modal>
       <Modal open={!!mesaEditando} onClose={() => setMesaEditando(null)} title={`Editar mesa ${mesaEditando?.numero || ''}`} size="sm"
-        footer={<div className="flex gap-3"><button onClick={() => setMesaEditando(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => editarMesa.mutate()} disabled={editarMesa.isPending || !edicion.capacidad} className="btn-primary flex-1">{editarMesa.isPending ? 'Guardando...' : 'Guardar cambios'}</button></div>}>
+        footer={<div className="flex gap-3"><button onClick={() => setMesaEditando(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => editarMesa.mutate()} disabled={editarMesa.isPending || !edicion.numero.trim() || !edicion.capacidad} className="btn-primary flex-1">{editarMesa.isPending ? 'Guardando...' : 'Guardar cambios'}</button></div>}>
         <div className="space-y-4">
+          <div><label className="label">Numero o codigo de mesa</label><input className="input" placeholder="Ej: A8" value={edicion.numero} onChange={e => setEdicion(p => ({...p, numero:e.target.value}))}/></div>
           <div><label className="label">Nombre de la mesa</label><input className="input" placeholder="Ej: Terraza 1" value={edicion.nombre} onChange={e => setEdicion(p => ({...p, nombre:e.target.value}))}/></div>
           <div><label className="label">Cantidad de personas</label><input type="number" min={1} className="input" value={edicion.capacidad} onChange={e => setEdicion(p => ({...p, capacidad:e.target.value}))}/></div>
         </div>

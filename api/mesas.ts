@@ -119,20 +119,27 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'GET') return res.status(200).json({ ok: true, data: mesa })
     if (req.method === 'PATCH') {
       if (!puedeAdministrarMesas(auth.rol)) return res.status(403).json({ ok: false, msg: 'Sin permisos para modificar mesas' })
-      const { estado, nombre, capacidad, activa, zona_id, consumo_minimo, pos_x, pos_y, mesero_id } = req.body||{}
+      const { estado, numero, nombre, capacidad, activa, zona_id, consumo_minimo, pos_x, pos_y, mesero_id } = req.body||{}
       const cambiaMesero = Object.prototype.hasOwnProperty.call(req.body || {}, 'mesero_id')
+      const cambiaNumero = Object.prototype.hasOwnProperty.call(req.body || {}, 'numero')
       if (cambiaMesero && mesero_id) {
         if (!(await validarResponsable(mesero_id))) return res.status(400).json({ ok: false, msg: 'Selecciona un responsable operativo activo de esta empresa' })
       }
       try {
-        const soloAsignacion = cambiaMesero && estado === undefined && nombre === undefined && capacidad === undefined && activa === undefined && zona_id === undefined && consumo_minimo === undefined && pos_x === undefined && pos_y === undefined
+        if (cambiaNumero) {
+          const numeroFinal = String(numero || '').trim()
+          if (!numeroFinal) return res.status(400).json({ ok: false, msg: 'El numero de mesa es requerido' })
+          const repetida = await queryOne(`SELECT id FROM mesas WHERE empresa_id=$1 AND activa=true AND LOWER(TRIM(numero::text))=LOWER($2) AND id<>$3`, [eid, numeroFinal, id])
+          if (repetida) return res.status(409).json({ ok: false, msg: `La mesa ${numeroFinal} ya existe` })
+        }
+        const soloAsignacion = cambiaMesero && !cambiaNumero && estado === undefined && nombre === undefined && capacidad === undefined && activa === undefined && zona_id === undefined && consumo_minimo === undefined && pos_x === undefined && pos_y === undefined
         if (soloAsignacion) {
           const [asignada] = await query(`UPDATE mesas SET mesero_id=$1 WHERE id=$2 AND empresa_id=$3 RETURNING *`, [mesero_id || null, id, eid])
           return res.status(200).json({ ok: true, data: asignada })
         }
         const [u] = await query(
-          `UPDATE mesas SET estado=COALESCE($1,estado),nombre=COALESCE($2,nombre),capacidad=COALESCE($3,capacidad),activa=COALESCE($4,activa),zona_id=COALESCE($5,zona_id),consumo_minimo=COALESCE($6,consumo_minimo),pos_x=COALESCE($7,pos_x),pos_y=COALESCE($8,pos_y),mesero_id=CASE WHEN $9::boolean THEN $10 ELSE mesero_id END WHERE id=$11 AND empresa_id=$12 RETURNING *`,
-          [estado,nombre,capacidad,activa,zona_id,consumo_minimo,pos_x,pos_y,cambiaMesero,mesero_id || null,id,eid])
+          `UPDATE mesas SET estado=COALESCE($1,estado),numero=CASE WHEN $2::boolean THEN $3 ELSE numero END,nombre=COALESCE($4,nombre),capacidad=COALESCE($5,capacidad),activa=COALESCE($6,activa),zona_id=COALESCE($7,zona_id),consumo_minimo=COALESCE($8,consumo_minimo),pos_x=COALESCE($9,pos_x),pos_y=COALESCE($10,pos_y),mesero_id=CASE WHEN $11::boolean THEN $12 ELSE mesero_id END WHERE id=$13 AND empresa_id=$14 RETURNING *`,
+          [estado,cambiaNumero,String(numero || '').trim(),nombre,capacidad,activa,zona_id,consumo_minimo,pos_x,pos_y,cambiaMesero,mesero_id || null,id,eid])
         return res.status(200).json({ ok: true, data: u })
       } catch (e: any) { return res.status(500).json({ ok: false, msg: `No fue posible guardar la asignacion: ${e.message}` }) }
     }
