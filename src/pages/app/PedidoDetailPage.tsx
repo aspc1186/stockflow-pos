@@ -36,10 +36,7 @@ export default function PedidoDetailPage() {
   const cobrar = async () => {
     try {
       const d = parseFloat(desc)||0; const p = parseFloat(prop)||0
-      await api.patch(`/pedidos/${id}`, {descuento:d, propina:p})
-      await api.post('/caja', {accion:'movimiento',tipo:'venta',metodo_pago:metodo,monto:(pedido?.total??0)-d,descripcion:`Pedido #${pedido?.numero}`,pedido_id:id})
-      if (p > 0) await api.post('/caja', {accion:'movimiento',tipo:'ingreso',metodo_pago:metodo,monto:p,descripcion:`Propina`,pedido_id:id})
-      await actualizar.mutateAsync({estado:'cobrado'})
+      await actualizar.mutateAsync({estado:'cobrado', metodo_pago:metodo, descuento:d, propina:p})
       toast.success('Pedido cobrado'); setModalC(false); navigate('/app/pedidos')
     } catch { toast.error('Error al cobrar') }
   }

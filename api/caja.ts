@@ -13,7 +13,9 @@ export default async function handler(req: any, res: any) {
     const caja=await queryOne(`SELECT c.*,u.nombre as cajero_nombre FROM cajas c LEFT JOIN usuarios u ON u.id=c.usuario_id WHERE c.empresa_id=$1 AND c.estado='abierta' ORDER BY c.apertura_at DESC LIMIT 1`,[eid])
     const movs=caja?await query(`SELECT cm.*,u.nombre as usuario_nombre FROM caja_movimientos cm LEFT JOIN usuarios u ON u.id=cm.usuario_id WHERE cm.caja_id=$1 ORDER BY cm.created_at DESC LIMIT 100`,[(caja as any).id]):[]
     const ultimoCierre=await queryOne(`SELECT c.*,u.nombre as cajero_nombre FROM cajas c LEFT JOIN usuarios u ON u.id=c.usuario_id WHERE c.empresa_id=$1 AND c.estado='cerrada' ORDER BY c.cierre_at DESC NULLS LAST LIMIT 1`,[eid])
-    return res.status(200).json({ ok:true, data:{caja,movimientos:movs,ultimo_cierre:ultimoCierre} })
+    const movimientosUltimoCierre=ultimoCierre ? await query(`SELECT cm.*,u.nombre as usuario_nombre FROM caja_movimientos cm LEFT JOIN usuarios u ON u.id=cm.usuario_id WHERE cm.caja_id=$1 ORDER BY cm.created_at DESC LIMIT 200`, [(ultimoCierre as any).id]) : []
+    const cierres=await query(`SELECT c.*,u.nombre as cajero_nombre FROM cajas c LEFT JOIN usuarios u ON u.id=c.usuario_id WHERE c.empresa_id=$1 AND c.estado='cerrada' ORDER BY c.cierre_at DESC NULLS LAST LIMIT 20`, [eid])
+    return res.status(200).json({ ok:true, data:{caja,movimientos:movs,ultimo_cierre:ultimoCierre,movimientos_ultimo_cierre:movimientosUltimoCierre,cierres} })
   }
   if (req.method==='POST') {
     const { accion,saldo_inicial,tipo,metodo_pago,monto,descripcion,pedido_id,notas } = req.body||{}
@@ -24,6 +26,7 @@ export default async function handler(req: any, res: any) {
       return res.status(201).json({ ok:true, data:c })
     }
     if (accion==='movimiento') {
+      if (!['ingreso','egreso'].includes(tipo)) return res.status(400).json({ ok:false, msg:'Los movimientos manuales solo pueden ser ingresos o egresos' })
       const caja=await queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[eid]) as any
       if (!caja) return res.status(400).json({ ok:false, msg:'Sin caja abierta' })
       const [m]=await query(`INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,pedido_id,tipo,metodo_pago,monto,descripcion) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[uuid(),eid,caja.id,auth.id,pedido_id||null,tipo||'ingreso',metodo_pago||'efectivo',monto,descripcion||null])

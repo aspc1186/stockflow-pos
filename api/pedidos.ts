@@ -6,7 +6,7 @@ let mesasSchemaReady: Promise<void> | null = null
 
 function ensureMesasSchema() {
   if (!mesasSchemaReady) mesasSchemaReady = query(`ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mesero_id UUID`)
-    .then(() => query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID`))
+    .then(() => query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID, ADD COLUMN IF NOT EXISTS mesero_id UUID`))
     .then(() => undefined)
   return mesasSchemaReady
 }
@@ -18,6 +18,12 @@ function puedeAdministrarPedidos(rol: string) {
 async function puedeAccederMesa(empresaId: string, mesaId: string, auth: any) {
   const mesa = await queryOne(`SELECT mesero_id FROM mesas WHERE id=$1 AND empresa_id=$2 AND activa=true`, [mesaId, empresaId]) as any
   return !!mesa && (puedeAdministrarPedidos(auth.rol) || mesa.mesero_id === auth.id)
+}
+
+async function responsableDeMesa(empresaId: string, mesaId: string | null | undefined, usuarioId: string) {
+  if (!mesaId) return usuarioId
+  const mesa = await queryOne(`SELECT mesero_id FROM mesas WHERE id=$1 AND empresa_id=$2`, [mesaId, empresaId]) as any
+  return mesa?.mesero_id || usuarioId
 }
 
 async function cajaAbierta(empresaId: string) {
@@ -140,7 +146,7 @@ export default async function handler(req: any, res: any) {
         `SELECT p.*,m.numero as mesa_numero,u.nombre as mesero_nombre,uc.nombre as usuario_cierre_nombre,c.nombre as cliente_nombre
          FROM pedidos p
          LEFT JOIN mesas m ON m.id=p.mesa_id
-         LEFT JOIN usuarios u ON u.id=COALESCE(p.usuario_cierre_id,p.usuario_id)
+         LEFT JOIN usuarios u ON u.id=COALESCE(p.mesero_id,p.usuario_id)
          LEFT JOIN usuarios uc ON uc.id=p.usuario_cierre_id
          LEFT JOIN clientes c ON c.id=p.cliente_id
          WHERE ${where} ORDER BY p.created_at DESC LIMIT $${idx}`,
@@ -159,10 +165,11 @@ export default async function handler(req: any, res: any) {
           if (!prod||!prod.disponible) return res.status(400).json({ ok: false, msg: `Producto no disponible: ${item.producto_id}` })
           const s=prod.precio_venta*item.cantidad; subtotal+=s; impuestos+=s*(prod.impuesto_pct/100)
         }
+        const meseroId = await responsableDeMesa(eid, mesa_id || null, auth.id)
         await query(
-          `INSERT INTO pedidos (id,empresa_id,mesa_id,cliente_id,usuario_id,estado,tipo,subtotal,impuestos,total,notas)
-           VALUES ($1,$2,$3,$4,$5,'abierto',$6,$7,$8,$9,$10)`,
-          [pid,eid,mesa_id||null,cliente_id||null,auth.id,tipo||'mesa',subtotal,impuestos,subtotal+impuestos,notas||null])
+          `INSERT INTO pedidos (id,empresa_id,mesa_id,cliente_id,usuario_id,mesero_id,estado,tipo,subtotal,impuestos,total,notas)
+           VALUES ($1,$2,$3,$4,$5,$6,'abierto',$7,$8,$9,$10,$11)`,
+          [pid,eid,mesa_id||null,cliente_id||null,auth.id,meseroId,tipo||'mesa',subtotal,impuestos,subtotal+impuestos,notas||null])
         for (const item of items) {
           const prod=await queryOne(`SELECT precio_venta,impuesto_pct,destino FROM productos WHERE id=$1 AND empresa_id=$2`,[item.producto_id,eid]) as any
           if (!prod) continue
@@ -188,7 +195,7 @@ export default async function handler(req: any, res: any) {
          json_agg(json_build_object('id',pi.id,'producto_id',pi.producto_id,'nombre',pr.nombre,'cantidad',pi.cantidad,'precio_unit',pi.precio_unit,'subtotal',pi.subtotal,'estado',pi.estado,'observaciones',pi.observaciones,'destino',pi.destino,'created_at',pi.created_at) ORDER BY pi.created_at) as items
          FROM pedidos p
          LEFT JOIN mesas m ON m.id=p.mesa_id
-         LEFT JOIN usuarios u ON u.id=COALESCE(p.usuario_cierre_id,p.usuario_id)
+         LEFT JOIN usuarios u ON u.id=COALESCE(p.mesero_id,p.usuario_id)
          LEFT JOIN usuarios uc ON uc.id=p.usuario_cierre_id
          LEFT JOIN clientes c ON c.id=p.cliente_id
          LEFT JOIN pedido_items pi ON pi.pedido_id=p.id
@@ -221,6 +228,10 @@ export default async function handler(req: any, res: any) {
       if (propina!==undefined){ups.push(`propina=$${idx++}`);params.push(propina)}
       if (notas!==undefined){ups.push(`notas=$${idx++}`);params.push(notas)}
       if (cliente_id!==undefined){ups.push(`cliente_id=$${idx++}`);params.push(cliente_id)}
+      const descuentoFinal = descuento !== undefined ? Math.max(0, parseFloat(String(descuento)) || 0) : parseFloat(String(pedido.descuento)) || 0
+      const propinaFinal = propina !== undefined ? Math.max(0, parseFloat(String(propina)) || 0) : parseFloat(String(pedido.propina)) || 0
+      const totalCobrado = Math.max(0, (parseFloat(String(pedido.subtotal)) || 0) + (parseFloat(String(pedido.impuestos)) || 0) - descuentoFinal + propinaFinal)
+      if (descuento !== undefined || propina !== undefined || estado === 'cobrado') { ups.push(`total=$${idx++}`); params.push(totalCobrado) }
       if (!ups.length) return res.status(400).end()
       if (estado==='cancelado' && pedido.estado !== 'cancelado') {
         const items = await query(`SELECT producto_id,cantidad FROM pedido_items WHERE pedido_id=$1 AND empresa_id=$2 AND estado!='cancelado'`, [pedidoId, eid])
@@ -231,7 +242,7 @@ export default async function handler(req: any, res: any) {
         const caja = await cajaAbierta(eid)
         if (!caja) return res.status(400).json({ ok: false, msg: 'Abre la caja antes de cobrar un pedido' })
         if (pedido.estado !== 'cobrado') {
-          const monto = parseFloat(String(pedido.total)) || 0
+          const monto = totalCobrado
           await query(`UPDATE cajas SET total_ventas=total_ventas+$1 WHERE id=$2`, [monto, caja.id])
           await query(
             `INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,pedido_id,tipo,metodo_pago,monto,descripcion)
@@ -240,6 +251,10 @@ export default async function handler(req: any, res: any) {
           )
         }
         ups.push(`usuario_cierre_id=$${idx++}`); params.push(auth.id)
+        if (!pedido.mesero_id) {
+          const meseroId = await responsableDeMesa(eid, pedido.mesa_id, pedido.usuario_id)
+          ups.push(`mesero_id=$${idx++}`); params.push(meseroId)
+        }
       }
       if (estado==='cobrado'||estado==='cancelado') {
         ups.push('cierre_at=NOW()')
