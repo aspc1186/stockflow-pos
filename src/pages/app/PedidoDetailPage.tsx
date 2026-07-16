@@ -116,6 +116,11 @@ function ProductoSelector({productos,onAgregar,loading}:{productos:Producto[];on
   const filtrados = productos.filter(p => p.nombre.toLowerCase().includes(search.toLowerCase()))
   const add = (id: string) => setCarrito(c => ({...c,[id]:(c[id]||0)+1}))
   const rem = (id: string) => setCarrito(c => { const n=(c[id]||0)-1; if(n<=0){const{[id]:_,...r}=c;return r}; return{...c,[id]:n} })
+  const cambiarCantidad = (id: string, valor: string) => setCarrito(c => {
+    const cantidad = Math.max(0, Math.floor(Number(valor) || 0))
+    if (!cantidad) { const { [id]:_, ...resto } = c; return resto }
+    return { ...c, [id]: cantidad }
+  })
   const total = Object.values(carrito).reduce((a,b) => a+b, 0)
   return (
     <div className="space-y-4">
@@ -125,7 +130,8 @@ function ProductoSelector({productos,onAgregar,loading}:{productos:Producto[];on
           <div key={p.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5">
             <div><p className="text-sm text-surface-50">{p.nombre}</p><p className="text-xs text-brand-400">{formatCurrency(p.precio_venta)}</p></div>
             <div className="flex items-center gap-2">
-              {q>0 && <><button onClick={() => rem(p.id)} className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center"><Minus className="w-3 h-3"/></button><span className="w-5 text-center text-sm font-semibold">{q}</span></>}
+              <button onClick={() => rem(p.id)} disabled={!q} className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center disabled:opacity-30"><Minus className="w-3 h-3"/></button>
+              <input type="number" min="0" step="1" inputMode="numeric" aria-label={`Cantidad de ${p.nombre}`} className="h-7 w-12 rounded-lg border border-white/10 bg-surface-900 text-center text-sm font-semibold text-surface-50 outline-none focus:border-brand-500" value={q || ''} placeholder="0" onChange={e => cambiarCantidad(p.id, e.target.value)} onWheel={e => e.currentTarget.blur()}/>
               <button onClick={() => add(p.id)} className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center"><Plus className="w-3 h-3"/></button>
             </div>
           </div>
