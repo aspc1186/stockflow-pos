@@ -84,7 +84,7 @@ export default async function handler(req: any, res: any) {
           const primera = separarNumero(a.numero), segunda = separarNumero(b.numero)
           return primera.numero - segunda.numero || primera.texto.localeCompare(segunda.texto)
         })
-        await query(`UPDATE mesas SET numero=CONCAT('__renumerando__',id::text) WHERE empresa_id=$1 AND activa=true`, [eid])
+        await query(`UPDATE mesas SET numero=CONCAT('_r_',substring(id::text,1,16)) WHERE empresa_id=$1 AND activa=true`, [eid])
         for (const [indice, mesa] of ordenadas.entries()) await query(`UPDATE mesas SET numero=$1 WHERE id=$2 AND empresa_id=$3`, [`${prefijo}${indice + 1}`, mesa.id, eid])
         return res.status(200).json({ ok: true, data: ordenadas.length })
       }
