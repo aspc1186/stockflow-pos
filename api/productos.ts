@@ -18,6 +18,7 @@ function ensureProductosSchema() {
         ADD COLUMN IF NOT EXISTS imagen_url TEXT,
         ADD COLUMN IF NOT EXISTS disponible BOOLEAN DEFAULT true,
         ADD COLUMN IF NOT EXISTS controla_stock BOOLEAN DEFAULT true,
+        ADD COLUMN IF NOT EXISTS eliminado_at TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()
     `).then(() => undefined)
   }
@@ -28,6 +29,7 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return
+  await ensureProductosSchema()
   const eid = auth.empresa_id
   const parts = (req.url||'').split('?')[0].split('/').filter(Boolean)
   const id = parts[2] || null
@@ -35,7 +37,7 @@ export default async function handler(req: any, res: any) {
   if (!id) {
     if (req.method === 'GET') {
       const { disponible, search, categoria_id } = req.query||{}
-      let where = `p.empresa_id=$1`; const params: any[]=[eid]; let idx=2
+      let where = `p.empresa_id=$1 AND p.eliminado_at IS NULL`; const params: any[]=[eid]; let idx=2
       if (disponible !== undefined) { where+=` AND p.disponible=$${idx++}`; params.push(disponible==='true') }
       if (search) { where+=` AND p.nombre ILIKE $${idx++}`; params.push(`%${search}%`) }
       if (categoria_id) { where+=` AND p.categoria_id=$${idx++}`; params.push(categoria_id) }
@@ -51,7 +53,6 @@ export default async function handler(req: any, res: any) {
       const { categoria_id,nombre,descripcion,codigo,precio_venta,precio_costo,impuesto_pct,tipo,unidad_medida,destino,imagen_url,disponible,controla_stock,stock_inicial,stock_minimo } = req.body||{}
       if (!nombre || precio_venta===undefined) return res.status(400).json({ ok: false, msg: 'Nombre y precio requeridos' })
       try {
-        await ensureProductosSchema()
         const pid=uuid()
         const [prod]=await query(
           `INSERT INTO productos (id,empresa_id,categoria_id,nombre,descripcion,codigo,precio_venta,precio_costo,impuesto_pct,tipo,unidad_medida,destino,imagen_url,disponible,controla_stock)
@@ -69,14 +70,13 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'GET') return res.status(200).json({ ok: true, data: prod })
     if (req.method === 'PATCH') {
       const { nombre,precio_venta,precio_costo,disponible,categoria_id,descripcion,impuesto_pct,imagen_url,destino,tipo } = req.body||{}
-      await ensureProductosSchema()
       const [u]=await query(
         `UPDATE productos SET nombre=COALESCE($1,nombre),precio_venta=COALESCE($2,precio_venta),precio_costo=COALESCE($3,precio_costo),disponible=COALESCE($4,disponible),categoria_id=COALESCE($5,categoria_id),descripcion=COALESCE($6,descripcion),impuesto_pct=COALESCE($7,impuesto_pct),imagen_url=COALESCE($8,imagen_url),destino=COALESCE($9,destino),tipo=COALESCE($10,tipo),updated_at=NOW() WHERE id=$11 AND empresa_id=$12 RETURNING *`,
         [nombre,precio_venta,precio_costo,disponible,categoria_id,descripcion,impuesto_pct,imagen_url,destino,tipo,id,eid])
       return res.status(200).json({ ok: true, data: u })
     }
     if (req.method === 'DELETE') {
-      await query(`UPDATE productos SET disponible=false WHERE id=$1 AND empresa_id=$2`, [id,eid])
+      await query(`UPDATE productos SET disponible=false,eliminado_at=NOW(),updated_at=NOW() WHERE id=$1 AND empresa_id=$2`, [id,eid])
       return res.status(200).json({ ok: true })
     }
   }

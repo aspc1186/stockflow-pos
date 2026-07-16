@@ -45,6 +45,11 @@ export default function ReportesPage() {
     setHasta(data.periodo.hasta)
   }, [jornadaActual, data?.periodo?.desde, data?.periodo?.hasta])
 
+  const seleccionarJornadaActual = () => {
+    if (jornadaActual) refetch()
+    else setJornadaActual(true)
+  }
+
   if (isLoading) return <PageLoader />
   const resumen = data?.resumen || {}
   const ventas = data?.ventas_por_periodo || []
@@ -58,7 +63,7 @@ export default function ReportesPage() {
 
       {/* Filtros */}
       <div className="card p-4 space-y-4">
-        <div className="flex flex-wrap gap-2"><button onClick={() => setJornadaActual(true)} className={`${jornadaActual ? 'btn-primary' : 'btn-secondary'} btn-sm`}>Hoy (jornada de caja)</button><button onClick={() => seleccionarPeriodo(7)} className="btn-secondary btn-sm">Ultimos 7 dias</button><button onClick={() => seleccionarPeriodo(30)} className="btn-secondary btn-sm">Ultimos 30 dias</button></div>
+        <div className="flex flex-wrap gap-2"><button onClick={seleccionarJornadaActual} className={`${jornadaActual ? 'btn-primary' : 'btn-secondary'} btn-sm`}>Hoy (jornada de caja)</button><button onClick={() => seleccionarPeriodo(7)} className="btn-secondary btn-sm">Ultimos 7 dias</button><button onClick={() => seleccionarPeriodo(30)} className="btn-secondary btn-sm">Ultimos 30 dias</button></div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <div><label className="label"><CalendarDays className="mr-1 inline h-3.5 w-3.5"/>Desde</label><input type="date" max={hasta || hoy} className="input" value={desde} onChange={e => { setJornadaActual(false); setDesde(e.target.value) }}/></div>
         <div><label className="label"><CalendarDays className="mr-1 inline h-3.5 w-3.5"/>Hasta</label><input type="date" min={desde} max={hoy} className="input" value={hasta} onChange={e => { setJornadaActual(false); setHasta(e.target.value) }}/></div>

@@ -54,26 +54,30 @@ export default async function handler(req: any, res: any) {
     let fd=desde||new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]
     let fh=hasta||fechaColombia()
     let esJornadaActual = false
+    let cajaJornadaId: string | null = null
     const fmtMap: any={dia:'YYYY-MM-DD',semana:'IYYY-IW',mes:'YYYY-MM'}
     const fmt=fmtMap[agrupacion]||'YYYY-MM-DD'
     try {
       if (jornada_actual === 'true') {
         const jornada = await queryOne(
-          `SELECT fecha_operativa FROM cajas WHERE empresa_id=$1 AND fecha_operativa IS NOT NULL ORDER BY CASE WHEN estado='abierta' THEN 0 ELSE 1 END, apertura_at DESC LIMIT 1`,
+          `SELECT id,fecha_operativa FROM cajas WHERE empresa_id=$1 ORDER BY CASE WHEN estado='abierta' THEN 0 ELSE 1 END, COALESCE(cierre_at,apertura_at) DESC LIMIT 1`,
           [eid]
         ) as any
         const fechaJornada = jornada?.fecha_operativa ? String(jornada.fecha_operativa).slice(0, 10) : fechaColombia()
         fd = fechaJornada
         fh = fechaJornada
         esJornadaActual = true
+        cajaJornadaId = jornada?.id || null
       }
       const fechaOperativa = "COALESCE(c.fecha_operativa,(c.apertura_at AT TIME ZONE 'America/Bogota')::date)"
+      const filtroJornada = cajaJornadaId ? 'c.id=$2' : `${fechaOperativa} BETWEEN $2 AND $3`
+      const parametrosReporte = cajaJornadaId ? [eid,cajaJornadaId] : [eid,fd,fh]
       const [vpp,tp,vm,vmesa,resumen]=await Promise.all([
-        query(`SELECT TO_CHAR(${fechaOperativa},'${fmt}') as periodo,COUNT(DISTINCT p.id) as pedidos,COALESCE(SUM(p.total),0) as total FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaOperativa} BETWEEN $2 AND $3 GROUP BY 1 ORDER BY 1`,[eid,fd,fh]),
-        query(`SELECT pr.nombre,SUM(pi.cantidad) as unidades,SUM(pi.subtotal) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id WHERE pi.empresa_id=$1 AND p.estado='cobrado' AND ${fechaOperativa} BETWEEN $2 AND $3 GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 20`,[eid,fd,fh]),
-        query(`SELECT u.nombre,COUNT(DISTINCT p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id JOIN usuarios u ON u.id=COALESCE(p.mesero_id,p.usuario_id) WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaOperativa} BETWEEN $2 AND $3 GROUP BY u.id,u.nombre ORDER BY total DESC`,[eid,fd,fh]),
-        query(`SELECT COALESCE(m.numero::text,'Sin mesa') as mesa,COUNT(DISTINCT p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id LEFT JOIN mesas m ON m.id=p.mesa_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaOperativa} BETWEEN $2 AND $3 GROUP BY m.numero ORDER BY total DESC`,[eid,fd,fh]),
-        queryOne(`SELECT COUNT(DISTINCT p.id) as total_pedidos,COALESCE(SUM(p.total),0) as total_ventas,COALESCE(AVG(p.total),0) as ticket_promedio FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaOperativa} BETWEEN $2 AND $3`,[eid,fd,fh]),
+        query(`SELECT TO_CHAR(${fechaOperativa},'${fmt}') as periodo,COUNT(DISTINCT p.id) as pedidos,COALESCE(SUM(p.total),0) as total FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${filtroJornada} GROUP BY 1 ORDER BY 1`,parametrosReporte),
+        query(`SELECT pr.nombre,SUM(pi.cantidad) as unidades,SUM(pi.subtotal) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id WHERE pi.empresa_id=$1 AND p.estado='cobrado' AND ${filtroJornada} GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 20`,parametrosReporte),
+        query(`SELECT u.nombre,COUNT(DISTINCT p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id JOIN usuarios u ON u.id=COALESCE(p.mesero_id,p.usuario_id) WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${filtroJornada} GROUP BY u.id,u.nombre ORDER BY total DESC`,parametrosReporte),
+        query(`SELECT COALESCE(m.numero::text,'Sin mesa') as mesa,COUNT(DISTINCT p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id LEFT JOIN mesas m ON m.id=p.mesa_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${filtroJornada} GROUP BY m.numero ORDER BY total DESC`,parametrosReporte),
+        queryOne(`SELECT COUNT(DISTINCT p.id) as total_pedidos,COALESCE(SUM(p.total),0) as total_ventas,COALESCE(AVG(p.total),0) as ticket_promedio FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${filtroJornada}`,parametrosReporte),
       ])
       return res.status(200).json({ ok:true, data:{periodo:{desde:fd,hasta:fh,jornada_actual:esJornadaActual},resumen,ventas_por_periodo:vpp,top_productos:tp,ventas_por_mesero:vm,ventas_por_mesa:vmesa} })
     } catch(e: any) { return res.status(500).json({ ok:false, msg:e.message }) }

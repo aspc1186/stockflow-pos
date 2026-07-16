@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Download, FileUp, Plus } from 'lucide-react'
+import { Download, FileUp, Plus, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '@/lib/axios'
 import type { Producto, Categoria } from '@/types'
@@ -25,6 +25,7 @@ function numero(valor: unknown) {
 export default function ProductosPage() {
   const qc = useQueryClient()
   const [modal, setModal] = useState(false)
+  const [productoEliminar, setProductoEliminar] = useState<Producto | null>(null)
   const archivoRef = useRef<HTMLInputElement>(null)
   const [importando, setImportando] = useState(false)
   const [form, setForm] = useState({nombre:'',precio_venta:'',precio_costo:'',categoria_id:'',impuesto_pct:'0',disponible:true,controla_stock:true,destino:'barra',stock_inicial:'0',stock_minimo:'0'})
@@ -38,6 +39,11 @@ export default function ProductosPage() {
   const toggle = useMutation({
     mutationFn: ({id,disponible}:{id:string;disponible:boolean}) => api.patch(`/productos/${id}`,{disponible}),
     onSuccess: () => qc.invalidateQueries({queryKey:['productos']}),
+  })
+  const eliminar = useMutation({
+    mutationFn: () => api.delete(`/productos/${productoEliminar?.id}`),
+    onSuccess: () => { qc.invalidateQueries({queryKey:['productos']}); qc.invalidateQueries({queryKey:['inventario']}); setProductoEliminar(null); toast.success('Producto eliminado') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo eliminar el producto'),
   })
   const descargarPlantilla = () => {
     const hoja = XLSX.utils.json_to_sheet([{ nombre:'Cerveza ejemplo', codigo:'CER-001', precio_venta:8000, precio_costo:6000, categoria:'Cervezas', destino:'barra', impuesto_pct:0, stock_inicial:24, stock_minimo:6, controla_stock:'si' }])
@@ -89,7 +95,7 @@ export default function ProductosPage() {
               <td className={cn(pr.stock_actual===0?'text-red-400':'text-surface-200/70')}>{p.controla_stock?(pr.stock_actual??0):'∞'}</td>
               <td><span className="badge-gray capitalize">{p.destino}</span></td>
               <td><span className={p.disponible?'badge-green':'badge-red'}>{p.disponible?'Disponible':'No disponible'}</span></td>
-              <td><button onClick={() => toggle.mutate({id:p.id,disponible:!p.disponible})} className={`text-xs px-2 py-1 rounded font-medium ${p.disponible?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{p.disponible?'Deshabilitar':'Habilitar'}</button></td>
+              <td><div className="flex items-center justify-end gap-1"><button onClick={() => toggle.mutate({id:p.id,disponible:!p.disponible})} className={`text-xs px-2 py-1 rounded font-medium ${p.disponible?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{p.disponible?'Deshabilitar':'Habilitar'}</button><button onClick={() => setProductoEliminar(p)} className="btn-ghost btn-sm text-red-400 hover:bg-red-500/10" title="Eliminar producto"><Trash2 className="w-4 h-4"/></button></div></td>
             </tr>
           )})}
           {productos.length===0&&<tr><td colSpan={7} className="text-center py-12 text-surface-200/30">Sin productos</td></tr>}
@@ -107,6 +113,10 @@ export default function ProductosPage() {
           <div><label className="label">Stock inicial</label><input type="number" min="0" className="input" value={form.stock_inicial} onChange={e=>setForm(p=>({...p,stock_inicial:e.target.value}))}/></div>
           <div><label className="label">Stock mínimo</label><input type="number" min="0" className="input" value={form.stock_minimo} onChange={e=>setForm(p=>({...p,stock_minimo:e.target.value}))}/></div>
         </div>
+      </Modal>
+      <Modal open={!!productoEliminar} onClose={() => setProductoEliminar(null)} title="Eliminar producto" size="sm"
+        footer={<div className="flex gap-3"><button onClick={() => setProductoEliminar(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => eliminar.mutate()} disabled={eliminar.isPending} className="btn-danger flex-1">{eliminar.isPending ? 'Eliminando...' : <><Trash2 className="w-4 h-4"/>Eliminar</>}</button></div>}>
+        <p className="text-sm text-surface-200/70">Eliminarás <strong className="text-surface-50">{productoEliminar?.nombre}</strong>. Quedará fuera de nuevas ventas, pero se conservará su historial de pedidos e inventario.</p>
       </Modal>
     </div>
   )
