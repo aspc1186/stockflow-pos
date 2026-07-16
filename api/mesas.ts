@@ -5,7 +5,13 @@ import { authenticate, cors } from '../_auth.js'
 let schemaReady: Promise<void> | null = null
 
 function ensureMesasSchema() {
-  if (!schemaReady) schemaReady = query(`ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mesero_id UUID`).then(() => undefined)
+  if (!schemaReady) schemaReady = query(`
+    ALTER TABLE mesas
+      ADD COLUMN IF NOT EXISTS mesero_id UUID,
+      ADD COLUMN IF NOT EXISTS consumo_minimo NUMERIC(12,2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS pos_x NUMERIC(12,2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS pos_y NUMERIC(12,2) NOT NULL DEFAULT 0
+  `).then(() => undefined)
   return schemaReady
 }
 
@@ -19,9 +25,19 @@ export default async function handler(req: any, res: any) {
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return
   const eid = auth.empresa_id
-  await ensureMesasSchema()
   const parts = (req.url||'').split('?')[0].split('/').filter(Boolean)
   const id = parts[2] || null
+  const esAsignacionDirecta = req.method === 'PATCH' && ((id && Object.keys(req.body || {}).length === 1 && Object.prototype.hasOwnProperty.call(req.body || {}, 'mesero_id')) || (!id && req.body?.asignar_todas === true))
+  if (!esAsignacionDirecta) await ensureMesasSchema()
+
+  const validarResponsable = async (responsableId: string | null | undefined) => {
+    if (!responsableId) return true
+    const responsable = await queryOne(
+      `SELECT u.id FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE u.id=$1 AND u.empresa_id=$2 AND u.activo=true AND LOWER(TRIM(r.nombre)) IN ('mesero','cajero','barra')`,
+      [responsableId, eid]
+    )
+    return !!responsable
+  }
 
   if (!id) {
     if (req.method === 'GET') {
@@ -52,6 +68,16 @@ export default async function handler(req: any, res: any) {
         return res.status(201).json({ ok: true, data: m })
       } catch(e: any) { return res.status(500).json({ ok: false, msg: e.message }) }
     }
+    if (req.method === 'PATCH' && req.body?.asignar_todas === true) {
+      if (!puedeAdministrarMesas(auth.rol)) return res.status(403).json({ ok: false, msg: 'Sin permisos para asignar mesas' })
+      const responsableId = req.body.mesero_id || null
+      if (!(await validarResponsable(responsableId))) return res.status(400).json({ ok: false, msg: 'Selecciona un responsable operativo activo de esta empresa' })
+      const mesas = await query(
+        `UPDATE mesas SET mesero_id=$1 WHERE empresa_id=$2 AND activa=true RETURNING id,mesero_id`,
+        [responsableId, eid]
+      )
+      return res.status(200).json({ ok: true, data: mesas })
+    }
   } else {
     const mesa = await queryOne(`SELECT * FROM mesas WHERE id=$1 AND empresa_id=$2`, [id,eid])
     if (!mesa) return res.status(404).json({ ok: false, msg: 'Mesa no encontrada' })
@@ -62,13 +88,14 @@ export default async function handler(req: any, res: any) {
       const { estado, nombre, capacidad, activa, zona_id, consumo_minimo, pos_x, pos_y, mesero_id } = req.body||{}
       const cambiaMesero = Object.prototype.hasOwnProperty.call(req.body || {}, 'mesero_id')
       if (cambiaMesero && mesero_id) {
-        const responsable = await queryOne(
-          `SELECT u.id FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE u.id=$1 AND u.empresa_id=$2 AND u.activo=true AND LOWER(TRIM(r.nombre)) IN ('mesero','cajero','barra')`,
-          [mesero_id, eid]
-        )
-        if (!responsable) return res.status(400).json({ ok: false, msg: 'Selecciona un responsable operativo activo de esta empresa' })
+        if (!(await validarResponsable(mesero_id))) return res.status(400).json({ ok: false, msg: 'Selecciona un responsable operativo activo de esta empresa' })
       }
       try {
+        const soloAsignacion = cambiaMesero && estado === undefined && nombre === undefined && capacidad === undefined && activa === undefined && zona_id === undefined && consumo_minimo === undefined && pos_x === undefined && pos_y === undefined
+        if (soloAsignacion) {
+          const [asignada] = await query(`UPDATE mesas SET mesero_id=$1 WHERE id=$2 AND empresa_id=$3 RETURNING *`, [mesero_id || null, id, eid])
+          return res.status(200).json({ ok: true, data: asignada })
+        }
         const [u] = await query(
           `UPDATE mesas SET estado=COALESCE($1,estado),nombre=COALESCE($2,nombre),capacidad=COALESCE($3,capacidad),activa=COALESCE($4,activa),zona_id=COALESCE($5,zona_id),consumo_minimo=COALESCE($6,consumo_minimo),pos_x=COALESCE($7,pos_x),pos_y=COALESCE($8,pos_y),mesero_id=CASE WHEN $9::boolean THEN $10 ELSE mesero_id END WHERE id=$11 AND empresa_id=$12 RETURNING *`,
           [estado,nombre,capacidad,activa,zona_id,consumo_minimo,pos_x,pos_y,cambiaMesero,mesero_id || null,id,eid])

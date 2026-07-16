@@ -76,16 +76,25 @@ export default function MesasPage() {
   })
   const asignarMesero = useMutation({
     mutationFn: ({ mesaId, meseroId }: { mesaId: string; meseroId: string }) => api.patch(`/mesas/${mesaId}`, { mesero_id: meseroId || null }),
+    onMutate: async ({ mesaId, meseroId }) => {
+      await qc.cancelQueries({queryKey:['mesas']})
+      const anterior = qc.getQueryData<Mesa[]>(['mesas'])
+      qc.setQueryData<Mesa[]>(['mesas'], mesasActuales => (mesasActuales || []).map(mesa => mesa.id === mesaId ? {...mesa, mesero_id:meseroId || null} : mesa))
+      return { anterior }
+    },
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success('Mesa asignada') },
-    onError: (e:any) => toast.error(e?.response?.data?.msg ?? e?.message ?? 'No se pudo asignar la mesa'),
+    onError: (e:any, _variables, contexto) => { if (contexto?.anterior) qc.setQueryData(['mesas'], contexto.anterior); toast.error(e?.response?.data?.msg ?? e?.message ?? 'No se pudo asignar la mesa') },
   })
   const asignarTodas = useMutation({
-    mutationFn: async () => {
-      const pendientes = mesas.filter(mesa => (mesa.mesero_id || '') !== meseroMasivo)
-      await Promise.all(pendientes.map(mesa => api.patch(`/mesas/${mesa.id}`, { mesero_id: meseroMasivo || null })))
+    mutationFn: () => api.patch('/mesas', { asignar_todas:true, mesero_id:meseroMasivo || null }),
+    onMutate: async () => {
+      await qc.cancelQueries({queryKey:['mesas']})
+      const anterior = qc.getQueryData<Mesa[]>(['mesas'])
+      qc.setQueryData<Mesa[]>(['mesas'], mesasActuales => (mesasActuales || []).map(mesa => ({...mesa, mesero_id:meseroMasivo || null})))
+      return { anterior }
     },
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success(meseroMasivo ? 'Todas las mesas fueron asignadas' : 'Todas las mesas quedaron sin asignar') },
-    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudieron asignar todas las mesas'),
+    onError: (e:any, _variables, contexto) => { if (contexto?.anterior) qc.setQueryData(['mesas'], contexto.anterior); toast.error(e?.response?.data?.msg ?? 'No se pudieron asignar todas las mesas') },
   })
   const editarMesa = useMutation({
     mutationFn: () => api.patch(`/mesas/${mesaEditando?.id}`, { nombre: edicion.nombre.trim() || null, capacidad: Math.max(1, parseInt(edicion.capacidad) || 1) }),
@@ -111,6 +120,7 @@ export default function MesasPage() {
         <select className="input sm:w-56" value={meseroMasivo} onChange={e => setMeseroMasivo(e.target.value)}><option value="">Sin asignar</option>{meseros.map((mesero:any) => <option key={mesero.id} value={mesero.id}>{mesero.nombre} ({mesero.username})</option>)}</select>
         <button onClick={() => asignarTodas.mutate()} disabled={asignarTodas.isPending} className="btn-secondary whitespace-nowrap">{asignarTodas.isPending ? 'Asignando...' : 'Asignar todas'}</button>
       </div>}
+      {isAdmin && meseros.length === 0 && <p className="text-sm text-amber-400">No hay responsables operativos activos. Crea un usuario con rol Mesero, Cajero o Barra en Usuarios.</p>}
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setFiltro('todas')} className={cn('btn btn-sm',filtro==='todas'?'btn-primary':'btn-secondary')}>Todas ({mesas.length})</button>
         {(['libre','ocupada','reservada','limpieza','cerrada'] as EstadoMesa[]).map(e => (
