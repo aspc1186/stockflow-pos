@@ -74,6 +74,11 @@ export default function MesasPage() {
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); setModal(false); setForm({numero:'',nombre:'',capacidad:'4',tipo:'mesa',consumo_minimo:'0'}); toast.success('Mesa creada') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
+  const normalizarNumeracion = useMutation({
+    mutationFn: () => api.post('/mesas', {accion:'renumerar'}),
+    onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success('Numeracion de mesas organizada consecutivamente') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No fue posible organizar la numeracion'),
+  })
   const asignarMesero = useMutation({
     mutationFn: ({ mesaId, meseroId }: { mesaId: string; meseroId: string }) => api.patch(`/mesas/${mesaId}`, { mesero_id: meseroId || null }),
     onMutate: async ({ mesaId, meseroId }) => {
@@ -112,7 +117,7 @@ export default function MesasPage() {
         <div><h1 className="page-title">Mesas</h1><p className="page-subtitle">{mesas.length} mesas - {conteo.ocupada??0} ocupadas - {conteo.libre??0} libres</p></div>
         <div className="flex gap-2">
           <button onClick={() => refetch()} className="btn-ghost btn-sm"><RefreshCw className="w-4 h-4"/></button>
-          {isAdmin && <button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nueva mesa</button>}
+          {isAdmin && <><button onClick={() => { if (window.confirm('Se ordenaran las mesas activas de forma consecutiva. Las asignaciones y pedidos se conservan. ¿Continuar?')) normalizarNumeracion.mutate() }} disabled={normalizarNumeracion.isPending} className="btn-secondary btn-sm">{normalizarNumeracion.isPending ? 'Ordenando...' : 'Ordenar mesas'}</button><button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nueva mesa</button></>}
         </div>
       </div>
       {isAdmin && <div className="card p-3 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -195,9 +200,9 @@ export default function MesasPage() {
         </div>
       )}
       <Modal open={modal} onClose={() => setModal(false)} title="Nueva mesa" size="sm"
-        footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => crear.mutate({numero:parseInt(form.numero),nombre:form.nombre||undefined,capacidad:parseInt(form.capacidad),tipo:form.tipo,consumo_minimo:parseFloat(form.consumo_minimo)||0})} disabled={!form.numero||crear.isPending} className="btn-primary flex-1">{crear.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Crear mesa'}</button></div>}>
+        footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => crear.mutate({nombre:form.nombre||undefined,capacidad:parseInt(form.capacidad),tipo:form.tipo,consumo_minimo:parseFloat(form.consumo_minimo)||0})} disabled={crear.isPending} className="btn-primary flex-1">{crear.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Crear mesa'}</button></div>}>
         <div className="space-y-4">
-          <div><label className="label">Numero *</label><input type="number" min={1} className="input" value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))}/></div>
+          <div className="rounded-lg border border-brand-400/20 bg-brand-500/10 p-3 text-sm text-brand-100">El numero se asignara automaticamente y de forma consecutiva.</div>
           <div><label className="label">Nombre (opcional)</label><input className="input" placeholder="Ej: VIP 1" value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))}/></div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="label">Capacidad</label><input type="number" min={1} className="input" value={form.capacidad} onChange={e=>setForm(p=>({...p,capacidad:e.target.value}))}/></div>

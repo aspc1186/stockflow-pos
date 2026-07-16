@@ -19,6 +19,23 @@ function puedeAdministrarMesas(rol: string) {
   return ['admin', 'supervisor', 'superadmin'].includes(rol)
 }
 
+function separarNumero(valor: unknown) {
+  const texto = String(valor ?? '').trim()
+  const coincidencia = texto.match(/^(.*?)(\d+)$/)
+  return { prefijo: coincidencia?.[1] ?? '', numero: coincidencia ? Number(coincidencia[2]) : 0, texto }
+}
+
+function siguienteNumero(mesas: any[]) {
+  const partes = mesas.map(mesa => separarNumero(mesa.numero)).filter(parte => parte.numero > 0)
+  const prefijos = new Map<string, number>()
+  partes.forEach(parte => prefijos.set(parte.prefijo, (prefijos.get(parte.prefijo) || 0) + 1))
+  const prefijo = [...prefijos.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+  const usados = new Set(partes.filter(parte => parte.prefijo === prefijo).map(parte => parte.numero))
+  let numero = 1
+  while (usados.has(numero)) numero += 1
+  return `${prefijo}${numero}`
+}
+
 export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
@@ -53,18 +70,35 @@ export default async function handler(req: any, res: any) {
          LEFT JOIN usuarios u ON u.id=p.usuario_id
          LEFT JOIN usuarios asignado ON asignado.id=m.mesero_id
          WHERE m.empresa_id=$1 AND m.activa=true AND ($2::boolean=false OR m.mesero_id=$3)
-         ORDER BY m.numero`, [eid, esOperativo, auth.id])
+         ORDER BY NULLIF(regexp_replace(m.numero::text,'\\D','','g'),'')::integer NULLS LAST,m.numero`, [eid, esOperativo, auth.id])
       return res.status(200).json({ ok: true, data: rows })
     }
     if (req.method === 'POST') {
       if (!puedeAdministrarMesas(auth.rol)) return res.status(403).json({ ok: false, msg: 'Sin permisos para crear mesas' })
+      if (req.body?.accion === 'renumerar') {
+        const mesas = await query(`SELECT id,numero FROM mesas WHERE empresa_id=$1 AND activa=true`, [eid])
+        const prefijos = new Map<string, number>()
+        mesas.map(mesa => separarNumero(mesa.numero)).filter(parte => parte.numero > 0).forEach(parte => prefijos.set(parte.prefijo, (prefijos.get(parte.prefijo) || 0) + 1))
+        const prefijo = [...prefijos.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+        const ordenadas = [...mesas].sort((a, b) => {
+          const primera = separarNumero(a.numero), segunda = separarNumero(b.numero)
+          return primera.numero - segunda.numero || primera.texto.localeCompare(segunda.texto)
+        })
+        await query(`UPDATE mesas SET numero=CONCAT('__renumerando__',id::text) WHERE empresa_id=$1 AND activa=true`, [eid])
+        for (const [indice, mesa] of ordenadas.entries()) await query(`UPDATE mesas SET numero=$1 WHERE id=$2 AND empresa_id=$3`, [`${prefijo}${indice + 1}`, mesa.id, eid])
+        return res.status(200).json({ ok: true, data: ordenadas.length })
+      }
       const { zona_id, numero, nombre, capacidad, tipo, consumo_minimo, pos_x, pos_y } = req.body||{}
-      if (!numero) return res.status(400).json({ ok: false, msg: 'Número requerido' })
+      const existentes = await query(`SELECT numero FROM mesas WHERE empresa_id=$1 AND activa=true`, [eid])
+      const numeroFinal = String(numero || siguienteNumero(existentes)).trim()
+      if (!numeroFinal) return res.status(400).json({ ok: false, msg: 'No fue posible calcular el numero de mesa' })
+      const repetida = existentes.some(mesa => String(mesa.numero).trim().toLowerCase() === numeroFinal.toLowerCase())
+      if (repetida) return res.status(409).json({ ok: false, msg: `La mesa ${numeroFinal} ya existe` })
       try {
         const [m] = await query(
           `INSERT INTO mesas (id,empresa_id,zona_id,numero,nombre,capacidad,tipo,consumo_minimo,pos_x,pos_y,estado,activa)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'libre',true) RETURNING *`,
-          [uuid(),eid,zona_id||null,numero,nombre||null,capacidad||4,tipo||'mesa',consumo_minimo||0,pos_x||0,pos_y||0])
+          [uuid(),eid,zona_id||null,numeroFinal,nombre||null,capacidad||4,tipo||'mesa',consumo_minimo||0,pos_x||0,pos_y||0])
         return res.status(201).json({ ok: true, data: m })
       } catch(e: any) { return res.status(500).json({ ok: false, msg: e.message }) }
     }
