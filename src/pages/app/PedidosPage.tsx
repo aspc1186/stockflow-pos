@@ -17,22 +17,31 @@ export default function PedidosPage() {
   const navigate = useNavigate(); const [params] = useSearchParams(); const qc = useQueryClient(); const { on, off } = useSocket(); const { isAdmin } = useAuth()
   const [filtro, setFiltro] = useState(params.get('estado') || 'todos')
   const estadoQ = filtro === 'activos' ? 'abierto,en_preparacion,listo,precierre' : filtro === 'todos' ? '' : filtro
-  const { data: pedidos = [], isLoading } = useQuery({
+  const { data: pedidos = [], isLoading, refetch: recargarPedidos } = useQuery({
     queryKey: ['pedidos', estadoQ],
-    queryFn: async () => { const p = estadoQ ? `?estado=${estadoQ}` : ''; const { data } = await api.get<any>(`/pedidos${p}`); return (data.data || data) as Pedido[] },
+    queryFn: async () => { const p = estadoQ ? `?estado=${estadoQ}&_=${Date.now()}` : `?_=${Date.now()}`; const { data } = await api.get<any>(`/pedidos${p}`); return (data.data || data) as Pedido[] },
     refetchInterval: 3_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: 'always',
   })
-  const { data: arqueo = [] } = useQuery({
+  const { data: arqueo = [], refetch: recargarArqueo } = useQuery({
     queryKey: ['arqueo-meseros'],
-    queryFn: async () => { const { data } = await api.get<any>('/dashboard/arqueo'); return (data.data || data) as any[] },
+    queryFn: async () => { const { data } = await api.get<any>(`/dashboard/arqueo?_=${Date.now()}`); return (data.data || data) as any[] },
     enabled: isAdmin,
     refetchInterval: 3_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: 'always',
   })
   useEffect(() => { const h = () => qc.invalidateQueries({queryKey:['pedidos']}); on('pedido_nuevo',h); on('pedido_actualizado',h); return () => { off('pedido_nuevo',h); off('pedido_actualizado',h) } }, [on,off,qc])
+  useEffect(() => {
+    if (!isAdmin) return
+    const actualizar = () => { void recargarPedidos(); void recargarArqueo() }
+    actualizar()
+    const intervalo = window.setInterval(actualizar, 2_000)
+    const alEnfocar = () => { if (document.visibilityState === 'visible') actualizar() }
+    document.addEventListener('visibilitychange', alEnfocar)
+    return () => { window.clearInterval(intervalo); document.removeEventListener('visibilitychange', alEnfocar) }
+  }, [isAdmin, recargarPedidos, recargarArqueo])
   if (isLoading) return <PageLoader />
   return (
     <div className="space-y-5">
