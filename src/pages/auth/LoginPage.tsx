@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Eye, EyeOff, Wine, Lock, User } from 'lucide-react'
+import { Eye, EyeOff, Lock, User } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -28,54 +28,55 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-900 via-surface-900 to-surface-950 items-center justify-center p-12 relative">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-brand-800/20 via-transparent to-transparent"/>
-        <div className="relative z-10 text-center">
-          <div className="w-24 h-24 bg-brand-600/20 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-brand-500/30">
-            <Wine className="w-12 h-12 text-brand-400"/>
-          </div>
-          <h1 className="text-4xl font-bold text-surface-50 mb-4">POS Manager</h1>
-          <p className="text-surface-200/60 text-lg">Plataforma para bares y discotecas</p>
+    <div className="min-h-screen bg-[#020915] text-surface-50 lg:grid lg:grid-cols-[58%_42%]">
+      <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 lg:block">
+        <img src="/images/stockflow-login.png" alt="StockFlow POS" className="absolute inset-0 h-full w-full object-cover object-center" />
+      </section>
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10 sm:px-8 lg:px-12">
+        <div className="absolute inset-0 lg:hidden">
+          <img src="/images/stockflow-login.png" alt="" className="h-full w-full object-cover opacity-20" />
+          <div className="absolute inset-0 bg-[#020915]/80" />
         </div>
-      </div>
-      <div className="flex-1 flex items-center justify-center p-8 bg-surface-950">
-        <div className="w-full max-w-md">
-          <div className="flex items-center gap-3 mb-10 lg:hidden">
-            <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center"><Wine className="w-5 h-5 text-white"/></div>
-            <span className="text-xl font-bold text-surface-50">POS Manager</span>
+        <div className="relative z-10 w-full max-w-[30rem]">
+          <div className="mb-10 flex items-center gap-3 lg:hidden">
+            <img src="/images/stockflow-login.png" alt="StockFlow POS" className="h-11 w-11 rounded-lg object-cover object-[51%_31%]" />
+            <div>
+              <p className="text-lg font-bold leading-tight text-white">StockFlow <span className="text-lime-400">- POS</span></p>
+              <p className="text-xs text-surface-200/50">Ventas, inventario y operaciones</p>
+            </div>
           </div>
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-surface-50 mb-2">Iniciar sesion</h2>
+            <p className="mb-3 hidden text-xl font-bold text-white lg:block">StockFlow <span className="text-lime-400">- POS</span></p>
+            <h1 className="text-3xl font-bold text-surface-50 mb-2">Iniciar sesión</h1>
             <p className="text-surface-200/50">Ingresa tus credenciales para continuar</p>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="label">Usuario</label>
+              <label className="label">Usuario o correo</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-200/30"/>
-                <input {...register('username',{required:'Usuario requerido'})} className="input pl-10" placeholder="Tu usuario" autoComplete="username" autoFocus/>
+                <input {...register('username',{required:'Usuario requerido'})} className="input h-12 pl-10" placeholder="Ingresa tu usuario" autoComplete="username" autoFocus/>
               </div>
               {errors.username && <p className="text-xs text-red-400 mt-1">{errors.username.message}</p>}
             </div>
             <div>
-              <label className="label">Contrasena</label>
+              <label className="label">Contraseña</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-200/30"/>
-                <input {...register('password',{required:'Contrasena requerida'})} type={showPassword?'text':'password'} className="input pl-10 pr-10" placeholder="Tu contrasena" autoComplete="current-password"/>
+                <input {...register('password',{required:'Contraseña requerida'})} type={showPassword?'text':'password'} className="input h-12 pl-10 pr-10" placeholder="Ingresa tu contraseña" autoComplete="current-password"/>
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-200/30 hover:text-surface-200/60">
                   {showPassword?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}
                 </button>
               </div>
               {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>}
             </div>
-            <button type="submit" disabled={loading} className="btn-primary w-full h-11 text-base font-semibold">
-              {loading ? <span className="flex items-center gap-2 justify-center"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Ingresando...</span> : 'Ingresar'}
+            <button type="submit" disabled={loading} className="btn-primary h-12 w-full text-base font-semibold shadow-lg shadow-brand-600/20">
+              {loading ? <span className="flex items-center gap-2 justify-center"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Ingresando...</span> : 'Ingresar al sistema'}
             </button>
           </form>
-          <p className="text-center text-xs text-surface-200/25 mt-8">POS Manager {new Date().getFullYear()}</p>
+          <p className="mt-8 text-center text-xs text-surface-200/25">StockFlow POS {new Date().getFullYear()}</p>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
