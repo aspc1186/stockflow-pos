@@ -5,6 +5,14 @@ import { authenticate, cors } from '../_auth.js'
 
 const ROLES_PERMITIDOS = ['admin', 'supervisor', 'cajero', 'mesero', 'barra', 'cocina']
 
+let usuariosSchemaReady: Promise<void> | null = null
+function ensureUsuariosSchema() {
+  if (!usuariosSchemaReady) {
+    usuariosSchemaReady = query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS eliminado_at TIMESTAMPTZ`).then(() => undefined)
+  }
+  return usuariosSchemaReady
+}
+
 function cleanUsername(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '')
 }
@@ -26,6 +34,8 @@ export default async function handler(req: any, res: any) {
     return res.status(403).json({ ok: false, msg: 'Sin permisos' })
   }
 
+  await ensureUsuariosSchema()
+
   const eid = auth.empresa_id
   const parts = (req.url || '').split('?')[0].split('/').filter(Boolean)
   const id = parts[2] || null
@@ -33,7 +43,7 @@ export default async function handler(req: any, res: any) {
   if (!id) {
     if (req.method === 'GET') {
       const rows = await query(
-        `SELECT u.id,u.nombre,u.email,u.username,u.telefono,u.activo,u.ultimo_acceso,r.nombre as rol
+        `SELECT u.id,u.nombre,u.email,u.username,u.telefono,u.activo,u.eliminado_at,u.ultimo_acceso,r.nombre as rol
          FROM usuarios u
          JOIN roles r ON r.id=u.rol_id
          WHERE u.empresa_id=$1
@@ -101,7 +111,9 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'PATCH') {
-      const { nombre, telefono, activo, rol_id, rol, password } = req.body || {}
+      if (u.eliminado_at) return res.status(410).json({ ok: false, msg: 'El usuario fue eliminado' })
+
+      const { nombre, email, username, telefono, activo, rol_id, rol, password } = req.body || {}
       const ups: string[] = []
       const params: any[] = []
       let idx = 1
@@ -116,6 +128,25 @@ export default async function handler(req: any, res: any) {
         params.push(telefono)
       }
 
+      let usernameFinal = u.username
+      if (username !== undefined) {
+        usernameFinal = cleanUsername(String(username))
+        if (!usernameFinal) return res.status(400).json({ ok: false, msg: 'Username invalido' })
+        const existing = await queryOne(
+          `SELECT id FROM usuarios WHERE empresa_id=$1 AND LOWER(username)=LOWER($2) AND id<>$3`,
+          [eid, usernameFinal, id]
+        )
+        if (existing) return res.status(409).json({ ok: false, msg: 'Ya existe un usuario con ese username' })
+        ups.push(`username=$${idx++}`)
+        params.push(usernameFinal)
+      }
+
+      if (email !== undefined) {
+        const emailValue = String(email || '').trim().toLowerCase() || `${usernameFinal}@sin-email.local`
+        ups.push(`email=$${idx++}`)
+        params.push(emailValue)
+      }
+
       if (activo !== undefined) {
         ups.push(`activo=$${idx++}`)
         params.push(activo)
@@ -123,6 +154,9 @@ export default async function handler(req: any, res: any) {
 
       const rolNombre = normalizeRole(rol || rol_id)
       if (rolNombre !== '') {
+        if (!ROLES_PERMITIDOS.includes(rolNombre)) {
+          return res.status(400).json({ ok: false, msg: 'Rol no permitido' })
+        }
         const roleRow = await queryOne(`SELECT id FROM roles WHERE nombre=$1`, [rolNombre])
         if (!roleRow) {
           return res.status(400).json({ ok: false, msg: 'Rol no existe' })
@@ -151,11 +185,33 @@ export default async function handler(req: any, res: any) {
         `UPDATE usuarios
          SET ${ups.join(',')}
          WHERE id=$${idx++} AND empresa_id=$${idx}
-         RETURNING id,nombre,email,username,telefono,activo`,
+         RETURNING id,nombre,email,username,telefono,activo,eliminado_at`,
         params
       )
 
       return res.status(200).json({ ok: true, data: updated })
+    }
+
+    if (req.method === 'DELETE') {
+      if (u.eliminado_at) return res.status(200).json({ ok: true })
+      if (u.id === auth.id) return res.status(400).json({ ok: false, msg: 'No puedes eliminar tu propio usuario' })
+
+      const rolActual = await queryOne(`SELECT nombre FROM roles WHERE id=$1`, [u.rol_id]) as any
+      if (String(rolActual?.nombre || '').toLowerCase() === 'admin') {
+        const admins = await queryOne(
+          `SELECT COUNT(*)::int as total FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE u.empresa_id=$1 AND u.activo=true AND u.eliminado_at IS NULL AND LOWER(r.nombre)='admin'`,
+          [eid]
+        ) as any
+        if (Number(admins?.total || 0) <= 1) {
+          return res.status(400).json({ ok: false, msg: 'No puedes eliminar el ultimo administrador activo' })
+        }
+      }
+
+      await query(
+        `UPDATE usuarios SET activo=false, eliminado_at=NOW(), updated_at=NOW() WHERE id=$1 AND empresa_id=$2`,
+        [id, eid]
+      )
+      return res.status(200).json({ ok: true })
     }
   }
 

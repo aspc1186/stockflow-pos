@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Pencil, Plus, Save, Trash2 } from 'lucide-react'
 import api from '@/lib/axios'
 import { formatDate } from '@/lib/utils'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -10,7 +10,10 @@ import toast from 'react-hot-toast'
 export default function UsuariosPage() {
   const qc = useQueryClient()
   const [modal, setModal] = useState(false)
+  const [usuarioEditando, setUsuarioEditando] = useState<any>(null)
+  const [usuarioEliminar, setUsuarioEliminar] = useState<any>(null)
   const [form, setForm] = useState({nombre:'',email:'',username:'',password:'',rol_id:'',telefono:''})
+  const [edicion, setEdicion] = useState({nombre:'',email:'',username:'',password:'',rol_id:'',telefono:''})
 
   const { data: usuarios = [], isLoading } = useQuery({
     queryKey: ['usuarios'],
@@ -24,7 +27,22 @@ export default function UsuariosPage() {
   const toggle = useMutation({
     mutationFn: ({id,activo}:{id:string;activo:boolean}) => api.patch(`/usuarios/${id}`,{activo}),
     onSuccess: () => qc.invalidateQueries({queryKey:['usuarios']}),
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo actualizar el usuario'),
   })
+  const guardarEdicion = useMutation({
+    mutationFn: () => api.patch(`/usuarios/${usuarioEditando.id}`, edicion),
+    onSuccess: () => { qc.invalidateQueries({queryKey:['usuarios']}); setUsuarioEditando(null); toast.success('Usuario actualizado') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo actualizar el usuario'),
+  })
+  const eliminar = useMutation({
+    mutationFn: () => api.delete(`/usuarios/${usuarioEliminar.id}`),
+    onSuccess: () => { qc.invalidateQueries({queryKey:['usuarios']}); setUsuarioEliminar(null); toast.success('Usuario eliminado') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo eliminar el usuario'),
+  })
+  const abrirEdicion = (u:any) => {
+    setEdicion({ nombre:u.nombre||'', email:u.email?.endsWith('@sin-email.local') ? '' : u.email||'', username:u.username||'', password:'', rol_id:u.rol||'', telefono:u.telefono||'' })
+    setUsuarioEditando(u)
+  }
 
   if (isLoading) return <PageLoader />
   return (
@@ -42,8 +60,8 @@ export default function UsuariosPage() {
               <td className="text-surface-200/70">{u.email?.endsWith('@sin-email.local') ? 'Sin email' : u.email}</td>
               <td><span className="badge badge-blue capitalize">{u.rol ?? '-'}</span></td>
               <td className="text-xs text-surface-200/50">{u.ultimo_acceso ? formatDate(u.ultimo_acceso,'dd/MM HH:mm') : 'Nunca'}</td>
-              <td><span className={u.activo?'badge-green':'badge-gray'}>{u.activo?'Activo':'Inactivo'}</span></td>
-              <td><button onClick={() => toggle.mutate({id:u.id,activo:!u.activo})} className={`text-xs px-2 py-1 rounded font-medium ${u.activo?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{u.activo?'Desactivar':'Activar'}</button></td>
+              <td><span className={u.eliminado_at?'badge-gray':u.activo?'badge-green':'badge-gray'}>{u.eliminado_at?'Eliminado':u.activo?'Activo':'Inactivo'}</span></td>
+              <td><div className="flex items-center justify-end gap-1">{!u.eliminado_at && <><button onClick={() => abrirEdicion(u)} className="btn-ghost btn-sm" title="Editar usuario"><Pencil className="w-4 h-4"/></button><button onClick={() => toggle.mutate({id:u.id,activo:!u.activo})} className={`text-xs px-2 py-1 rounded font-medium ${u.activo?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{u.activo?'Desactivar':'Activar'}</button><button onClick={() => setUsuarioEliminar(u)} className="btn-ghost btn-sm text-red-400 hover:bg-red-500/10" title="Eliminar usuario"><Trash2 className="w-4 h-4"/></button></>}</div></td>
             </tr>
           ))}
           {usuarios.length===0&&<tr><td colSpan={6} className="text-center py-12 text-surface-200/30">Sin usuarios</td></tr>}
@@ -63,6 +81,19 @@ export default function UsuariosPage() {
           </div>
           <div><label className="label">Contrasena *</label><input type="password" className="input" value={form.password} onChange={e=>setForm(p=>({...p,password:e.target.value}))}/></div>
         </div>
+      </Modal>
+      <Modal open={!!usuarioEditando} onClose={() => setUsuarioEditando(null)} title="Editar usuario" size="md"
+        footer={<div className="flex gap-3"><button onClick={() => setUsuarioEditando(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => guardarEdicion.mutate()} disabled={guardarEdicion.isPending||!edicion.nombre||!edicion.username||!edicion.rol_id} className="btn-primary flex-1">{guardarEdicion.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:<><Save className="w-4 h-4"/>Guardar cambios</>}</button></div>}>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4"><div><label className="label">Nombre *</label><input className="input" value={edicion.nombre} onChange={e=>setEdicion(p=>({...p,nombre:e.target.value}))}/></div><div><label className="label">Rol *</label><select className="input" value={edicion.rol_id} onChange={e=>setEdicion(p=>({...p,rol_id:e.target.value}))}><option value="mesero">Mesero</option><option value="cajero">Cajero</option><option value="barra">Barra</option><option value="cocina">Cocina</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select></div></div>
+          <div><label className="label">Email opcional</label><input type="email" className="input" value={edicion.email} onChange={e=>setEdicion(p=>({...p,email:e.target.value}))}/></div>
+          <div className="grid grid-cols-2 gap-4"><div><label className="label">Username *</label><input className="input" value={edicion.username} onChange={e=>setEdicion(p=>({...p,username:e.target.value}))}/></div><div><label className="label">Telefono</label><input className="input" value={edicion.telefono} onChange={e=>setEdicion(p=>({...p,telefono:e.target.value}))}/></div></div>
+          <div><label className="label">Nueva contrasena <span className="text-surface-200/40">(opcional)</span></label><input type="password" className="input" placeholder="Dejar vacio para conservarla" value={edicion.password} onChange={e=>setEdicion(p=>({...p,password:e.target.value}))}/></div>
+        </div>
+      </Modal>
+      <Modal open={!!usuarioEliminar} onClose={() => setUsuarioEliminar(null)} title="Eliminar usuario" size="sm"
+        footer={<div className="flex gap-3"><button onClick={() => setUsuarioEliminar(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => eliminar.mutate()} disabled={eliminar.isPending} className="btn-danger flex-1">{eliminar.isPending?'Eliminando...':<><Trash2 className="w-4 h-4"/>Eliminar</>}</button></div>}>
+        <p className="text-sm text-surface-200/70">Eliminarás a <strong className="text-surface-50">{usuarioEliminar?.nombre}</strong>. No podrá volver a ingresar, pero se conservarán sus pedidos, ventas y cierres para mantener la trazabilidad.</p>
       </Modal>
     </div>
   )
