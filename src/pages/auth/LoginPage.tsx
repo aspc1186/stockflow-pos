@@ -30,7 +30,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#020915] text-surface-50 lg:grid lg:grid-cols-[58%_42%]">
       <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 lg:block">
-        <img src="/images/stockflow-login.png" alt="StockFlow POS" className="absolute inset-0 h-full w-full object-cover object-center" />
+        <img src="/images/stockflow-login.png" alt="StockFlow POS" className="absolute inset-0 h-full w-full object-contain" />
       </section>
       <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10 sm:px-8 lg:px-12">
         <div className="absolute inset-0 lg:hidden">
@@ -39,7 +39,7 @@ export default function LoginPage() {
         </div>
         <div className="relative z-10 w-full max-w-[30rem]">
           <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <img src="/images/stockflow-login.png" alt="StockFlow POS" className="h-11 w-11 rounded-lg object-cover object-[51%_31%]" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-brand-400/40 bg-brand-600/20 text-lg font-bold text-lime-400">S</div>
             <div>
               <p className="text-lg font-bold leading-tight text-white">StockFlow <span className="text-lime-400">- POS</span></p>
               <p className="text-xs text-surface-200/50">Ventas, inventario y operaciones</p>
