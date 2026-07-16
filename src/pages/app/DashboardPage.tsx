@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { TrendingUp, ShoppingBag, Users, AlertTriangle, CreditCard, Wine, Package } from 'lucide-react'
+import { TrendingUp, ShoppingBag, Users, AlertTriangle, CreditCard, Wine, Package, CircleDollarSign, BarChart3 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '@/lib/axios'
 import type { DashboardStats } from '@/types'
@@ -37,6 +37,18 @@ export default function DashboardPage() {
         <StatCard label="Personas atendidas" value={data.capacidad_ocupada ?? 0} icon={<Users className="w-5 h-5 text-orange-400"/>} iconBg="bg-orange-500/20"/>
         <StatCard label="Stock crítico" value={data.inventario_critico ?? 0} icon={<AlertTriangle className="w-5 h-5 text-red-400"/>} iconBg="bg-red-500/20"/>
         <StatCard label="Consumo promedio por persona" value={formatCurrency(data.capacidad_ocupada > 0 ? (data.ventas_hoy / data.capacidad_ocupada) : 0)} icon={<CreditCard className="w-5 h-5 text-sky-400"/>} iconBg="bg-sky-500/20"/>
+        <div className="col-span-2 grid grid-cols-2 gap-4">
+          <div className="card p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-surface-100"><CircleDollarSign className="h-4 w-4 text-amber-400"/>Utilidad del dia</div>
+            <p className="mt-3 text-xl font-bold text-surface-50">{formatCurrency(data.utilidad_dia ?? 0)}</p>
+            <p className="mt-3 border-t border-white/10 pt-3 text-xs text-surface-200/60">Margen {Number(data.margen_dia ?? 0).toFixed(1)}%</p>
+          </div>
+          <div className="card p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-surface-100"><BarChart3 className="h-4 w-4 text-emerald-400"/>Utilidad del mes</div>
+            <p className="mt-3 text-xl font-bold text-surface-50">{formatCurrency(data.utilidad_mes ?? 0)}</p>
+            <p className="mt-3 border-t border-white/10 pt-3 text-xs text-surface-200/60">Margen {Number(data.margen_mes ?? 0).toFixed(1)}%</p>
+          </div>
+        </div>
       </div>
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="card p-5 lg:col-span-2">
