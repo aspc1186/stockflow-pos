@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, CalendarDays, Download, Users } from 'lucide-react'
 import api from '@/lib/axios'
@@ -6,15 +6,23 @@ import { formatCurrency } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { PageLoader } from '@/components/ui/Spinner'
 
+function fechaColombia() {
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone:'America/Bogota', year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(new Date())
+  const valor = (tipo:string) => partes.find(parte => parte.type === tipo)?.value || ''
+  return `${valor('year')}-${valor('month')}-${valor('day')}`
+}
+
 export default function ReportesPage() {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = fechaColombia()
   const hace30 = new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]
   const [desde, setDesde] = useState(hace30)
   const [hasta, setHasta] = useState(hoy)
   const [agrupacion, setAgrupacion] = useState('dia')
+  const [jornadaActual, setJornadaActual] = useState(false)
   const seleccionarPeriodo = (dias: number) => {
     setDesde(new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
     setHasta(hoy)
+    setJornadaActual(false)
   }
   const descargarCsv = (nombre: string, encabezados: string[], filas: unknown[][]) => {
     const escapar = (valor: unknown) => `"${String(valor ?? '').replace(/"/g, '""')}"`
@@ -24,12 +32,18 @@ export default function ReportesPage() {
   }
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reportes', desde, hasta, agrupacion],
+    queryKey: ['reportes', desde, hasta, agrupacion, jornadaActual],
     queryFn: async () => {
-      const { data } = await api.get<any>(`/dashboard/reportes?desde=${desde}&hasta=${hasta}&agrupacion=${agrupacion}`)
+      const { data } = await api.get<any>(`/dashboard/reportes?desde=${desde}&hasta=${hasta}&agrupacion=${agrupacion}&jornada_actual=${jornadaActual}`)
       return data.data || data
     },
   })
+
+  useEffect(() => {
+    if (!jornadaActual || !data?.periodo?.desde) return
+    setDesde(data.periodo.desde)
+    setHasta(data.periodo.hasta)
+  }, [jornadaActual, data?.periodo?.desde, data?.periodo?.hasta])
 
   if (isLoading) return <PageLoader />
   const resumen = data?.resumen || {}
@@ -39,15 +53,15 @@ export default function ReportesPage() {
   return (
     <div className="space-y-6">
       <div className="page-header">
-        <div><h1 className="page-title">Reportes</h1><p className="page-subtitle">Análisis de ventas</p></div>
+        <div><h1 className="page-title">Reportes</h1><p className="page-subtitle">{jornadaActual && data?.periodo?.desde ? `Jornada de caja: ${new Date(`${data.periodo.desde}T12:00:00`).toLocaleDateString('es-CO')}` : 'Análisis de ventas'}</p></div>
       </div>
 
       {/* Filtros */}
       <div className="card p-4 space-y-4">
-        <div className="flex flex-wrap gap-2"><button onClick={() => seleccionarPeriodo(0)} className="btn-secondary btn-sm">Hoy</button><button onClick={() => seleccionarPeriodo(7)} className="btn-secondary btn-sm">Ultimos 7 dias</button><button onClick={() => seleccionarPeriodo(30)} className="btn-secondary btn-sm">Ultimos 30 dias</button></div>
+        <div className="flex flex-wrap gap-2"><button onClick={() => setJornadaActual(true)} className={`${jornadaActual ? 'btn-primary' : 'btn-secondary'} btn-sm`}>Hoy (jornada de caja)</button><button onClick={() => seleccionarPeriodo(7)} className="btn-secondary btn-sm">Ultimos 7 dias</button><button onClick={() => seleccionarPeriodo(30)} className="btn-secondary btn-sm">Ultimos 30 dias</button></div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
-        <div><label className="label"><CalendarDays className="mr-1 inline h-3.5 w-3.5"/>Desde</label><input type="date" max={hasta || hoy} className="input" value={desde} onChange={e => setDesde(e.target.value)}/></div>
-        <div><label className="label"><CalendarDays className="mr-1 inline h-3.5 w-3.5"/>Hasta</label><input type="date" min={desde} max={hoy} className="input" value={hasta} onChange={e => setHasta(e.target.value)}/></div>
+        <div><label className="label"><CalendarDays className="mr-1 inline h-3.5 w-3.5"/>Desde</label><input type="date" max={hasta || hoy} className="input" value={desde} onChange={e => { setJornadaActual(false); setDesde(e.target.value) }}/></div>
+        <div><label className="label"><CalendarDays className="mr-1 inline h-3.5 w-3.5"/>Hasta</label><input type="date" min={desde} max={hoy} className="input" value={hasta} onChange={e => { setJornadaActual(false); setHasta(e.target.value) }}/></div>
         <div><label className="label">Agrupar por</label>
           <select className="input" value={agrupacion} onChange={e => setAgrupacion(e.target.value)}>
             <option value="dia" className="bg-surface-800">Día</option>

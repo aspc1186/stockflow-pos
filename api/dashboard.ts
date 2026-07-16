@@ -1,6 +1,12 @@
 import { query, queryOne } from '../_db.js'
 import { authenticate, cors } from '../_auth.js'
 
+function fechaColombia() {
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+  const valor = (tipo: string) => partes.find(p => p.type === tipo)?.value || ''
+  return `${valor('year')}-${valor('month')}-${valor('day')}`
+}
+
 let pedidoSchemaReady: Promise<void> | null = null
 function ensurePedidoSchema() {
   if (!pedidoSchemaReady) pedidoSchemaReady = query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID, ADD COLUMN IF NOT EXISTS mesero_id UUID`)
@@ -44,12 +50,23 @@ export default async function handler(req: any, res: any) {
 
   // Reportes
   if (urlPath.includes('/reportes')) {
-    const { desde, hasta, agrupacion='dia' } = req.query||{}
-    const fd=desde||new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]
-    const fh=hasta||new Date().toISOString().split('T')[0]
+    const { desde, hasta, agrupacion='dia', jornada_actual } = req.query||{}
+    let fd=desde||new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]
+    let fh=hasta||fechaColombia()
+    let esJornadaActual = false
     const fmtMap: any={dia:'YYYY-MM-DD',semana:'IYYY-IW',mes:'YYYY-MM'}
     const fmt=fmtMap[agrupacion]||'YYYY-MM-DD'
     try {
+      if (jornada_actual === 'true') {
+        const jornada = await queryOne(
+          `SELECT fecha_operativa FROM cajas WHERE empresa_id=$1 AND fecha_operativa IS NOT NULL ORDER BY CASE WHEN estado='abierta' THEN 0 ELSE 1 END, apertura_at DESC LIMIT 1`,
+          [eid]
+        ) as any
+        const fechaJornada = jornada?.fecha_operativa ? String(jornada.fecha_operativa).slice(0, 10) : fechaColombia()
+        fd = fechaJornada
+        fh = fechaJornada
+        esJornadaActual = true
+      }
       const fechaOperativa = "COALESCE(c.fecha_operativa,(c.apertura_at AT TIME ZONE 'America/Bogota')::date)"
       const [vpp,tp,vm,vmesa,resumen]=await Promise.all([
         query(`SELECT TO_CHAR(${fechaOperativa},'${fmt}') as periodo,COUNT(DISTINCT p.id) as pedidos,COALESCE(SUM(p.total),0) as total FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaOperativa} BETWEEN $2 AND $3 GROUP BY 1 ORDER BY 1`,[eid,fd,fh]),
@@ -58,7 +75,7 @@ export default async function handler(req: any, res: any) {
         query(`SELECT COALESCE(m.numero::text,'Sin mesa') as mesa,COUNT(DISTINCT p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id LEFT JOIN mesas m ON m.id=p.mesa_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaOperativa} BETWEEN $2 AND $3 GROUP BY m.numero ORDER BY total DESC`,[eid,fd,fh]),
         queryOne(`SELECT COUNT(DISTINCT p.id) as total_pedidos,COALESCE(SUM(p.total),0) as total_ventas,COALESCE(AVG(p.total),0) as ticket_promedio FROM pedidos p JOIN caja_movimientos cm ON cm.pedido_id=p.id AND cm.tipo='venta' JOIN cajas c ON c.id=cm.caja_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND ${fechaOperativa} BETWEEN $2 AND $3`,[eid,fd,fh]),
       ])
-      return res.status(200).json({ ok:true, data:{periodo:{desde:fd,hasta:fh},resumen,ventas_por_periodo:vpp,top_productos:tp,ventas_por_mesero:vm,ventas_por_mesa:vmesa} })
+      return res.status(200).json({ ok:true, data:{periodo:{desde:fd,hasta:fh,jornada_actual:esJornadaActual},resumen,ventas_por_periodo:vpp,top_productos:tp,ventas_por_mesero:vm,ventas_por_mesa:vmesa} })
     } catch(e: any) { return res.status(500).json({ ok:false, msg:e.message }) }
   }
 
