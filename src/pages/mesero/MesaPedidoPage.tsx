@@ -111,9 +111,8 @@ export default function MesaPedidoPage() {
     if (!pedidoActivo) return
     setLoading(true)
     try {
-      const estadoCierre = isAdmin ? 'cobrado' : 'precierre'
-      await api.patch(`/pedidos/${(pedidoActivo as any).id}`, { estado: estadoCierre, metodo_pago: metodoPago })
-      toast.success(isAdmin ? 'Cobro registrado en caja' : 'Precierre enviado al administrador')
+      await api.patch(`/pedidos/${(pedidoActivo as any).id}`, { estado: 'precierre', metodo_pago: metodoPago })
+      toast.success('Precierre enviado al administrador')
       setModalCobro(false)
       navigate('/mesero')
     } catch (e:any) { toast.error(e?.response?.data?.msg ?? 'No se pudo registrar el cobro') }
@@ -315,8 +314,8 @@ export default function MesaPedidoPage() {
         </div>
       )}
       <Modal open={modalCobro} onClose={() => setModalCobro(false)} title="Cobrar mesa" size="sm"
-        footer={<div className="flex gap-3"><button onClick={() => setModalCobro(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={cobrar} disabled={loading || !cajaAbierta} className="btn-primary flex-1">{loading ? 'Procesando...' : isAdmin ? `Cobrar ${formatCurrency(totalAcumulado)}` : 'Enviar precierre'}</button></div>}>
-        <div className="space-y-4"><div><label className="label">Metodo de pago</label><select className="input" value={metodoPago} onChange={e => setMetodoPago(e.target.value)}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m => <option key={m} value={m}>{m.replaceAll('_', ' ')}</option>)}</select></div><p className="text-sm text-surface-200/60">{isAdmin ? 'El cobro se registrara en la caja abierta y liberara la mesa.' : 'El valor quedara pendiente en tu arqueo hasta que el administrador confirme la venta.'}</p></div>
+        footer={<div className="flex gap-3"><button onClick={() => setModalCobro(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={cobrar} disabled={loading || !cajaAbierta} className="btn-primary flex-1">{loading ? 'Procesando...' : 'Enviar precierre'}</button></div>}>
+        <div className="space-y-4"><div><label className="label">Metodo de pago</label><select className="input" value={metodoPago} onChange={e => setMetodoPago(e.target.value)}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m => <option key={m} value={m}>{m.replaceAll('_', ' ')}</option>)}</select></div><p className="text-sm text-surface-200/60">El valor quedara pendiente en el arqueo del mesero asignado hasta que el administrador confirme la venta.</p></div>
       </Modal>
     </div>
   )

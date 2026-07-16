@@ -36,14 +36,14 @@ export default function PedidoDetailPage() {
   const cobrar = async () => {
     try {
       const d = parseFloat(desc)||0; const p = parseFloat(prop)||0
-      await actualizar.mutateAsync({estado:'cobrado', metodo_pago:metodo, descuento:d, propina:p})
-      toast.success('Pedido cobrado'); setModalC(false); navigate('/app/pedidos')
+      await actualizar.mutateAsync({estado: esPrecierre ? 'cobrado' : 'precierre', metodo_pago:metodo, descuento:d, propina:p})
+      toast.success(esPrecierre ? 'Pedido cobrado' : 'Pedido enviado a precierre'); setModalC(false); navigate('/app/pedidos')
     } catch { toast.error('Error al cobrar') }
   }
 
   if (isLoading) return <PageLoader />
   if (!pedido) return null
-  const r = pedido as any; const activo = !['cobrado','cancelado'].includes(pedido.estado)
+  const r = pedido as any; const activo = !['cobrado','cancelado'].includes(pedido.estado); const esPrecierre = pedido.estado === 'precierre'
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -85,12 +85,12 @@ export default function PedidoDetailPage() {
       </div>
       {activo && <div className="flex gap-3">
         <button onClick={() => setConfirmCan(true)} className="btn-danger flex-1"><X className="w-4 h-4"/>Cancelar</button>
-        <button onClick={() => setModalC(true)} className="btn-primary flex-1 py-3"><CreditCard className="w-5 h-5"/>Cobrar {formatCurrency(pedido.total)}</button>
+        <button onClick={() => setModalC(true)} className="btn-primary flex-1 py-3"><CreditCard className="w-5 h-5"/>{esPrecierre ? 'Confirmar cobro' : 'Enviar a precierre'} {formatCurrency(pedido.total)}</button>
       </div>}
       <Modal open={modalP} onClose={() => setModalP(false)} title="Agregar productos" size="lg">
         <ProductoSelector productos={productos} onAgregar={items => agregarItems.mutate(items)} loading={agregarItems.isPending}/>
       </Modal>
-      <Modal open={modalC} onClose={() => setModalC(false)} title="Cobrar pedido" size="sm"
+      <Modal open={modalC} onClose={() => setModalC(false)} title={esPrecierre ? 'Confirmar cobro del precierre' : 'Enviar pedido a precierre'} size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setModalC(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={cobrar} className="btn-primary flex-1"><Check className="w-4 h-4"/>Confirmar</button></div>}>
         <div className="space-y-4">
           <div><label className="label">Método de pago</label><select className="input" value={metodo} onChange={e => setMetodo(e.target.value)}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m => <option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>

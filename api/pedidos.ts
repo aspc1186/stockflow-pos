@@ -224,6 +224,7 @@ export default async function handler(req: any, res: any) {
       const { estado,descuento,propina,notas,cliente_id,metodo_pago } = req.body||{}
       const ups:string[]=[],params:any[]=[]; let idx=1
       if (estado === 'cobrado' && !puedeAdministrarPedidos(auth.rol)) return res.status(403).json({ ok:false, msg:'El administrador debe confirmar el cierre de la venta' })
+      if (estado === 'cobrado' && pedido.estado !== 'precierre') return res.status(400).json({ ok:false, msg:'La venta debe pasar primero por precierre' })
       if (estado){ups.push(`estado=$${idx++}`);params.push(estado)}
       if (descuento!==undefined){ups.push(`descuento=$${idx++}`);params.push(descuento)}
       if (propina!==undefined){ups.push(`propina=$${idx++}`);params.push(propina)}
