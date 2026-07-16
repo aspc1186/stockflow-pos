@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Building2, Users, TrendingUp, CheckCircle, XCircle, Eye, Search, CalendarDays, RefreshCw } from 'lucide-react'
+import { Plus, Building2, Users, TrendingUp, CheckCircle, XCircle, Eye, Pencil, Search, CalendarDays, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
 import { formatCurrency } from '@/lib/utils'
@@ -64,7 +64,7 @@ export default function EmpresasPage() {
                 <td className="p-4 hidden md:table-cell"><div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-surface-200/30"/><span className="text-sm text-surface-200/70">{e.total_usuarios??0}</span></div></td>
                 <td className="p-4 hidden lg:table-cell"><div className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-emerald-400/50"/><span className="text-sm text-surface-200/70">{formatCurrency(e.ventas_hoy??0)}</span></div></td>
                 <td className="p-4"><button onClick={()=>toggle.mutate({id:e.id,activa:!e.activa})} className={cn('text-xs px-2 py-1 rounded-lg font-medium transition-colors',e.activa?'bg-emerald-500/20 text-emerald-400':'bg-red-500/20 text-red-400')}>{e.activa?'Activa':'Inactiva'}</button></td>
-                <td className="p-4"><button onClick={()=>navigate(`/superadmin/empresas/${e.id}`)} className="btn-ghost btn-sm"><Eye className="w-4 h-4"/></button></td>
+                <td className="p-4"><div className="flex justify-end gap-1"><button onClick={()=>navigate(`/superadmin/empresas/${e.id}`)} className="btn-ghost btn-sm" title="Ver empresa"><Eye className="w-4 h-4"/></button><button onClick={()=>navigate(`/superadmin/empresas/${e.id}?editar=1`)} className="btn-ghost btn-sm" title="Editar empresa"><Pencil className="w-4 h-4"/></button></div></td>
               </tr>
             ))}
           </tbody>

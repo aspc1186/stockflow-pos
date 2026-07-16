@@ -112,13 +112,13 @@ export default async function handler(req: any, res: any) {
     }
     // PATCH /api/superadmin/empresas/[id]
     if (req.method === 'PATCH') {
-      const { activa, plan, licencia_fin, nombre, notificar_pago, mensaje_pago } = req.body || {}
+      const { activa, plan, licencia_fin, nombre, tipo, nit, telefono, email, ciudad, direccion, notificar_pago, mensaje_pago } = req.body || {}
       const avisoPago = notificar_pago
         ? (String(mensaje_pago || '').trim() || `Pago recibido. Tu servicio esta activo${licencia_fin ? ` hasta el ${licencia_fin}` : ''}.`)
         : null
       const [u] = await query(
-        `UPDATE empresas SET activa=COALESCE($1,activa),plan=COALESCE($2,plan),licencia_fin=COALESCE($3,licencia_fin),nombre=COALESCE($4,nombre),notificacion_pago=CASE WHEN $5 THEN $6 ELSE notificacion_pago END,notificacion_pago_at=CASE WHEN $5 THEN NOW() ELSE notificacion_pago_at END,updated_at=NOW() WHERE id=$7 RETURNING *`,
-        [activa, plan, licencia_fin, nombre, Boolean(notificar_pago), avisoPago, empresaId]
+        `UPDATE empresas SET activa=COALESCE($1,activa),plan=COALESCE($2,plan),licencia_fin=COALESCE($3,licencia_fin),nombre=COALESCE($4,nombre),tipo=COALESCE($5,tipo),nit=COALESCE($6,nit),telefono=COALESCE($7,telefono),email=COALESCE($8,email),ciudad=COALESCE($9,ciudad),direccion=COALESCE($10,direccion),notificacion_pago=CASE WHEN $11 THEN $12 ELSE notificacion_pago END,notificacion_pago_at=CASE WHEN $11 THEN NOW() ELSE notificacion_pago_at END,updated_at=NOW() WHERE id=$13 RETURNING *`,
+        [activa, plan, licencia_fin, nombre, tipo, nit, telefono, email, ciudad, direccion, Boolean(notificar_pago), avisoPago, empresaId]
       )
       return res.status(200).json({ ok: true, data: u })
     }

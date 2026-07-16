@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Building2, Users, CheckCircle, XCircle, Pencil, Save } from 'lucide-react'
 import api from '@/lib/axios'
@@ -11,8 +11,9 @@ import Modal from '@/components/ui/Modal'
 
 export default function EmpresaDetailPage() {
   const { id } = useParams<{id:string}>(); const navigate = useNavigate(); const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [editarAbierto, setEditarAbierto] = useState(false)
-  const [edicion, setEdicion] = useState({ nombre:'', plan:'basico', licencia_fin:'', notificar_pago:true, mensaje_pago:'' })
+  const [edicion, setEdicion] = useState({ nombre:'', tipo:'bar', nit:'', ciudad:'', telefono:'', email:'', direccion:'', plan:'basico', licencia_fin:'', notificar_pago:false, mensaje_pago:'' })
 
   const { data, isLoading } = useQuery({
     queryKey: ['sa-empresa', id],
@@ -35,6 +36,20 @@ export default function EmpresaDetailPage() {
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo guardar la empresa'),
   })
 
+  const abrirEdicion = (empresa: any = data) => {
+    if (!empresa) return
+    setEdicion({ nombre:empresa.nombre||'', tipo:empresa.tipo||'bar', nit:empresa.nit||'', ciudad:empresa.ciudad||'', telefono:empresa.telefono||'', email:empresa.email||'', direccion:empresa.direccion||'', plan:empresa.plan||'basico', licencia_fin:empresa.licencia_fin ? String(empresa.licencia_fin).slice(0,10) : '', notificar_pago:false, mensaje_pago:'' })
+    setEditarAbierto(true)
+  }
+
+  useEffect(() => {
+    if (!data || searchParams.get('editar') !== '1') return
+    abrirEdicion(data)
+    const next = new URLSearchParams(searchParams)
+    next.delete('editar')
+    setSearchParams(next, { replace: true })
+  }, [data, searchParams, setSearchParams])
+
   if (isLoading) return <PageLoader />
   if (!data) return null
   const empresa = data; const usuarios = data.usuarios || []
@@ -44,7 +59,7 @@ export default function EmpresaDetailPage() {
       <div className="flex items-center gap-3">
         <button onClick={() => navigate('/superadmin/empresas')} className="btn-ghost btn-sm p-2"><ArrowLeft className="w-4 h-4"/></button>
         <div className="flex-1"><h1 className="page-title">{empresa.nombre}</h1><p className="page-subtitle capitalize">{empresa.tipo?.replace(/_/g,' ')} · {empresa.ciudad||'Sin ciudad'}</p></div>
-        <div className="flex gap-2"><button onClick={() => { setEdicion({ nombre:empresa.nombre||'', plan:empresa.plan||'basico', licencia_fin:empresa.licencia_fin ? String(empresa.licencia_fin).slice(0,10) : '', notificar_pago:true, mensaje_pago:'' }); setEditarAbierto(true) }} className="btn-secondary btn-sm"><Pencil className="w-4 h-4"/>Editar empresa</button><button onClick={() => toggle.mutate(!empresa.activa)} className={cn('btn btn-sm', empresa.activa ? 'btn-danger' : 'btn-primary')}>{empresa.activa ? <><XCircle className="w-4 h-4"/>Desactivar</> : <><CheckCircle className="w-4 h-4"/>Activar</>}</button></div>
+        <div className="flex gap-2"><button onClick={()=>abrirEdicion()} className="btn-secondary btn-sm"><Pencil className="w-4 h-4"/>Editar empresa</button><button onClick={() => toggle.mutate(!empresa.activa)} className={cn('btn btn-sm', empresa.activa ? 'btn-danger' : 'btn-primary')}>{empresa.activa ? <><XCircle className="w-4 h-4"/>Desactivar</> : <><CheckCircle className="w-4 h-4"/>Activar</>}</button></div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -83,9 +98,10 @@ export default function EmpresaDetailPage() {
           </tbody>
         </table>
       </div>
-      <Modal open={editarAbierto} onClose={()=>setEditarAbierto(false)} title="Editar empresa" size="md" footer={<div className="flex gap-3"><button className="btn-secondary flex-1" onClick={()=>setEditarAbierto(false)}>Cancelar</button><button className="btn-primary flex-1" onClick={()=>guardarEdicion.mutate()} disabled={guardarEdicion.isPending}>{guardarEdicion.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:<><Save className="w-4 h-4"/>Guardar cambios</>}</button></div>}>
+      <Modal open={editarAbierto} onClose={()=>setEditarAbierto(false)} title="Editar empresa" size="lg" footer={<div className="flex gap-3"><button className="btn-secondary flex-1" onClick={()=>setEditarAbierto(false)}>Cancelar</button><button className="btn-primary flex-1" onClick={()=>guardarEdicion.mutate()} disabled={guardarEdicion.isPending || !edicion.nombre.trim()}>{guardarEdicion.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:<><Save className="w-4 h-4"/>Guardar cambios</>}</button></div>}>
         <div className="space-y-4">
           <div><label className="label">Nombre de la empresa</label><input className="input" value={edicion.nombre} onChange={e=>setEdicion(p=>({...p,nombre:e.target.value}))}/></div>
+          <div className="grid grid-cols-2 gap-3"><div><label className="label">Tipo de negocio</label><select className="input" value={edicion.tipo} onChange={e=>setEdicion(p=>({...p,tipo:e.target.value}))}><option value="bar">Bar</option><option value="discoteca">Discoteca</option><option value="bar_discoteca">Bar y discoteca</option><option value="restaurante_bar">Restaurante bar</option></select></div><div><label className="label">NIT</label><input className="input" value={edicion.nit} onChange={e=>setEdicion(p=>({...p,nit:e.target.value}))}/></div><div><label className="label">Ciudad</label><input className="input" value={edicion.ciudad} onChange={e=>setEdicion(p=>({...p,ciudad:e.target.value}))}/></div><div><label className="label">Telefono</label><input className="input" value={edicion.telefono} onChange={e=>setEdicion(p=>({...p,telefono:e.target.value}))}/></div><div className="col-span-2"><label className="label">Email del negocio</label><input type="email" className="input" value={edicion.email} onChange={e=>setEdicion(p=>({...p,email:e.target.value}))}/></div><div className="col-span-2"><label className="label">Direccion</label><input className="input" value={edicion.direccion} onChange={e=>setEdicion(p=>({...p,direccion:e.target.value}))}/></div></div>
           <div className="grid grid-cols-2 gap-3"><div><label className="label">Plan</label><select className="input" value={edicion.plan} onChange={e=>setEdicion(p=>({...p,plan:e.target.value}))}><option value="basico">Básico</option><option value="profesional">Profesional</option><option value="premium">Premium</option></select></div><div><label className="label">Licencia hasta</label><input type="date" className="input" value={edicion.licencia_fin} onChange={e=>setEdicion(p=>({...p,licencia_fin:e.target.value}))}/></div></div>
           <label className="flex items-start gap-3 rounded-lg border border-emerald-400/20 bg-emerald-500/10 p-3 cursor-pointer"><input type="checkbox" className="mt-1" checked={edicion.notificar_pago} onChange={e=>setEdicion(p=>({...p,notificar_pago:e.target.checked}))}/><span><span className="block text-sm font-medium text-emerald-100">Notificar pago al cliente</span><span className="block text-xs text-emerald-100/60 mt-1">Al guardar, el administrador de la empresa verá el aviso de pago confirmado.</span></span></label>
           {edicion.notificar_pago && <div><label className="label">Mensaje para el cliente <span className="text-surface-200/40">(opcional)</span></label><textarea className="input min-h-20" placeholder="Pago recibido. Tu servicio fue renovado..." value={edicion.mensaje_pago} onChange={e=>setEdicion(p=>({...p,mensaje_pago:e.target.value}))}/></div>}
