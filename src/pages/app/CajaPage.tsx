@@ -25,8 +25,9 @@ export default function CajaPage() {
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
   if (isLoading) return <PageLoader />
-  const { caja, movimientos = [], ultimo_cierre: ultimoCierre, movimientos_ultimo_cierre: movimientosUltimoCierre = [], movimientos_cierres_mes: movimientosCierresMes = [] } = data ?? {}
+  const { caja, movimientos = [], ultimo_cierre: ultimoCierre, movimientos_ultimo_cierre: movimientosUltimoCierre = [], jornadas_mes: jornadasMes = [], movimientos_cierres_mes: movimientosCierresMes = [] } = data ?? {}
   const saldo = caja ? Number(caja.saldo_inicial || 0) + Number(caja.total_ventas || 0) + Number(caja.total_ingresos || 0) - Number(caja.total_egresos || 0) - Number(caja.total_compras_inventario || 0) - Number(caja.total_compras_no_inventario || 0) : 0
+  const saldoJornada = (jornada:any) => jornada.estado === 'cerrada' ? Number(jornada.saldo_final || 0) : Number(jornada.saldo_inicial || 0) + Number(jornada.total_ventas || 0) + Number(jornada.total_ingresos || 0) - Number(jornada.total_egresos || 0) - Number(jornada.total_compras_inventario || 0) - Number(jornada.total_compras_no_inventario || 0)
 
   return (
     <div className="space-y-5">
@@ -78,6 +79,24 @@ export default function CajaPage() {
           </tbody></table></div>
         </div>
       </div>}
+      <div className="card overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-3 sm:px-5 sm:py-4">
+          <div><h3 className="text-sm font-semibold">Aperturas y cierres del mes</h3><p className="mt-1 text-xs text-surface-200/45">Saldo inicial, ventas y saldo final por cada jornada.</p></div>
+          <span className="badge badge-blue">{jornadasMes.length} jornadas</span>
+        </div>
+        {jornadasMes.length === 0 ? <p className="p-8 text-center text-sm text-surface-200/35">No hay aperturas de caja en este mes</p> : <>
+          <div className="space-y-2 p-3 md:hidden">
+            {jornadasMes.map((jornada:any) => <div key={jornada.id} className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+              <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-surface-50">Jornada {jornada.fecha_operativa ? formatDate(jornada.fecha_operativa,'dd/MM/yyyy') : formatDate(jornada.apertura_at,'dd/MM/yyyy')}</p><p className="mt-1 text-xs text-surface-200/45">Apertura {formatDate(jornada.apertura_at,'dd/MM HH:mm')} {jornada.cierre_at ? `· Cierre ${formatDate(jornada.cierre_at,'HH:mm')}` : ''}</p></div><span className={jornada.estado==='cerrada'?'badge-gray':'badge-green'}>{jornada.estado==='cerrada'?'Cerrada':'Abierta'}</span></div>
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-white/5 pt-3"><div className="min-w-0"><p className="text-[10px] uppercase text-surface-200/45">Inicial</p><p className="mt-1 break-words text-sm font-bold tabular-nums text-surface-50">{formatCurrency(jornada.saldo_inicial || 0)}</p></div><div className="min-w-0"><p className="text-[10px] uppercase text-surface-200/45">Ventas</p><p className="mt-1 break-words text-sm font-bold tabular-nums text-emerald-400">{formatCurrency(jornada.total_ventas || 0)}</p></div><div className="min-w-0"><p className="text-[10px] uppercase text-surface-200/45">Final</p><p className="mt-1 break-words text-sm font-bold tabular-nums text-brand-400">{formatCurrency(saldoJornada(jornada))}</p></div></div>
+              <p className="mt-3 truncate text-xs text-surface-200/45">Responsable: {jornada.cajero_nombre || 'Sistema'}</p>
+            </div>)}
+          </div>
+          <div className="hidden overflow-x-auto md:block"><table className="table-base"><thead><tr><th>Jornada</th><th>Estado</th><th>Apertura</th><th>Cierre</th><th>Responsable</th><th>Saldo inicial</th><th>Ventas</th><th>Saldo final</th></tr></thead><tbody>
+            {jornadasMes.map((jornada:any) => <tr key={jornada.id}><td className="text-xs whitespace-nowrap">{jornada.fecha_operativa ? formatDate(jornada.fecha_operativa,'dd/MM/yyyy') : formatDate(jornada.apertura_at,'dd/MM/yyyy')}</td><td><span className={jornada.estado==='cerrada'?'badge-gray':'badge-green'}>{jornada.estado==='cerrada'?'Cerrada':'Abierta'}</span></td><td className="text-xs whitespace-nowrap">{formatDate(jornada.apertura_at,'dd/MM/yyyy HH:mm')}</td><td className="text-xs whitespace-nowrap">{jornada.cierre_at ? formatDate(jornada.cierre_at,'dd/MM/yyyy HH:mm') : 'Pendiente'}</td><td className="text-sm text-surface-200/70">{jornada.cajero_nombre || 'Sistema'}</td><td className="font-semibold tabular-nums">{formatCurrency(jornada.saldo_inicial || 0)}</td><td className="font-semibold tabular-nums text-emerald-400">{formatCurrency(jornada.total_ventas || 0)}</td><td className="font-semibold tabular-nums text-brand-400">{formatCurrency(saldoJornada(jornada))}</td></tr>)}
+          </tbody></table></div>
+        </>}
+      </div>
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-3 sm:px-5 sm:py-4">
           <div><h3 className="text-sm font-semibold">Trazabilidad de cierres del mes</h3><p className="mt-1 text-xs text-surface-200/45">Movimientos registrados en cada jornada cerrada.</p></div>
