@@ -13,6 +13,7 @@
     {"src": "api/caja.ts", "use": "@vercel/node"},
     {"src": "api/catalogo.ts", "use": "@vercel/node"},
     {"src": "api/dashboard.ts", "use": "@vercel/node"},
+    {"src": "api/backup.ts", "use": "@vercel/node"},
     {"src": "package.json", "use": "@vercel/static-build", "config": {"distDir": "dist"}}
   ],
   "routes": [
@@ -37,7 +38,11 @@
     {"src": "/api/proveedores", "dest": "/api/catalogo.ts"},
     {"src": "/api/dashboard/(.*)", "dest": "/api/dashboard.ts"},
     {"src": "/api/dashboard", "dest": "/api/dashboard.ts"},
+    {"src": "/api/backup", "dest": "/api/backup.ts"},
     {"handle": "filesystem"},
     {"src": "/(.*)", "dest": "/index.html"}
+  ],
+  "crons": [
+    {"path": "/api/backup", "schedule": "0 5 * * *"}
   ]
 }

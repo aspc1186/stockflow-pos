@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { Building2, Users, TrendingUp, CheckCircle } from 'lucide-react'
+import { Building2, Users, CheckCircle } from 'lucide-react'
 import api from '@/lib/axios'
-import { formatCurrency } from '@/lib/utils'
 import { PageLoader } from '@/components/ui/Spinner'
 
 export default function SuperDashboardPage() {
@@ -11,15 +10,13 @@ export default function SuperDashboardPage() {
   })
   if (isLoading) return <PageLoader />
   const totalUsuarios = empresas.reduce((s:number,e:any) => s+(e.total_usuarios||0), 0)
-  const ventasHoy = empresas.reduce((s:number,e:any) => s+parseFloat(e.ventas_hoy||0), 0)
   return (
     <div className="space-y-6">
       <div className="page-header"><div><h1 className="page-title">Super Admin</h1><p className="page-subtitle">Vista global de la plataforma</p></div></div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[{label:'Total empresas',value:empresas.length,icon:Building2,bg:'bg-brand-600/20',color:'text-brand-400'},
           {label:'Activas',value:empresas.filter((e:any)=>e.activa).length,icon:CheckCircle,bg:'bg-emerald-500/20',color:'text-emerald-400'},
           {label:'Usuarios',value:totalUsuarios,icon:Users,bg:'bg-sky-500/20',color:'text-sky-400'},
-          {label:'Ventas hoy',value:formatCurrency(ventasHoy),icon:TrendingUp,bg:'bg-green-500/20',color:'text-green-400'},
         ].map(item => (
           <div key={item.label} className="card p-5 flex items-center gap-4">
             <div className={`w-12 h-12 ${item.bg} rounded-xl flex items-center justify-center`}><item.icon className={`w-6 h-6 ${item.color}`}/></div>
