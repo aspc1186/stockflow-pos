@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, CalendarDays, Users } from 'lucide-react'
+import { BarChart3, CalendarDays, Download, Users } from 'lucide-react'
 import api from '@/lib/axios'
 import { formatCurrency } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -15,6 +15,12 @@ export default function ReportesPage() {
   const seleccionarPeriodo = (dias: number) => {
     setDesde(new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
     setHasta(hoy)
+  }
+  const descargarCsv = (nombre: string, encabezados: string[], filas: unknown[][]) => {
+    const escapar = (valor: unknown) => `"${String(valor ?? '').replace(/"/g, '""')}"`
+    const contenido = [encabezados, ...filas].map(fila => fila.map(escapar).join(';')).join('\n')
+    const url = URL.createObjectURL(new Blob([`\uFEFF${contenido}`], { type:'text/csv;charset=utf-8' }))
+    const enlace = document.createElement('a'); enlace.href = url; enlace.download = `${nombre}.csv`; enlace.click(); URL.revokeObjectURL(url)
   }
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -51,6 +57,13 @@ export default function ReportesPage() {
         </div>
         <button onClick={() => refetch()} disabled={isLoading || !desde || !hasta || desde > hasta} className="btn-primary">Consultar</button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => descargarCsv('reporte_ventas_periodo', ['Periodo','Pedidos','Ventas'], ventas.map((fila:any) => [fila.periodo, fila.pedidos, fila.total]))} disabled={!ventas.length} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Ventas</button>
+        <button onClick={() => descargarCsv('reporte_productos', ['Producto','Unidades','Ventas'], productos.map((fila:any) => [fila.nombre, fila.unidades, fila.total]))} disabled={!productos.length} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Productos</button>
+        <button onClick={() => descargarCsv('reporte_meseros', ['Mesero','Pedidos','Ventas'], (data?.ventas_por_mesero || []).map((fila:any) => [fila.nombre, fila.pedidos, fila.total]))} disabled={!data?.ventas_por_mesero?.length} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Por mesero</button>
+        <button onClick={() => descargarCsv('reporte_mesas', ['Mesa','Pedidos','Ventas'], (data?.ventas_por_mesa || []).map((fila:any) => [fila.mesa, fila.pedidos, fila.total]))} disabled={!data?.ventas_por_mesa?.length} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Por mesa</button>
       </div>
 
       {/* Resumen */}
@@ -104,6 +117,8 @@ export default function ReportesPage() {
       )}
 
       {data?.ventas_por_mesero?.length > 0 && <div className="card p-5"><h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-surface-200/70 uppercase tracking-wide"><Users className="h-4 w-4"/>Ventas por mesero</h3><div className="space-y-3">{data.ventas_por_mesero.map((mesero:any) => <div key={mesero.nombre} className="flex items-center justify-between gap-3 border-b border-white/5 pb-3 last:border-0 last:pb-0"><div><p className="text-sm font-medium text-surface-50">{mesero.nombre}</p><p className="text-xs text-surface-200/45">{mesero.pedidos} pedidos cobrados</p></div><p className="font-bold text-brand-400">{formatCurrency(mesero.total)}</p></div>)}</div></div>}
+
+      {data?.ventas_por_mesa?.length > 0 && <div className="card p-5"><h3 className="mb-4 text-sm font-semibold text-surface-200/70 uppercase tracking-wide">Ventas por mesa</h3><div className="space-y-3">{data.ventas_por_mesa.map((mesa:any) => <div key={mesa.mesa} className="flex items-center justify-between gap-3 border-b border-white/5 pb-3 last:border-0 last:pb-0"><div><p className="text-sm font-medium text-surface-50">Mesa {mesa.mesa}</p><p className="text-xs text-surface-200/45">{mesa.pedidos} pedidos cobrados</p></div><p className="font-bold text-brand-400">{formatCurrency(mesa.total)}</p></div>)}</div></div>}
 
       {isError && <div className="card p-6 text-center text-sm text-red-400">No fue posible consultar los reportes. Verifica las fechas e intenta de nuevo.</div>}
       {!isError && ventas.length === 0 && productos.length === 0 && (

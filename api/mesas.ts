@@ -62,16 +62,18 @@ export default async function handler(req: any, res: any) {
       const { estado, nombre, capacidad, activa, zona_id, consumo_minimo, pos_x, pos_y, mesero_id } = req.body||{}
       const cambiaMesero = Object.prototype.hasOwnProperty.call(req.body || {}, 'mesero_id')
       if (cambiaMesero && mesero_id) {
-        const mesero = await queryOne(
-          `SELECT u.id FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE u.id=$1 AND u.empresa_id=$2 AND u.activo=true AND r.nombre='mesero'`,
+        const responsable = await queryOne(
+          `SELECT u.id FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE u.id=$1 AND u.empresa_id=$2 AND u.activo=true AND LOWER(TRIM(r.nombre)) IN ('mesero','cajero','barra')`,
           [mesero_id, eid]
         )
-        if (!mesero) return res.status(400).json({ ok: false, msg: 'Selecciona un mesero activo de esta empresa' })
+        if (!responsable) return res.status(400).json({ ok: false, msg: 'Selecciona un responsable operativo activo de esta empresa' })
       }
-      const [u] = await query(
-        `UPDATE mesas SET estado=COALESCE($1,estado),nombre=COALESCE($2,nombre),capacidad=COALESCE($3,capacidad),activa=COALESCE($4,activa),zona_id=COALESCE($5,zona_id),consumo_minimo=COALESCE($6,consumo_minimo),pos_x=COALESCE($7,pos_x),pos_y=COALESCE($8,pos_y),mesero_id=CASE WHEN $9::boolean THEN $10 ELSE mesero_id END WHERE id=$11 AND empresa_id=$12 RETURNING *`,
-        [estado,nombre,capacidad,activa,zona_id,consumo_minimo,pos_x,pos_y,cambiaMesero,mesero_id || null,id,eid])
-      return res.status(200).json({ ok: true, data: u })
+      try {
+        const [u] = await query(
+          `UPDATE mesas SET estado=COALESCE($1,estado),nombre=COALESCE($2,nombre),capacidad=COALESCE($3,capacidad),activa=COALESCE($4,activa),zona_id=COALESCE($5,zona_id),consumo_minimo=COALESCE($6,consumo_minimo),pos_x=COALESCE($7,pos_x),pos_y=COALESCE($8,pos_y),mesero_id=CASE WHEN $9::boolean THEN $10 ELSE mesero_id END WHERE id=$11 AND empresa_id=$12 RETURNING *`,
+          [estado,nombre,capacidad,activa,zona_id,consumo_minimo,pos_x,pos_y,cambiaMesero,mesero_id || null,id,eid])
+        return res.status(200).json({ ok: true, data: u })
+      } catch (e: any) { return res.status(500).json({ ok: false, msg: `No fue posible guardar la asignacion: ${e.message}` }) }
     }
     if (req.method === 'DELETE') {
       if (!puedeAdministrarMesas(auth.rol)) return res.status(403).json({ ok: false, msg: 'Sin permisos para eliminar mesas' })

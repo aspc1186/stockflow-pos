@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Download, FileUp, Plus } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import api from '@/lib/axios'
 import type { Producto, Categoria } from '@/types'
 import { formatCurrency } from '@/lib/utils'
@@ -9,12 +10,26 @@ import Modal from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 
+function clave(valor: unknown) {
+  return String(valor ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
+}
+
+function numero(valor: unknown) {
+  if (typeof valor === 'number') return valor
+  const texto = String(valor ?? '').trim().replace(/\s/g, '')
+  if (!texto) return 0
+  if (texto.includes(',') && texto.includes('.')) return Number(texto.replace(/\./g, '').replace(',', '.')) || 0
+  return Number(texto.replace(',', '.')) || 0
+}
+
 export default function ProductosPage() {
   const qc = useQueryClient()
   const [modal, setModal] = useState(false)
+  const archivoRef = useRef<HTMLInputElement>(null)
+  const [importando, setImportando] = useState(false)
   const [form, setForm] = useState({nombre:'',precio_venta:'',precio_costo:'',categoria_id:'',impuesto_pct:'0',disponible:true,controla_stock:true,destino:'barra',stock_inicial:'0',stock_minimo:'0'})
   const { data: productos = [], isLoading } = useQuery({ queryKey: ['productos'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as Producto[] } })
-  const { data: cats = [] } = useQuery({ queryKey: ['categorias'], queryFn: async () => { const { data } = await api.get<any>('/categorias'); return (data.data||data) as Categoria[] }, enabled: modal })
+  const { data: cats = [] } = useQuery({ queryKey: ['categorias'], queryFn: async () => { const { data } = await api.get<any>('/categorias'); return (data.data||data) as Categoria[] } })
   const crear = useMutation({
     mutationFn: () => api.post('/productos', {...form,precio_venta:parseFloat(form.precio_venta)||0,precio_costo:parseFloat(form.precio_costo)||0,impuesto_pct:parseFloat(form.impuesto_pct)||0,stock_inicial:parseFloat(form.stock_inicial)||0,stock_minimo:parseFloat(form.stock_minimo)||0,categoria_id:form.categoria_id||undefined}),
     onSuccess: () => { qc.invalidateQueries({queryKey:['productos']}); setModal(false); toast.success('Producto creado') },
@@ -24,13 +39,45 @@ export default function ProductosPage() {
     mutationFn: ({id,disponible}:{id:string;disponible:boolean}) => api.patch(`/productos/${id}`,{disponible}),
     onSuccess: () => qc.invalidateQueries({queryKey:['productos']}),
   })
+  const descargarPlantilla = () => {
+    const hoja = XLSX.utils.json_to_sheet([{ nombre:'Cerveza ejemplo', codigo:'CER-001', precio_venta:8000, precio_costo:6000, categoria:'Cervezas', destino:'barra', impuesto_pct:0, stock_inicial:24, stock_minimo:6, controla_stock:'si' }])
+    const libro = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(libro, hoja, 'Productos')
+    XLSX.writeFile(libro, 'plantilla_productos_stockflow.xlsx')
+  }
+  const importarArchivo = async (archivo?: File) => {
+    if (!archivo) return
+    setImportando(true)
+    try {
+      const buffer = await archivo.arrayBuffer()
+      const libro = XLSX.read(buffer, { type:'array' })
+      const hoja = libro.Sheets[libro.SheetNames[0]]
+      const filas = XLSX.utils.sheet_to_json<Record<string, unknown>>(hoja, { defval:'' })
+      const categorias = new Map(cats.map(c => [clave(c.nombre), c.id]))
+      const validas = filas.map(fila => {
+        const datos = Object.fromEntries(Object.entries(fila).map(([k,v]) => [clave(k), v])) as Record<string, unknown>
+        const nombre = String(datos.nombre || '').trim()
+        const precioVenta = numero(datos.precioventa)
+        if (!nombre || precioVenta <= 0) return null
+        const controla = !['no','false','0'].includes(clave(datos.controlastock || 'si'))
+        return { nombre, codigo:String(datos.codigo || '').trim() || undefined, precio_venta:precioVenta, precio_costo:numero(datos.preciocosto), categoria_id:categorias.get(clave(datos.categoria)) || undefined, destino:['barra','cocina','ambos','directo'].includes(clave(datos.destino)) ? clave(datos.destino) : 'barra', impuesto_pct:numero(datos.impuestopct), stock_inicial:numero(datos.stockinicial), stock_minimo:numero(datos.stockminimo), controla_stock:controla, disponible:true }
+      }).filter(Boolean) as any[]
+      if (!validas.length) throw new Error('No hay filas validas. Se requiere nombre y precio_venta mayor que cero.')
+      const resultados = await Promise.allSettled(validas.map(producto => api.post('/productos', producto)))
+      const creados = resultados.filter(resultado => resultado.status === 'fulfilled').length
+      const fallidos = resultados.length - creados
+      qc.invalidateQueries({queryKey:['productos']}); qc.invalidateQueries({queryKey:['inventario']})
+      toast.success(`${creados} productos importados${fallidos ? `, ${fallidos} con error` : ''}`)
+    } catch (e:any) { toast.error(e?.message || 'No se pudo leer el archivo Excel') }
+    finally { setImportando(false); if (archivoRef.current) archivoRef.current.value = '' }
+  }
   if (isLoading) return <PageLoader />
   return (
     <div className="space-y-5">
       <div className="page-header">
         <div><h1 className="page-title">Productos</h1><p className="page-subtitle">{productos.length} productos</p></div>
-        <button onClick={() => setModal(true)} className="btn-primary"><Plus className="w-4 h-4"/>Nuevo producto</button>
+        <div className="flex flex-wrap gap-2"><button onClick={descargarPlantilla} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Plantilla Excel</button><button onClick={() => archivoRef.current?.click()} disabled={importando} className="btn-secondary btn-sm"><FileUp className="w-4 h-4"/>{importando ? 'Importando...' : 'Importar Excel'}</button><button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nuevo producto</button></div>
       </div>
+      <input ref={archivoRef} className="hidden" type="file" accept=".xlsx,.xls,.csv" onChange={e => importarArchivo(e.target.files?.[0])}/>
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
         <thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Destino</th><th>Estado</th><th></th></tr></thead>
         <tbody>
@@ -50,7 +97,7 @@ export default function ProductosPage() {
       </table></div></div>
       <Modal open={modal} onClose={() => setModal(false)} title="Nuevo producto" size="lg"
         footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => crear.mutate()} disabled={crear.isPending||!form.nombre||!form.precio_venta} className="btn-primary flex-1">{crear.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Crear'}</button></div>}>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="col-span-2"><label className="label">Nombre *</label><input className="input" value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))}/></div>
           <div><label className="label">Precio venta *</label><input type="number" min="0" className="input" value={form.precio_venta} onChange={e=>setForm(p=>({...p,precio_venta:e.target.value}))}/></div>
           <div><label className="label">Precio costo</label><input type="number" min="0" className="input" value={form.precio_costo} onChange={e=>setForm(p=>({...p,precio_costo:e.target.value}))}/></div>

@@ -65,7 +65,7 @@ export default function MesasPage() {
     queryKey: ['meseros-asignables'],
     queryFn: async () => {
       const { data } = await api.get<any>('/usuarios')
-      return ((data.data || data) as any[]).filter(usuario => usuario.rol === 'mesero' && usuario.activo)
+      return ((data.data || data) as any[]).filter(usuario => ['mesero','cajero','barra'].includes(String(usuario.rol || '').trim().toLowerCase()) && usuario.activo)
     },
     enabled: isAdmin,
   })
@@ -77,7 +77,7 @@ export default function MesasPage() {
   const asignarMesero = useMutation({
     mutationFn: ({ mesaId, meseroId }: { mesaId: string; meseroId: string }) => api.patch(`/mesas/${mesaId}`, { mesero_id: meseroId || null }),
     onSuccess: () => { qc.invalidateQueries({queryKey:['mesas']}); toast.success('Mesa asignada') },
-    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo asignar la mesa'),
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? e?.message ?? 'No se pudo asignar la mesa'),
   })
   const asignarTodas = useMutation({
     mutationFn: async () => {
@@ -107,7 +107,7 @@ export default function MesasPage() {
         </div>
       </div>
       {isAdmin && <div className="card p-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="flex-1"><p className="text-sm font-medium text-surface-50">Asignacion masiva</p><p className="text-xs text-surface-200/45">Puedes asignar todas las mesas activas al mismo mesero, sin limite de cantidad.</p></div>
+        <div className="flex-1"><p className="text-sm font-medium text-surface-50">Asignacion masiva</p><p className="text-xs text-surface-200/45">Puedes asignar todas las mesas activas al mismo responsable operativo, sin limite de cantidad.</p></div>
         <select className="input sm:w-56" value={meseroMasivo} onChange={e => setMeseroMasivo(e.target.value)}><option value="">Sin asignar</option>{meseros.map((mesero:any) => <option key={mesero.id} value={mesero.id}>{mesero.nombre} ({mesero.username})</option>)}</select>
         <button onClick={() => asignarTodas.mutate()} disabled={asignarTodas.isPending} className="btn-secondary whitespace-nowrap">{asignarTodas.isPending ? 'Asignando...' : 'Asignar todas'}</button>
       </div>}
@@ -152,7 +152,7 @@ export default function MesasPage() {
                 {mesa.zona_nombre && <div className="flex items-center gap-1 mt-2"><MapPin className="w-3 h-3 text-surface-200/30"/><span className="text-xs text-surface-200/40 truncate">{mesa.zona_nombre}</span></div>}
 
                 {isAdmin && <div className="mt-3">
-                  <label className="mb-1 flex items-center gap-1 text-xs text-surface-200/50"><UserRoundCheck className="w-3 h-3"/>Mesero asignado</label>
+                  <label className="mb-1 flex items-center gap-1 text-xs text-surface-200/50"><UserRoundCheck className="w-3 h-3"/>Responsable asignado</label>
                   <select
                     className="input h-9 py-1 text-xs"
                     value={mesa.mesero_id || ''}

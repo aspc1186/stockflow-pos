@@ -151,7 +151,7 @@ export default function MesaPedidoPage() {
               onClick={() => setModalCobro(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-500/20 text-orange-400 text-xs font-semibold border border-orange-500/20"
             >
-              <CreditCard className="w-3.5 h-3.5"/>Cuenta
+              <CreditCard className="w-3.5 h-3.5"/>Forma de pago
             </button>
           )}
         </div>

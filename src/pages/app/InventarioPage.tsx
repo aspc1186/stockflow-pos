@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Plus } from 'lucide-react'
+import { AlertTriangle, Download, Plus } from 'lucide-react'
 import api from '@/lib/axios'
 import Modal from '@/components/ui/Modal'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -24,6 +24,15 @@ export default function InventarioPage() {
     onSuccess: () => { qc.invalidateQueries({queryKey:['inventario']}); setModal(false); setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:''}); toast.success('Movimiento registrado') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
+  const descargarMovimientos = async () => {
+    try {
+      const { data } = await api.get<any>('/inventario?movimientos=true')
+      const filas = (data.data || data) as any[]
+      const escapar = (valor: unknown) => `"${String(valor ?? '').replace(/"/g, '""')}"`
+      const contenido = [['Fecha','Producto','Tipo','Cantidad','Stock antes','Stock despues','Usuario','Notas'], ...filas.map(fila => [new Date(fila.created_at).toLocaleString('es-CO'),fila.producto,fila.tipo,fila.cantidad,fila.stock_antes,fila.stock_despues,fila.usuario,fila.notas])].map(fila => fila.map(escapar).join(';')).join('\n')
+      const url = URL.createObjectURL(new Blob([`\uFEFF${contenido}`], {type:'text/csv;charset=utf-8'})); const enlace=document.createElement('a'); enlace.href=url; enlace.download='movimientos_inventario.csv'; enlace.click(); URL.revokeObjectURL(url)
+    } catch { toast.error('No se pudieron descargar los movimientos') }
+  }
   if (isLoading) return <PageLoader />
   const inv = inventarioData || []
   const valorTotal = inv.reduce((s:any, item:any) => s + Number(item.valor_costo || 0), 0)
@@ -31,7 +40,7 @@ export default function InventarioPage() {
     <div className="space-y-5">
       <div className="page-header">
         <div><h1 className="page-title">Inventario</h1><p className="page-subtitle">Saldo actual despues de todas las ventas y salidas registradas</p></div>
-        <button onClick={() => setModal(true)} className="btn-primary"><Plus className="w-4 h-4"/>Movimiento</button>
+        <div className="flex gap-2"><button onClick={descargarMovimientos} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Movimientos</button><button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Movimiento</button></div>
       </div>
       <div className="flex gap-3">
         <input className="input max-w-xs" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}/>

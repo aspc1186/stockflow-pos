@@ -9,7 +9,20 @@ export default async function handler(req: any, res: any) {
   const eid = auth.empresa_id
 
   if (req.method==='GET') {
-    const { critico,search } = req.query||{}
+    const { critico,search,movimientos } = req.query||{}
+    if (movimientos === 'true') {
+      const rows = await query(
+        `SELECT mi.created_at,p.nombre as producto,mi.tipo,mi.cantidad,mi.stock_antes,mi.stock_despues,mi.notas,u.nombre as usuario
+         FROM movimientos_inventario mi
+         JOIN productos p ON p.id=mi.producto_id
+         LEFT JOIN usuarios u ON u.id=mi.usuario_id
+         WHERE mi.empresa_id=$1
+         ORDER BY mi.created_at DESC
+         LIMIT 500`,
+        [eid]
+      )
+      return res.status(200).json({ ok:true, data:rows })
+    }
     let where=`p.empresa_id=$1 AND COALESCE(p.controla_stock,true)=true`; const params: any[]=[eid]; let idx=2
     if (critico==='true') where+=` AND COALESCE(i.stock_actual,0)<=COALESCE(i.stock_minimo,0) AND COALESCE(i.stock_minimo,0)>0`
     if (search) { where+=` AND p.nombre ILIKE $${idx++}`; params.push(`%${search}%`) }

@@ -17,13 +17,14 @@ export default async function handler(req: any, res: any) {
     const fmtMap: any={dia:'YYYY-MM-DD',semana:'IYYY-IW',mes:'YYYY-MM'}
     const fmt=fmtMap[agrupacion]||'YYYY-MM-DD'
     try {
-      const [vpp,tp,vm,resumen]=await Promise.all([
+      const [vpp,tp,vm,vmesa,resumen]=await Promise.all([
         query(`SELECT TO_CHAR(DATE_TRUNC($1,cierre_at),'${fmt}') as periodo,COUNT(*) as pedidos,SUM(total) as total FROM pedidos WHERE empresa_id=$2 AND estado='cobrado' AND cierre_at::date BETWEEN $3 AND $4 GROUP BY 1 ORDER BY 1`,[agrupacion,eid,fd,fh]),
         query(`SELECT pr.nombre,SUM(pi.cantidad) as unidades,SUM(pi.subtotal) as total FROM pedido_items pi JOIN productos pr ON pr.id=pi.producto_id JOIN pedidos p ON p.id=pi.pedido_id WHERE pi.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY pr.id,pr.nombre ORDER BY total DESC LIMIT 20`,[eid,fd,fh]),
         query(`SELECT u.nombre,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p JOIN usuarios u ON u.id=p.usuario_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY u.id,u.nombre ORDER BY total DESC`,[eid,fd,fh]),
+        query(`SELECT COALESCE(m.numero::text,'Sin mesa') as mesa,COUNT(p.id) as pedidos,SUM(p.total) as total FROM pedidos p LEFT JOIN mesas m ON m.id=p.mesa_id WHERE p.empresa_id=$1 AND p.estado='cobrado' AND p.cierre_at::date BETWEEN $2 AND $3 GROUP BY m.numero ORDER BY total DESC`,[eid,fd,fh]),
         queryOne(`SELECT COUNT(*) as total_pedidos,COALESCE(SUM(total),0) as total_ventas,COALESCE(AVG(total),0) as ticket_promedio FROM pedidos WHERE empresa_id=$1 AND estado='cobrado' AND cierre_at::date BETWEEN $2 AND $3`,[eid,fd,fh]),
       ])
-      return res.status(200).json({ ok:true, data:{periodo:{desde:fd,hasta:fh},resumen,ventas_por_periodo:vpp,top_productos:tp,ventas_por_mesero:vm} })
+      return res.status(200).json({ ok:true, data:{periodo:{desde:fd,hasta:fh},resumen,ventas_por_periodo:vpp,top_productos:tp,ventas_por_mesero:vm,ventas_por_mesa:vmesa} })
     } catch(e: any) { return res.status(500).json({ ok:false, msg:e.message }) }
   }
 
