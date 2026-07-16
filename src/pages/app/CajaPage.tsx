@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CreditCard, Plus, Lock, Unlock } from 'lucide-react'
+import { CreditCard, Plus, Lock, Unlock, Pencil, Trash2 } from 'lucide-react'
 import api from '@/lib/axios'
 import type { Caja, CajaMovimiento } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -8,12 +8,17 @@ import { PageLoader } from '@/components/ui/Spinner'
 import Modal from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function CajaPage() {
   const qc = useQueryClient()
+  const { supportMode } = useAuth()
   const [modalAbrir, setModalAbrir] = useState(false); const [modalMov, setModalMov] = useState(false); const [modalCerrar, setModalCerrar] = useState(false)
+  const [movimientoEditar, setMovimientoEditar] = useState<any | null>(null)
+  const [movimientoEliminar, setMovimientoEliminar] = useState<any | null>(null)
   const [saldoI, setSaldoI] = useState('0')
   const [mov, setMov] = useState({tipo:'ingreso',monto:'',descripcion:'',metodo_pago:'efectivo'})
+  const [correccion, setCorreccion] = useState({tipo:'ingreso',monto:'',descripcion:'',metodo_pago:'efectivo',motivo:''})
   const { data, isLoading } = useQuery({
     queryKey: ['caja'],
     queryFn: async () => { const { data } = await api.get<any>('/caja'); return (data.data||data) as {caja:Caja;movimientos:CajaMovimiento[];ultimo_cierre:Caja|null} },
@@ -24,10 +29,21 @@ export default function CajaPage() {
     onSuccess: () => { qc.invalidateQueries({queryKey:['caja']}); setModalAbrir(false); setModalMov(false); setModalCerrar(false); toast.success('Operación exitosa') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
+  const corregir = useMutation({
+    mutationFn: ({ method, body }: { method:'PATCH'|'DELETE'; body:Record<string,unknown> }) => method === 'PATCH' ? api.patch('/caja', body) : api.delete('/caja', { data: body }),
+    onSuccess: () => {
+      qc.invalidateQueries({queryKey:['caja']}); qc.invalidateQueries({queryKey:['dashboard-stats']})
+      setMovimientoEditar(null); setMovimientoEliminar(null)
+      toast.success('Movimiento corregido y caja recalculada')
+    },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo corregir el movimiento'),
+  })
   if (isLoading) return <PageLoader />
   const { caja, movimientos = [], ultimo_cierre: ultimoCierre, movimientos_ultimo_cierre: movimientosUltimoCierre = [], jornadas_mes: jornadasMes = [], movimientos_cierres_mes: movimientosCierresMes = [] } = data ?? {}
   const saldo = caja ? Number(caja.saldo_inicial || 0) + Number(caja.total_ventas || 0) + Number(caja.total_ingresos || 0) - Number(caja.total_egresos || 0) - Number(caja.total_compras_inventario || 0) - Number(caja.total_compras_no_inventario || 0) : 0
   const saldoJornada = (jornada:any) => jornada.estado === 'cerrada' ? Number(jornada.saldo_final || 0) : Number(jornada.saldo_inicial || 0) + Number(jornada.total_ventas || 0) + Number(jornada.total_ingresos || 0) - Number(jornada.total_egresos || 0) - Number(jornada.total_compras_inventario || 0) - Number(jornada.total_compras_no_inventario || 0)
+  const esManual = (m:any) => ['ingreso','egreso','compra_no_inventario'].includes(m.tipo)
+  const abrirEdicion = (m:any) => { setCorreccion({tipo:m.tipo,monto:String(m.monto),descripcion:m.descripcion || '',metodo_pago:m.metodo_pago || 'efectivo',motivo:''}); setMovimientoEditar(m) }
 
   return (
     <div className="space-y-5">
@@ -48,7 +64,7 @@ export default function CajaPage() {
         <div className="card overflow-hidden">
           <div className="px-5 py-4 border-b border-white/5"><h3 className="text-sm font-semibold">Movimientos</h3></div>
           <div className="overflow-x-auto"><table className="table-base">
-            <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Método</th><th>Monto</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Método</th><th>Monto</th>{supportMode && <th className="text-right">Acciones</th>}</tr></thead>
             <tbody>
               {movimientos.map(m => (
                 <tr key={m.id}>
@@ -58,9 +74,10 @@ export default function CajaPage() {
                   <td className="text-surface-200/70">{m.descripcion ?? '—'}</td>
                   <td className="capitalize text-surface-200/60 text-xs">{m.metodo_pago}</td>
                   <td className={cn('font-semibold',m.tipo==='egreso'||m.tipo==='compra_inventario'||m.tipo==='compra_no_inventario'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'||m.tipo==='compra_inventario'||m.tipo==='compra_no_inventario'?'-':'+'}{formatCurrency(m.monto)}</td>
+                  {supportMode && <td className="text-right"><div className="flex justify-end gap-1">{esManual(m) ? <><button type="button" onClick={()=>abrirEdicion(m)} className="btn-ghost btn-sm p-2" title="Editar movimiento"><Pencil className="h-4 w-4"/></button><button type="button" onClick={()=>{ setCorreccion(p=>({...p,motivo:''})); setMovimientoEliminar(m) }} className="btn-ghost btn-sm p-2 text-red-300 hover:text-red-200" title="Eliminar movimiento"><Trash2 className="h-4 w-4"/></button></> : <span className="text-xs text-surface-200/35">Automatico</span>}</div></td>}
                 </tr>
               ))}
-              {movimientos.length===0&&<tr><td colSpan={6} className="text-center py-8 text-surface-200/30">Sin movimientos</td></tr>}
+              {movimientos.length===0&&<tr><td colSpan={supportMode ? 7 : 6} className="text-center py-8 text-surface-200/30">Sin movimientos</td></tr>}
             </tbody>
           </table></div>
         </div>
@@ -134,6 +151,21 @@ export default function CajaPage() {
       <Modal open={modalCerrar} onClose={() => setModalCerrar(false)} title="Cerrar caja" size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setModalCerrar(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => op.mutate({accion:'cerrar'})} disabled={op.isPending} className="btn-danger flex-1">Cerrar caja</button></div>}>
         <div className="text-center py-4"><p className="text-surface-200/70 mb-4">Saldo al cierre:</p><p className="text-4xl font-bold text-surface-50">{formatCurrency(saldo)}</p></div>
+      </Modal>
+      <Modal open={!!movimientoEditar} onClose={() => setMovimientoEditar(null)} title="Corregir movimiento de caja" size="sm"
+        footer={<div className="flex gap-3"><button onClick={() => setMovimientoEditar(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => movimientoEditar && corregir.mutate({method:'PATCH',body:{movimiento_id:movimientoEditar.id,...correccion,monto:Number(correccion.monto)}})} disabled={!correccion.monto || !correccion.descripcion.trim() || !correccion.motivo.trim() || corregir.isPending} className="btn-primary flex-1">Guardar correccion</button></div>}>
+        <div className="space-y-4">
+          <p className="rounded-lg border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-100/85">Esta correccion quedara registrada y recalculara automaticamente los totales y el saldo final de la caja.</p>
+          <div><label className="label">Tipo</label><select className="input" value={correccion.tipo} onChange={e=>setCorreccion(p=>({...p,tipo:e.target.value}))}><option value="ingreso">Ingreso adicional</option><option value="egreso">Gasto / egreso</option><option value="compra_no_inventario">Compra sin inventario</option></select></div>
+          <div><label className="label">Monto</label><input type="number" min="0" className="input" value={correccion.monto} onChange={e=>setCorreccion(p=>({...p,monto:e.target.value}))}/></div>
+          <div><label className="label">Metodo</label><select className="input" value={correccion.metodo_pago} onChange={e=>setCorreccion(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m}>{m.replace('_',' ')}</option>)}</select></div>
+          <div><label className="label">Descripcion</label><input className="input" value={correccion.descripcion} onChange={e=>setCorreccion(p=>({...p,descripcion:e.target.value}))}/></div>
+          <div><label className="label">Motivo de la correccion</label><textarea className="input min-h-20" value={correccion.motivo} onChange={e=>setCorreccion(p=>({...p,motivo:e.target.value}))} placeholder="Ej.: monto registrado por error"/></div>
+        </div>
+      </Modal>
+      <Modal open={!!movimientoEliminar} onClose={() => setMovimientoEliminar(null)} title="Eliminar movimiento" size="sm"
+        footer={<div className="flex gap-3"><button onClick={() => setMovimientoEliminar(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => movimientoEliminar && corregir.mutate({method:'DELETE',body:{movimiento_id:movimientoEliminar.id,motivo:correccion.motivo}})} disabled={!correccion.motivo.trim() || corregir.isPending} className="btn-danger flex-1">Eliminar</button></div>}>
+        <div className="space-y-4"><p className="text-sm text-surface-200/70">Se eliminara el movimiento manual seleccionado. La caja se recalculara y quedara registrada la eliminacion.</p><div><label className="label">Motivo de la correccion</label><textarea className="input min-h-20" value={correccion.motivo} onChange={e=>setCorreccion(p=>({...p,motivo:e.target.value}))} placeholder="Ej.: movimiento duplicado"/></div></div>
       </Modal>
     </div>
   )

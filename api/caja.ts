@@ -6,8 +6,27 @@ let cajaSchemaReady: Promise<void> | null = null
 function ensureCajaSchema() {
   if (!cajaSchemaReady) cajaSchemaReady = query(`ALTER TABLE cajas ADD COLUMN IF NOT EXISTS total_compras_inventario NUMERIC NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS total_compras_no_inventario NUMERIC NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS fecha_operativa DATE`)
     .then(() => query(`UPDATE cajas SET fecha_operativa=(apertura_at AT TIME ZONE 'America/Bogota')::date WHERE fecha_operativa IS NULL`))
+    .then(() => query(`CREATE TABLE IF NOT EXISTS caja_movimientos_correcciones (id UUID PRIMARY KEY, empresa_id UUID NOT NULL, caja_movimiento_id UUID NOT NULL, superadmin_id UUID NOT NULL, accion VARCHAR(20) NOT NULL, anterior JSONB, nuevo JSONB, motivo TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`))
     .then(() => undefined)
   return cajaSchemaReady
+}
+
+const TIPOS_MANUALES = ['ingreso', 'egreso', 'compra_no_inventario']
+
+async function recalcularCaja(cajaId: string) {
+  const caja = await queryOne(`SELECT id,saldo_inicial,estado FROM cajas WHERE id=$1`, [cajaId]) as any
+  if (!caja) return
+  const totales = await queryOne(`
+    SELECT COALESCE(SUM(CASE WHEN tipo='venta' THEN monto ELSE 0 END),0) as ventas,
+      COALESCE(SUM(CASE WHEN tipo='ingreso' THEN monto ELSE 0 END),0) as ingresos,
+      COALESCE(SUM(CASE WHEN tipo='egreso' THEN monto ELSE 0 END),0) as egresos,
+      COALESCE(SUM(CASE WHEN tipo='compra_inventario' THEN monto ELSE 0 END),0) as compras_inventario,
+      COALESCE(SUM(CASE WHEN tipo='compra_no_inventario' THEN monto ELSE 0 END),0) as compras_no_inventario
+    FROM caja_movimientos WHERE caja_id=$1`, [cajaId]) as any
+  const ventas = Number(totales?.ventas || 0), ingresos = Number(totales?.ingresos || 0), egresos = Number(totales?.egresos || 0)
+  const comprasInventario = Number(totales?.compras_inventario || 0), comprasNoInventario = Number(totales?.compras_no_inventario || 0)
+  const saldoFinal = Number(caja.saldo_inicial || 0) + ventas + ingresos - egresos - comprasInventario - comprasNoInventario
+  await query(`UPDATE cajas SET total_ventas=$1,total_ingresos=$2,total_egresos=$3,total_compras_inventario=$4,total_compras_no_inventario=$5,saldo_final=CASE WHEN estado='cerrada' THEN $6 ELSE saldo_final END WHERE id=$7`, [ventas, ingresos, egresos, comprasInventario, comprasNoInventario, saldoFinal, cajaId])
 }
 
 export default async function handler(req: any, res: any) {
@@ -72,6 +91,33 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ ok:true, data:u })
     }
     return res.status(400).json({ ok:false, msg:'Acción no válida. Use: abrir, movimiento, cerrar' })
+  }
+  if (req.method === 'PATCH' || req.method === 'DELETE') {
+    if (!auth.modo_soporte) return res.status(403).json({ ok:false, msg:'Solo el superadministrador en modo soporte puede corregir movimientos de caja' })
+    const { movimiento_id, tipo, metodo_pago, monto, descripcion, motivo } = req.body || {}
+    if (!movimiento_id) return res.status(400).json({ ok:false, msg:'Movimiento requerido' })
+    if (!String(motivo || '').trim()) return res.status(400).json({ ok:false, msg:'Indica el motivo de la correccion para conservar la trazabilidad' })
+    const movimiento = await queryOne(`SELECT cm.* FROM caja_movimientos cm WHERE cm.id=$1 AND cm.empresa_id=$2`, [movimiento_id, eid]) as any
+    if (!movimiento) return res.status(404).json({ ok:false, msg:'Movimiento no encontrado' })
+    if (!TIPOS_MANUALES.includes(movimiento.tipo)) return res.status(400).json({ ok:false, msg:'Las ventas y compras de inventario se corrigen desde su modulo de origen para no romper la trazabilidad' })
+
+    const anterior = { tipo: movimiento.tipo, metodo_pago: movimiento.metodo_pago, monto: movimiento.monto, descripcion: movimiento.descripcion }
+    if (req.method === 'PATCH') {
+      if (!TIPOS_MANUALES.includes(String(tipo || ''))) return res.status(400).json({ ok:false, msg:'Tipo de movimiento no permitido' })
+      const valor = Number(monto)
+      if (!Number.isFinite(valor) || valor <= 0) return res.status(400).json({ ok:false, msg:'El monto debe ser mayor que cero' })
+      if (!String(descripcion || '').trim()) return res.status(400).json({ ok:false, msg:'La descripcion es requerida' })
+      const nuevo = { tipo, metodo_pago: metodo_pago || 'efectivo', monto: valor, descripcion: String(descripcion).trim() }
+      const [actualizado] = await query(`UPDATE caja_movimientos SET tipo=$1,metodo_pago=$2,monto=$3,descripcion=$4 WHERE id=$5 RETURNING *`, [nuevo.tipo, nuevo.metodo_pago, nuevo.monto, nuevo.descripcion, movimiento.id])
+      await query(`INSERT INTO caja_movimientos_correcciones (id,empresa_id,caja_movimiento_id,superadmin_id,accion,anterior,nuevo,motivo) VALUES ($1,$2,$3,$4,'edicion',$5::jsonb,$6::jsonb,$7)`, [uuid(), eid, movimiento.id, auth.soporte_superadmin_id || auth.id, JSON.stringify(anterior), JSON.stringify(nuevo), String(motivo).trim()])
+      await recalcularCaja(movimiento.caja_id)
+      return res.status(200).json({ ok:true, data: actualizado })
+    }
+
+    await query(`DELETE FROM caja_movimientos WHERE id=$1`, [movimiento.id])
+    await query(`INSERT INTO caja_movimientos_correcciones (id,empresa_id,caja_movimiento_id,superadmin_id,accion,anterior,nuevo,motivo) VALUES ($1,$2,$3,$4,'eliminacion',$5::jsonb,NULL,$6)`, [uuid(), eid, movimiento.id, auth.soporte_superadmin_id || auth.id, JSON.stringify(anterior), String(motivo).trim()])
+    await recalcularCaja(movimiento.caja_id)
+    return res.status(200).json({ ok:true })
   }
   return res.status(405).end()
 }
