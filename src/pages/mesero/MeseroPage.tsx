@@ -38,7 +38,8 @@ export default function MeseroPage() {
 
   if (isLoading) return <PageLoader />
 
-  const activas = mesas.filter(m => m.activa)
+  // The API filters operational users, and the UI repeats the rule as a second guard.
+  const activas = mesas.filter(m => m.activa && (isAdmin || m.mesero_id === user?.id))
   const ocupadas = activas.filter(m => m.estado === 'ocupada').length
   const libres = activas.filter(m => m.estado === 'libre').length
 
@@ -84,8 +85,8 @@ export default function MeseroPage() {
 
         {activas.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-surface-200/30">No hay mesas disponibles</p>
-            <p className="text-xs text-surface-200/20 mt-1">Pide al administrador que cree las mesas</p>
+            <p className="text-surface-200/30">No tienes mesas asignadas</p>
+            <p className="text-xs text-surface-200/20 mt-1">Pide al administrador que te asigne una o más mesas</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 pb-6">
