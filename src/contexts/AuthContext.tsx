@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import api from '@/lib/axios'
 
-interface Empresa { id: string; nombre: string; slug: string; tipo: string; logo_url?: string; color_primario?: string }
+interface Empresa { id: string; nombre: string; slug: string; tipo: string; logo_url?: string; color_primario?: string; telefono?: string; email?: string; ciudad?: string; tema?: string; fondo_url?: string }
 interface User { id: string; nombre: string; email: string; username: string; rol: string; empresa_id?: string; empresa?: Empresa; token?: string }
 interface AuthContextType {
   user: User | null; loading: boolean
@@ -26,6 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setLoading(false)
   }, [])
+
+  useEffect(() => {
+    document.body.dataset.theme = user?.empresa?.tema || 'noche'
+  }, [user?.empresa?.tema])
 
   const login = useCallback(async (username: string, password: string) => {
     const { data } = await api.post<any>('/auth/login', { username: username.trim(), password })

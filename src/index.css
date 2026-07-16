@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 @layer base { body { @apply bg-surface-900 text-surface-200 antialiased; } }
+body[data-theme="discoteca"] .app-shell { background-color:#15051f; }
+body[data-theme="discoteca"] .card, body[data-theme="discoteca"] .bg-surface-800 { background-color:rgba(35,13,54,.94); }
+body[data-theme="restaurante"] .app-shell { background-color:#10231c; }
+body[data-theme="restaurante"] .card, body[data-theme="restaurante"] .bg-surface-800 { background-color:rgba(20,42,33,.94); }
+body[data-theme="claro"] .app-shell { background-color:#e7edf4; color:#172033; }
+.brand-watermark { position:absolute; right:5%; bottom:8%; max-width:70%; overflow:hidden; color:rgba(255,255,255,.05); font-size:clamp(2rem,8vw,9rem); font-weight:800; line-height:.9; text-align:right; pointer-events:none; user-select:none; }
 @layer components {
   .card { @apply bg-surface-800 border border-white/5 rounded-xl; }
   .input { @apply w-full bg-surface-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-surface-50 placeholder-surface-200/30 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors; }

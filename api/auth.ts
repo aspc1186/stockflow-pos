@@ -3,6 +3,11 @@ import { query, queryOne } from '../_db.js'
 import { signToken, authenticate, cors } from '../_auth.js'
 
 const LEGACY_SUPERADMIN_HASH = 'a2/bin/shZnp6kO.xY.Qif1jSrJqx.O39UNBdkuFEE4tiT3yJf3fcIpBfFT4i'
+let empresaSchemaReady: Promise<void> | null = null
+function ensureEmpresaSchema() {
+  if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT`).then(() => undefined)
+  return empresaSchemaReady
+}
 
 export default async function handler(req: any, res: any) {
   cors(res)
@@ -38,7 +43,8 @@ export default async function handler(req: any, res: any) {
       }
       let empresa = null
       if (user.empresa_id) {
-        empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad FROM empresas WHERE id=$1`, [user.empresa_id])
+        await ensureEmpresaSchema()
+        empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,tema,fondo_url FROM empresas WHERE id=$1`, [user.empresa_id])
         if (!empresa?.activa) {
           return res.status(403).json({ ok: false, msg: 'Empresa inactiva' })
         }
@@ -70,7 +76,8 @@ export default async function handler(req: any, res: any) {
     if (!auth) return
     let empresa = null
     if (auth.empresa_id) {
-      empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad FROM empresas WHERE id=$1`, [auth.empresa_id])
+      await ensureEmpresaSchema()
+      empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,tema,fondo_url FROM empresas WHERE id=$1`, [auth.empresa_id])
     }
     return res.status(200).json({ ok: true, data: { ...auth, empresa } })
   }

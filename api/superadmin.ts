@@ -3,6 +3,12 @@ import { v4 as uuid } from 'uuid'
 import { query, queryOne } from '../_db.js'
 import { authenticate, authSuperAdmin, cors } from '../_auth.js'
 
+let empresaSchemaReady: Promise<void> | null = null
+function ensureEmpresaSchema() {
+  if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT`).then(() => undefined)
+  return empresaSchemaReady
+}
+
 export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
@@ -20,14 +26,16 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ ok: false, msg: 'Sin permisos' })
     }
     if (req.method === 'GET') {
+      await ensureEmpresaSchema()
       const e = await queryOne(`SELECT * FROM empresas WHERE id=$1`, [id])
       return res.status(e ? 200 : 404).json(e ? { ok: true, data: e } : { ok: false, msg: 'No encontrada' })
     }
     if (req.method === 'PATCH') {
-      const { nombre, tipo, telefono, email, ciudad, direccion, logo_url, color_primario } = req.body || {}
+      await ensureEmpresaSchema()
+      const { nombre, tipo, telefono, email, ciudad, direccion, logo_url, color_primario, tema, fondo_url } = req.body || {}
       const [u] = await query(
-        `UPDATE empresas SET nombre=COALESCE($1,nombre),tipo=COALESCE($2,tipo),telefono=COALESCE($3,telefono),email=COALESCE($4,email),ciudad=COALESCE($5,ciudad),direccion=COALESCE($6,direccion),logo_url=COALESCE($7,logo_url),color_primario=COALESCE($8,color_primario),updated_at=NOW() WHERE id=$9 RETURNING *`,
-        [nombre, tipo, telefono, email, ciudad, direccion, logo_url, color_primario, id]
+        `UPDATE empresas SET nombre=COALESCE($1,nombre),tipo=COALESCE($2,tipo),telefono=COALESCE($3,telefono),email=COALESCE($4,email),ciudad=COALESCE($5,ciudad),direccion=COALESCE($6,direccion),logo_url=COALESCE($7,logo_url),color_primario=COALESCE($8,color_primario),tema=COALESCE($9,tema),fondo_url=COALESCE($10,fondo_url),updated_at=NOW() WHERE id=$11 RETURNING *`,
+        [nombre, tipo, telefono, email, ciudad, direccion, logo_url, color_primario, tema, fondo_url, id]
       )
       return res.status(200).json({ ok: true, data: u })
     }
