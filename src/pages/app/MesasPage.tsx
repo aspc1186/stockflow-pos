@@ -27,21 +27,21 @@ function tiempo(f?: string): string {
 function MesaImagen({ mesa, cfg }: { mesa: Mesa; cfg: typeof CFG[EstadoMesa] }) {
   const chairs = Math.min(Math.max(Number(mesa.capacidad) || 2, 2), 8)
   return (
-    <div className="relative h-28 rounded-lg overflow-hidden bg-surface-950/60 border border-white/5 mb-3">
+    <div className="relative h-20 rounded-lg overflow-hidden bg-surface-950/60 border border-white/5 mb-2">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.08),transparent_58%)]" />
-      <div className="absolute inset-x-4 top-4 bottom-4">
+      <div className="absolute inset-x-3 top-2 bottom-2">
         {Array.from({length: chairs}).map((_, i) => {
           const left = chairs === 1 ? 50 : 12 + (i % Math.ceil(chairs / 2)) * (76 / Math.max(Math.ceil(chairs / 2) - 1, 1))
           const top = i < Math.ceil(chairs / 2) ? 5 : 78
-          return <span key={i} className={cn('absolute w-5 h-3 rounded-sm opacity-80', cfg.chair)} style={{left:`${left}%`, top:`${top}%`, transform:'translateX(-50%)'}} />
+          return <span key={i} className={cn('absolute w-4 h-2 rounded-sm opacity-80', cfg.chair)} style={{left:`${left}%`, top:`${top}%`, transform:'translateX(-50%)'}} />
         })}
       </div>
-      <div className={cn('absolute left-1/2 top-1/2 h-14 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br shadow-xl border border-white/20 flex items-center justify-center', cfg.table, cfg.glow)}>
-        <UtensilsCrossed className="w-8 h-8 text-white/85" />
+      <div className={cn('absolute left-1/2 top-1/2 h-10 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br shadow-xl border border-white/20 flex items-center justify-center', cfg.table, cfg.glow)}>
+        <UtensilsCrossed className="w-5 h-5 text-white/85" />
       </div>
       <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/30 px-2 py-1 backdrop-blur-sm">
         <span className={cn('w-2 h-2 rounded-full', cfg.dot)} />
-        <span className="text-[10px] font-semibold text-white/80">{cfg.label}</span>
+        <span className="text-[9px] font-semibold text-white/80">{cfg.label}</span>
       </div>
     </div>
   )
@@ -135,19 +135,19 @@ export default function MesasPage() {
           {mesas.length===0&&isAdmin&&<button onClick={() => setModal(true)} className="btn-primary btn-sm mt-4"><Plus className="w-4 h-4"/>Crear primera mesa</button>}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
           {filtradas.map(mesa => {
             const cfg = CFG[mesa.estado] ?? CFG.libre
             return (
-              <article key={mesa.id} className={cn('relative rounded-xl border p-3 transition-all hover:-translate-y-0.5',cfg.bg,cfg.border)}>
+              <article key={mesa.id} className={cn('relative rounded-xl border p-2.5 transition-all hover:-translate-y-0.5',cfg.bg,cfg.border)}>
                 <MesaImagen mesa={mesa} cfg={cfg} />
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-xl font-black text-surface-50">Mesa {mesa.numero}</h3>
-                      <span className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0',cfg.dot)}/>
+                      <h3 className="text-lg font-black text-surface-50">Mesa {mesa.numero}</h3>
+                      <span className={cn('w-2 h-2 rounded-full flex-shrink-0',cfg.dot)}/>
                     </div>
-                    {mesa.nombre && <p className="text-sm text-surface-200/60 truncate">{mesa.nombre}</p>}
+                    {mesa.nombre && <p className="text-xs text-surface-200/60 truncate">{mesa.nombre}</p>}
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1"><Users className="w-3 h-3 text-surface-200/40"/><span className="text-xs text-surface-200/60">{mesa.capacidad}</span></div>
@@ -159,9 +159,9 @@ export default function MesasPage() {
                   </div>
                 </div>
 
-                {mesa.zona_nombre && <div className="flex items-center gap-1 mt-2"><MapPin className="w-3 h-3 text-surface-200/30"/><span className="text-xs text-surface-200/40 truncate">{mesa.zona_nombre}</span></div>}
+                {mesa.zona_nombre && <div className="flex items-center gap-1 mt-1"><MapPin className="w-3 h-3 text-surface-200/30"/><span className="text-xs text-surface-200/40 truncate">{mesa.zona_nombre}</span></div>}
 
-                {isAdmin && <div className="mt-3">
+                {isAdmin && <div className="mt-2">
                   <label className="mb-1 flex items-center gap-1 text-xs text-surface-200/50"><UserRoundCheck className="w-3 h-3"/>Responsable asignado</label>
                   <select
                     className="input h-9 py-1 text-xs"
@@ -174,20 +174,20 @@ export default function MesasPage() {
                   </select>
                 </div>}
 
-                <div className="mt-3 min-h-[42px]">
+                <div className="mt-2 min-h-[36px]">
                   {mesa.pedido_id && mesa.pedido_total !== undefined ? (
                     <div className="flex items-end justify-between gap-2">
                       <div>
                         <p className="text-xs text-surface-200/45">Pedido activo</p>
-                        <p className="text-lg font-black text-surface-50">{formatCurrency(mesa.pedido_total)}</p>
+                        <p className="text-base font-black text-surface-50">{formatCurrency(mesa.pedido_total)}</p>
                       </div>
                       {mesa.apertura_at && <div className="flex items-center gap-1 text-surface-200/45"><Clock className="w-3 h-3"/><span className="text-xs">{tiempo(mesa.apertura_at)}</span></div>}
                     </div>
-                  ) : <p className="text-sm font-medium text-surface-200/45">Lista para tomar pedido</p>}
+                  ) : <p className="text-xs font-medium text-surface-200/45">Lista para tomar pedido</p>}
                 </div>
 
-                <button onClick={() => navigate(`/mesero/mesa/${mesa.id}`)} className="btn-primary w-full mt-3 h-10 justify-center">
-                  <ClipboardList className="w-4 h-4"/>{mesa.pedido_id ? 'Agregar al pedido' : 'Tomar pedido'}
+                <button onClick={() => navigate(`/mesero/mesa/${mesa.id}`)} className="btn-primary w-full mt-2 h-9 justify-center text-xs">
+                  <ClipboardList className="w-3.5 h-3.5"/>{mesa.pedido_id ? 'Agregar pedido' : 'Tomar pedido'}
                 </button>
               </article>
             )

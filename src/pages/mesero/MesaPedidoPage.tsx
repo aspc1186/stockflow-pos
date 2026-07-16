@@ -84,6 +84,11 @@ export default function MesaPedidoPage() {
     if (n <= 0) { const { [id]: _, ...r } = c; return r }
     return { ...c, [id]: n }
   })
+  const cambiarCantidad = (id: string, valor: string) => setCarrito(c => {
+    const cantidad = Math.max(0, Math.floor(Number(valor) || 0))
+    if (!cantidad) { const { [id]: _, ...resto } = c; return resto }
+    return { ...c, [id]: cantidad }
+  })
 
   const enviar = async () => {
     if ((pedidoActivo as any)?.estado === 'precierre') { toast.error('Este pedido esta pendiente de confirmacion del administrador'); return }
@@ -251,27 +256,22 @@ export default function MesaPedidoPage() {
                   <p className="text-sm font-semibold text-white mb-0.5 leading-tight">{prod.nombre}</p>
                   <p className="text-brand-400 font-bold text-sm mb-3">{formatCurrency(prod.precio_venta)}</p>
 
-                  {q > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => rem(prod.id)}
-                        className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 active:scale-95">
-                        <Minus className="w-3.5 h-3.5 text-white"/>
-                      </button>
-                      <div className="flex-1 text-center">
-                        <span className="text-base font-black text-white">{q}</span>
-                        <p className="text-[10px] text-white/30">{formatCurrency(prod.precio_venta * q)}</p>
-                      </div>
-                      <button onClick={() => add(prod.id)}
-                        className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center hover:bg-brand-500 active:scale-95">
-                        <Plus className="w-3.5 h-3.5 text-white"/>
-                      </button>
-                    </div>
-                  ) : (
-                    <button onClick={() => add(prod.id)}
-                      className="w-full h-8 rounded-lg bg-brand-600/20 text-brand-400 flex items-center justify-center gap-1 hover:bg-brand-600/30 active:scale-95 text-xs font-semibold">
-                      <Plus className="w-3.5 h-3.5"/> Agregar
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => rem(prod.id)} disabled={!q}
+                      className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 active:scale-95 disabled:opacity-30">
+                      <Minus className="w-3.5 h-3.5 text-white"/>
                     </button>
-                  )}
+                    <div className="flex-1 min-w-0 text-center">
+                      <input type="number" min="0" step="1" inputMode="numeric" aria-label={`Cantidad de ${prod.nombre}`} value={q || ''} placeholder="0"
+                        onChange={e => cambiarCantidad(prod.id, e.target.value)} onWheel={e => e.currentTarget.blur()}
+                        className="h-8 w-full rounded-lg border border-brand-500/40 bg-surface-950 text-center text-sm font-black text-white outline-none placeholder:text-white/30 focus:border-brand-400"/>
+                      <p className="mt-0.5 text-[10px] text-white/30">{q > 0 ? formatCurrency(prod.precio_venta * q) : 'Cantidad'}</p>
+                    </div>
+                    <button onClick={() => add(prod.id)}
+                      className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center hover:bg-brand-500 active:scale-95">
+                      <Plus className="w-3.5 h-3.5 text-white"/>
+                    </button>
+                  </div>
                 </div>
               )
             })}
