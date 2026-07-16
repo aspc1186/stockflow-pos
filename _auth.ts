@@ -3,6 +3,12 @@ import { queryOne } from './_db.js'
 
 const SECRET = process.env.JWT_SECRET || 'barpos_secret_2024'
 
+function fechaColombia() {
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+  const valor = (tipo: string) => partes.find(p => p.type === tipo)?.value || ''
+  return `${valor('year')}-${valor('month')}-${valor('day')}`
+}
+
 function signToken(payload: any): string {
   return jwt.sign(payload, SECRET, { expiresIn: '12h' })
 }
@@ -36,6 +42,14 @@ async function authenticate(req: any, res: any): Promise<any | null> {
     if (!user) {
       res.status(401).json({ ok: false, msg: 'Usuario no válido' })
       return null
+    }
+    if (user.empresa_id) {
+      const empresa = await queryOne(`SELECT activa,licencia_fin FROM empresas WHERE id=$1`, [user.empresa_id]) as any
+      if (!empresa?.activa) { res.status(403).json({ ok: false, msg: 'Empresa inactiva' }); return null }
+      if (empresa.licencia_fin && String(empresa.licencia_fin).slice(0, 10) < fechaColombia()) {
+        res.status(403).json({ ok: false, msg: 'Servicio suspendido por mora. Regulariza el pago para continuar.' })
+        return null
+      }
     }
     return user
   } catch {

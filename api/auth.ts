@@ -4,6 +4,11 @@ import { signToken, authenticate, cors } from '../_auth.js'
 
 const LEGACY_SUPERADMIN_HASH = 'a2/bin/shZnp6kO.xY.Qif1jSrJqx.O39UNBdkuFEE4tiT3yJf3fcIpBfFT4i'
 let empresaSchemaReady: Promise<void> | null = null
+function fechaColombia() {
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+  const valor = (tipo: string) => partes.find(p => p.type === tipo)?.value || ''
+  return `${valor('year')}-${valor('month')}-${valor('day')}`
+}
 function ensureEmpresaSchema() {
   if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ`).then(() => undefined)
   return empresaSchemaReady
@@ -44,9 +49,12 @@ export default async function handler(req: any, res: any) {
       let empresa = null
       if (user.empresa_id) {
         await ensureEmpresaSchema()
-        empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,tema,fondo_url,notificacion_pago,notificacion_pago_at FROM empresas WHERE id=$1`, [user.empresa_id])
+        empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,licencia_fin,tema,fondo_url,notificacion_pago,notificacion_pago_at FROM empresas WHERE id=$1`, [user.empresa_id])
         if (!empresa?.activa) {
           return res.status(403).json({ ok: false, msg: 'Empresa inactiva' })
+        }
+        if (empresa.licencia_fin && String(empresa.licencia_fin).slice(0, 10) < fechaColombia()) {
+          return res.status(403).json({ ok: false, msg: 'Servicio suspendido por mora. Regulariza el pago para continuar.' })
         }
       }
       await query(`UPDATE usuarios SET ultimo_acceso=NOW() WHERE id=$1`, [user.id])
@@ -77,7 +85,7 @@ export default async function handler(req: any, res: any) {
     let empresa = null
     if (auth.empresa_id) {
       await ensureEmpresaSchema()
-      empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,tema,fondo_url,notificacion_pago,notificacion_pago_at FROM empresas WHERE id=$1`, [auth.empresa_id])
+      empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,licencia_fin,tema,fondo_url,notificacion_pago,notificacion_pago_at FROM empresas WHERE id=$1`, [auth.empresa_id])
     }
     return res.status(200).json({ ok: true, data: { ...auth, empresa } })
   }

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import api from '@/lib/axios'
 
-interface Empresa { id: string; nombre: string; slug: string; tipo: string; logo_url?: string; color_primario?: string; telefono?: string; email?: string; ciudad?: string; tema?: string; fondo_url?: string; notificacion_pago?: string; notificacion_pago_at?: string }
+interface Empresa { id: string; nombre: string; slug: string; tipo: string; logo_url?: string; color_primario?: string; telefono?: string; email?: string; ciudad?: string; licencia_fin?: string; tema?: string; fondo_url?: string; notificacion_pago?: string; notificacion_pago_at?: string }
 interface User { id: string; nombre: string; email: string; username: string; rol: string; empresa_id?: string; empresa?: Empresa; token?: string }
 interface AuthContextType {
   user: User | null; loading: boolean
@@ -53,6 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser({ ...u, token })
     } catch { logout() }
   }, [logout])
+
+  useEffect(() => {
+    if (!user) return
+    void refreshUser()
+    const intervalo = window.setInterval(() => void refreshUser(), 5 * 60 * 1000)
+    return () => window.clearInterval(intervalo)
+  }, [user?.id, refreshUser])
 
   const isRole = useCallback((...roles: string[]) => roles.includes(user?.rol ?? ''), [user])
   const isAdmin = isRole('admin', 'superadmin', 'supervisor')

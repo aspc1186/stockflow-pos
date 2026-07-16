@@ -12,7 +12,7 @@ export default async function handler(req: any, res: any) {
     const { critico,search,movimientos } = req.query||{}
     if (movimientos === 'true') {
       const rows = await query(
-        `SELECT mi.created_at,p.nombre as producto,mi.tipo,mi.cantidad,mi.stock_antes,mi.stock_despues,mi.notas,u.nombre as usuario
+        `SELECT mi.created_at,p.nombre as producto,CASE WHEN mi.tipo='compra' THEN 'entrada' ELSE mi.tipo END as tipo,mi.cantidad,mi.stock_antes,mi.stock_despues,mi.notas,u.nombre as usuario
          FROM movimientos_inventario mi
          JOIN productos p ON p.id=mi.producto_id
          LEFT JOIN usuarios u ON u.id=mi.usuario_id
@@ -39,6 +39,7 @@ export default async function handler(req: any, res: any) {
          COALESCE(i.stock_actual,0) * COALESCE(p.precio_costo,0) as valor_costo,
          COALESCE(i.stock_actual,0) * COALESCE(p.precio_venta,0) as valor_venta,
          COALESCE(p.precio_venta,0) - COALESCE(p.precio_costo,0) as margen_unitario,
+         COALESCE((SELECT SUM(mi.cantidad) FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('entrada','compra') AND mi.created_at::date=CURRENT_DATE),0) as entradas_hoy,
          COALESCE((SELECT SUM(mi.cantidad) FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') AND mi.created_at::date=CURRENT_DATE),0) as salidas_hoy,
          (SELECT mi.created_at FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') ORDER BY mi.created_at DESC LIMIT 1) as ultima_salida_at
        FROM productos p
@@ -49,7 +50,8 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method==='POST') {
-    const { producto_id,tipo,cantidad,notas,costo_unit } = req.body||{}
+    const { producto_id,tipo: tipoRecibido,cantidad,notas,costo_unit } = req.body||{}
+    const tipo = tipoRecibido === 'compra' ? 'entrada' : tipoRecibido
     if (!producto_id||!tipo||cantidad===undefined) return res.status(400).json({ ok:false, msg:'Datos requeridos' })
     let inv=await queryOne(`SELECT stock_actual FROM inventario WHERE producto_id=$1 AND empresa_id=$2`,[producto_id,eid]) as any
     if (!inv) {
@@ -61,7 +63,7 @@ export default async function handler(req: any, res: any) {
       inv = { stock_actual: 0 }
     }
     const q=parseFloat(String(cantidad))||0; const antes=parseFloat(String(inv.stock_actual))||0; let despues=antes
-    if (['entrada','compra'].includes(tipo)) despues=antes+q
+    if (tipo === 'entrada') despues=antes+q
     else if (['salida','merma','rotura','venta'].includes(tipo)) despues=Math.max(0,antes-q)
     else if (tipo==='ajuste') despues=q
 
