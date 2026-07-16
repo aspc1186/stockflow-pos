@@ -5,7 +5,7 @@ import { authenticate, authSuperAdmin, cors } from '../_auth.js'
 
 let empresaSchemaReady: Promise<void> | null = null
 function ensureEmpresaSchema() {
-  if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT`).then(() => undefined)
+  if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ`).then(() => undefined)
   return empresaSchemaReady
 }
 
@@ -112,10 +112,13 @@ export default async function handler(req: any, res: any) {
     }
     // PATCH /api/superadmin/empresas/[id]
     if (req.method === 'PATCH') {
-      const { activa, plan, licencia_fin, nombre } = req.body || {}
+      const { activa, plan, licencia_fin, nombre, notificar_pago, mensaje_pago } = req.body || {}
+      const avisoPago = notificar_pago
+        ? (String(mensaje_pago || '').trim() || `Pago recibido. Tu servicio esta activo${licencia_fin ? ` hasta el ${licencia_fin}` : ''}.`)
+        : null
       const [u] = await query(
-        `UPDATE empresas SET activa=COALESCE($1,activa),plan=COALESCE($2,plan),licencia_fin=COALESCE($3,licencia_fin),nombre=COALESCE($4,nombre),updated_at=NOW() WHERE id=$5 RETURNING *`,
-        [activa, plan, licencia_fin, nombre, empresaId]
+        `UPDATE empresas SET activa=COALESCE($1,activa),plan=COALESCE($2,plan),licencia_fin=COALESCE($3,licencia_fin),nombre=COALESCE($4,nombre),notificacion_pago=CASE WHEN $5 THEN $6 ELSE notificacion_pago END,notificacion_pago_at=CASE WHEN $5 THEN NOW() ELSE notificacion_pago_at END,updated_at=NOW() WHERE id=$7 RETURNING *`,
+        [activa, plan, licencia_fin, nombre, Boolean(notificar_pago), avisoPago, empresaId]
       )
       return res.status(200).json({ ok: true, data: u })
     }

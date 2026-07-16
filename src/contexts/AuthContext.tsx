@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import api from '@/lib/axios'
 
-interface Empresa { id: string; nombre: string; slug: string; tipo: string; logo_url?: string; color_primario?: string; telefono?: string; email?: string; ciudad?: string; tema?: string; fondo_url?: string }
+interface Empresa { id: string; nombre: string; slug: string; tipo: string; logo_url?: string; color_primario?: string; telefono?: string; email?: string; ciudad?: string; tema?: string; fondo_url?: string; notificacion_pago?: string; notificacion_pago_at?: string }
 interface User { id: string; nombre: string; email: string; username: string; rol: string; empresa_id?: string; empresa?: Empresa; token?: string }
 interface AuthContextType {
   user: User | null; loading: boolean
