@@ -31,7 +31,7 @@ export default function CajaPage() {
   return (
     <div className="space-y-5">
       <div className="page-header">
-        <div><h1 className="page-title">Caja</h1><p className="page-subtitle">{caja ? 'Caja abierta' : 'Caja cerrada'}</p></div>
+        <div><h1 className="page-title">Caja</h1><p className="page-subtitle">{caja ? `Caja abierta - Jornada: ${caja.fecha_operativa ? formatDate(caja.fecha_operativa, 'dd/MM/yyyy') : ''}` : 'Caja cerrada'}</p></div>
         {!caja ? <button onClick={() => setModalAbrir(true)} className="btn-primary"><Unlock className="w-4 h-4"/>Abrir caja</button> :
           <div className="flex gap-2">
             <button onClick={() => setModalMov(true)} className="btn-secondary"><Plus className="w-4 h-4"/>Movimiento</button>

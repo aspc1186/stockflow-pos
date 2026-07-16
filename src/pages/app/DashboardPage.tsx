@@ -5,7 +5,7 @@ import api from '@/lib/axios'
 import type { DashboardStats } from '@/types'
 import StatCard from '@/components/ui/StatCard'
 import { PageLoader } from '@/components/ui/Spinner'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 export default function DashboardPage() {
   const { data, isLoading, refetch } = useQuery({
@@ -20,7 +20,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="page-header">
-        <div><h1 className="page-title">Dashboard</h1><p className="page-subtitle">Resumen en tiempo real</p></div>
+        <div><h1 className="page-title">Dashboard</h1><p className="page-subtitle">{data.fecha_operativa ? `Jornada operativa: ${formatDate(data.fecha_operativa, 'dd/MM/yyyy')}` : 'Resumen en tiempo real'}</p></div>
         <button onClick={() => refetch()} className="btn-ghost btn-sm">Actualizar</button>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

@@ -4,7 +4,9 @@ import { authenticate, cors } from '../_auth.js'
 
 let cajaSchemaReady: Promise<void> | null = null
 function ensureCajaSchema() {
-  if (!cajaSchemaReady) cajaSchemaReady = query(`ALTER TABLE cajas ADD COLUMN IF NOT EXISTS total_compras_inventario NUMERIC NOT NULL DEFAULT 0`).then(() => undefined)
+  if (!cajaSchemaReady) cajaSchemaReady = query(`ALTER TABLE cajas ADD COLUMN IF NOT EXISTS total_compras_inventario NUMERIC NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS fecha_operativa DATE`)
+    .then(() => query(`UPDATE cajas SET fecha_operativa=(apertura_at AT TIME ZONE 'America/Bogota')::date WHERE fecha_operativa IS NULL`))
+    .then(() => undefined)
   return cajaSchemaReady
 }
 
@@ -30,7 +32,7 @@ export default async function handler(req: any, res: any) {
     if (accion==='abrir') {
       const existe=await queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta'`,[eid])
       if (existe) return res.status(400).json({ ok:false, msg:'Ya hay una caja abierta' })
-      const [c]=await query(`INSERT INTO cajas (id,empresa_id,usuario_id,saldo_inicial,estado,total_ventas,total_ingresos,total_egresos,total_compras_inventario) VALUES ($1,$2,$3,$4,'abierta',0,0,0,0) RETURNING *`,[uuid(),eid,auth.id,saldo_inicial||0])
+      const [c]=await query(`INSERT INTO cajas (id,empresa_id,usuario_id,saldo_inicial,estado,total_ventas,total_ingresos,total_egresos,total_compras_inventario,fecha_operativa) VALUES ($1,$2,$3,$4,'abierta',0,0,0,0,(NOW() AT TIME ZONE 'America/Bogota')::date) RETURNING *`,[uuid(),eid,auth.id,saldo_inicial||0])
       return res.status(201).json({ ok:true, data:c })
     }
     if (accion==='movimiento') {
