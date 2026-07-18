@@ -11,6 +11,29 @@ import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 
+async function prepararImagen(archivo: File) {
+  const origen = await new Promise<string>((resolve, reject) => {
+    const lector = new FileReader()
+    lector.onload = () => resolve(String(lector.result))
+    lector.onerror = () => reject(new Error('No se pudo leer la imagen'))
+    lector.readAsDataURL(archivo)
+  })
+  const imagen = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const elemento = new Image()
+    elemento.onload = () => resolve(elemento)
+    elemento.onerror = () => reject(new Error('El archivo no es una imagen valida'))
+    elemento.src = origen
+  })
+  const escala = Math.min(1, 1000 / Math.max(imagen.width, imagen.height))
+  const lienzo = document.createElement('canvas')
+  lienzo.width = Math.max(1, Math.round(imagen.width * escala))
+  lienzo.height = Math.max(1, Math.round(imagen.height * escala))
+  lienzo.getContext('2d')?.drawImage(imagen, 0, 0, lienzo.width, lienzo.height)
+  const resultado = lienzo.toDataURL('image/jpeg', 0.78)
+  if (resultado.length > 1_500_000) throw new Error('La imagen sigue siendo muy grande. Usa una foto mas liviana.')
+  return resultado
+}
+
 function clave(valor: unknown) {
   return String(valor ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
 }
@@ -30,7 +53,9 @@ export default function ProductosPage() {
   const [modal, setModal] = useState(false)
   const [productoEliminar, setProductoEliminar] = useState<Producto | null>(null)
   const archivoRef = useRef<HTMLInputElement>(null)
+  const imagenRef = useRef<HTMLInputElement>(null)
   const [importando, setImportando] = useState(false)
+  const [cargandoImagen, setCargandoImagen] = useState(false)
   const [form, setForm] = useState({nombre:'',codigo:'',descripcion:'',imagen_url:'',precio_venta:'',precio_costo:'',categoria_id:'',impuesto_pct:'0',impuesto_tipo:'iva',impuesto_incluido:false,unidad_medida:'unidad',disponible:true,controla_stock:true,destino:esRestaurante?'cocina':'barra',stock_inicial:'0',stock_minimo:'0',stock_maximo:''})
   const [receta, setReceta] = useState<{ingrediente_id:string;cantidad:string;unidad:string}[]>([])
   const { data: productos = [], isLoading } = useQuery({ queryKey: ['productos'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as Producto[] } })
@@ -84,6 +109,17 @@ export default function ProductosPage() {
     } catch (e:any) { toast.error(e?.message || 'No se pudo leer el archivo Excel') }
     finally { setImportando(false); if (archivoRef.current) archivoRef.current.value = '' }
   }
+  const cargarImagen = async (archivo?: File) => {
+    if (!archivo) return
+    if (!archivo.type.startsWith('image/')) return toast.error('Selecciona un archivo de imagen')
+    setCargandoImagen(true)
+    try {
+      const imagen_url = await prepararImagen(archivo)
+      setForm(actual => ({ ...actual, imagen_url }))
+      toast.success('Imagen lista para guardar')
+    } catch (e:any) { toast.error(e?.message || 'No se pudo preparar la imagen') }
+    finally { setCargandoImagen(false); if (imagenRef.current) imagenRef.current.value = '' }
+  }
   if (isLoading) return <PageLoader />
   return (
     <div className="space-y-5">
@@ -92,6 +128,7 @@ export default function ProductosPage() {
         <div className="flex flex-wrap gap-2"><button onClick={descargarPlantilla} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Plantilla Excel</button><button onClick={() => archivoRef.current?.click()} disabled={importando} className="btn-secondary btn-sm"><FileUp className="w-4 h-4"/>{importando ? 'Importando...' : 'Importar Excel'}</button><button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nuevo producto</button></div>
       </div>
       <input ref={archivoRef} className="hidden" type="file" accept=".xlsx,.xls,.csv" onChange={e => importarArchivo(e.target.files?.[0])}/>
+      <input ref={imagenRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={e => cargarImagen(e.target.files?.[0])}/>
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
         <thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Destino</th><th>Estado</th><th></th></tr></thead>
         <tbody>
@@ -116,7 +153,7 @@ export default function ProductosPage() {
           <div><label className="label">Codigo</label><input className="input" placeholder="Ej: PLA-001" value={form.codigo} onChange={e=>setForm(p=>({...p,codigo:e.target.value}))}/></div>
           <div><label className="label">Unidad</label><select className="input" value={form.unidad_medida} onChange={e=>setForm(p=>({...p,unidad_medida:e.target.value}))}>{['unidad','gramo','kilogramo','mililitro','litro','porcion'].map(unidad=><option key={unidad} value={unidad}>{unidad}</option>)}</select></div>
           <div className="col-span-2"><label className="label">Descripcion</label><textarea className="input min-h-20" value={form.descripcion} onChange={e=>setForm(p=>({...p,descripcion:e.target.value}))} placeholder={esRestaurante ? 'Ingredientes, preparacion o alergenos' : 'Presentacion o detalle del producto'}/></div>
-          <div className="col-span-2"><label className="label">URL de imagen</label><input className="input" value={form.imagen_url} onChange={e=>setForm(p=>({...p,imagen_url:e.target.value}))} placeholder="https://..."/></div>
+          <div className="col-span-2"><label className="label">Imagen del producto</label><div className="flex flex-wrap items-center gap-3"><button type="button" className="btn-secondary btn-sm" onClick={()=>imagenRef.current?.click()} disabled={cargandoImagen}>{cargandoImagen?'Preparando imagen...':'Tomar foto o subir archivo'}</button>{form.imagen_url && <><img src={form.imagen_url} alt="Vista previa" className="h-16 w-16 rounded-lg border border-white/10 object-cover"/><button type="button" className="btn-ghost btn-sm text-red-300" onClick={()=>setForm(p=>({...p,imagen_url:''}))}>Quitar</button></>}</div><input className="input mt-2" value={form.imagen_url.startsWith('data:') ? 'Imagen cargada desde dispositivo' : form.imagen_url} onChange={e=>setForm(p=>({...p,imagen_url:e.target.value}))} placeholder="O pega una URL de imagen"/></div>
           <div><label className="label">Precio venta *</label><input type="number" min="0" className="input" value={form.precio_venta} onChange={e=>setForm(p=>({...p,precio_venta:e.target.value}))}/></div>
           <div><label className="label">Precio costo</label><input type="number" min="0" className="input" value={form.precio_costo} onChange={e=>setForm(p=>({...p,precio_costo:e.target.value}))}/></div>
           <div><label className="label">Categoría</label><select className="input" value={form.categoria_id} onChange={e=>setForm(p=>({...p,categoria_id:e.target.value}))}><option value="" className="bg-surface-800">Sin categoría</option>{cats.map(c=><option key={c.id} value={c.id} className="bg-surface-800">{c.nombre}</option>)}</select></div>
