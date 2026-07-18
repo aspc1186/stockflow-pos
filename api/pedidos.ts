@@ -8,6 +8,7 @@ function ensureMesasSchema() {
   if (!mesasSchemaReady) mesasSchemaReady = query(`ALTER TABLE mesas ADD COLUMN IF NOT EXISTS mesero_id UUID`)
     .then(() => query(`ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS usuario_cierre_id UUID, ADD COLUMN IF NOT EXISTS mesero_id UUID, ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(30)`))
     .then(() => query(`ALTER TABLE pedido_items ADD COLUMN IF NOT EXISTS costo_unit NUMERIC`))
+    .then(() => query(`CREATE TABLE IF NOT EXISTS recetas_producto (id UUID PRIMARY KEY, empresa_id UUID NOT NULL, producto_id UUID NOT NULL, ingrediente_id UUID NOT NULL, cantidad NUMERIC(12,3) NOT NULL, unidad VARCHAR(30) NOT NULL DEFAULT 'unidad', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(producto_id,ingrediente_id))`))
     .then(() => undefined)
   return mesasSchemaReady
 }
@@ -32,6 +33,17 @@ async function cajaAbierta(empresaId: string) {
 }
 
 async function moverInventario(empresaId: string, productoId: string, usuarioId: string, cantidad: any, tipo: 'venta' | 'devolucion', notas: string) {
+  const q = Math.abs(parseFloat(String(cantidad)) || 0)
+  if (!q) return
+  const receta = await query(`SELECT ingrediente_id,cantidad FROM recetas_producto WHERE empresa_id=$1 AND producto_id=$2`, [empresaId, productoId]) as any[]
+  if (receta.length) {
+    for (const ingrediente of receta) await moverInventarioBase(empresaId, ingrediente.ingrediente_id, usuarioId, q * (parseFloat(String(ingrediente.cantidad)) || 0), tipo, `${notas} - receta ${productoId}`)
+    return
+  }
+  await moverInventarioBase(empresaId, productoId, usuarioId, q, tipo, notas)
+}
+
+async function moverInventarioBase(empresaId: string, productoId: string, usuarioId: string, cantidad: any, tipo: 'venta' | 'devolucion', notas: string) {
   const q = Math.abs(parseFloat(String(cantidad)) || 0)
   if (!q) return
 
@@ -259,6 +271,10 @@ export default async function handler(req: any, res: any) {
         if (!pedido.mesero_id) {
           const meseroId = await responsableDeMesa(eid, pedido.mesa_id, pedido.usuario_id)
           ups.push(`mesero_id=$${idx++}`); params.push(meseroId)
+        }
+        if (pedido.estado !== 'cobrado') {
+          const clienteFinal = cliente_id !== undefined ? cliente_id : pedido.cliente_id
+          if (clienteFinal) await query(`UPDATE clientes SET total_visitas=COALESCE(total_visitas,0)+1, total_consumo=COALESCE(total_consumo,0)+$1, updated_at=NOW() WHERE id=$2 AND empresa_id=$3`, [totalCobrado, clienteFinal, eid])
         }
       }
       if (estado==='cobrado'||estado==='cancelado') {

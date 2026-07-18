@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CreditCard, Plus, Lock, Unlock, Pencil, Trash2 } from 'lucide-react'
+import { CreditCard, Plus, Lock, Unlock, Pencil, Trash2, Printer } from 'lucide-react'
 import api from '@/lib/axios'
 import type { Caja, CajaMovimiento } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -9,10 +9,11 @@ import Modal from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { imprimirMovimientoCaja } from '@/lib/print'
 
 export default function CajaPage() {
   const qc = useQueryClient()
-  const { supportMode } = useAuth()
+  const { supportMode, user } = useAuth()
   const [modalAbrir, setModalAbrir] = useState(false); const [modalMov, setModalMov] = useState(false); const [modalCerrar, setModalCerrar] = useState(false)
   const [movimientoEditar, setMovimientoEditar] = useState<any | null>(null)
   const [movimientoEliminar, setMovimientoEliminar] = useState<any | null>(null)
@@ -64,7 +65,7 @@ export default function CajaPage() {
         <div className="card overflow-hidden">
           <div className="px-5 py-4 border-b border-white/5"><h3 className="text-sm font-semibold">Movimientos</h3></div>
           <div className="overflow-x-auto"><table className="table-base">
-            <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Método</th><th>Monto</th>{supportMode && <th className="text-right">Acciones</th>}</tr></thead>
+            <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Método</th><th>Monto</th><th className="text-right">Comprobante</th>{supportMode && <th className="text-right">Acciones</th>}</tr></thead>
             <tbody>
               {movimientos.map(m => (
                 <tr key={m.id}>
@@ -74,10 +75,11 @@ export default function CajaPage() {
                   <td className="text-surface-200/70">{m.descripcion ?? '—'}</td>
                   <td className="capitalize text-surface-200/60 text-xs">{m.metodo_pago}</td>
                   <td className={cn('font-semibold',m.tipo==='egreso'||m.tipo==='compra_inventario'||m.tipo==='compra_no_inventario'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'||m.tipo==='compra_inventario'||m.tipo==='compra_no_inventario'?'-':'+'}{formatCurrency(m.monto)}</td>
+                  <td className="text-right"><button type="button" className="btn-ghost btn-sm p-2" title="Imprimir comprobante" onClick={()=>{ if (!imprimirMovimientoCaja(m, user?.empresa)) toast.error('El navegador bloqueo la ventana de impresion') }}><Printer className="h-4 w-4"/></button></td>
                   {supportMode && <td className="text-right"><div className="flex justify-end gap-1">{esManual(m) ? <><button type="button" onClick={()=>abrirEdicion(m)} className="btn-ghost btn-sm p-2" title="Editar movimiento"><Pencil className="h-4 w-4"/></button><button type="button" onClick={()=>{ setCorreccion(p=>({...p,motivo:''})); setMovimientoEliminar(m) }} className="btn-ghost btn-sm p-2 text-red-300 hover:text-red-200" title="Eliminar movimiento"><Trash2 className="h-4 w-4"/></button></> : <span className="text-xs text-surface-200/35">Automatico</span>}</div></td>}
                 </tr>
               ))}
-              {movimientos.length===0&&<tr><td colSpan={supportMode ? 7 : 6} className="text-center py-8 text-surface-200/30">Sin movimientos</td></tr>}
+              {movimientos.length===0&&<tr><td colSpan={supportMode ? 8 : 7} className="text-center py-8 text-surface-200/30">Sin movimientos</td></tr>}
             </tbody>
           </table></div>
         </div>

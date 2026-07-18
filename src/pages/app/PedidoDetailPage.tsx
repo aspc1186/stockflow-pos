@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Plus, Minus, CreditCard, Check, X, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, CreditCard, Check, X, ShoppingBag, Printer } from 'lucide-react'
 import api from '@/lib/axios'
-import type { Pedido, Producto } from '@/types'
+import type { Pedido, Producto, Cliente } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { PageLoader } from '@/components/ui/Spinner'
 import Modal from '@/components/ui/Modal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/contexts/AuthContext'
+import { imprimirPedido } from '@/lib/print'
 
 export default function PedidoDetailPage() {
   const { id } = useParams<{id:string}>(); const navigate = useNavigate(); const qc = useQueryClient()
+  const { user } = useAuth()
   const [modalP, setModalP] = useState(false); const [modalC, setModalC] = useState(false); const [confirmCan, setConfirmCan] = useState(false)
-  const [metodo, setMetodo] = useState('efectivo'); const [desc, setDesc] = useState('0'); const [prop, setProp] = useState('0')
+  const [metodo, setMetodo] = useState('efectivo'); const [desc, setDesc] = useState('0'); const [prop, setProp] = useState('0'); const [clienteId, setClienteId] = useState('')
 
   const { data: pedido, isLoading } = useQuery({
     queryKey: ['pedido', id],
@@ -23,6 +26,11 @@ export default function PedidoDetailPage() {
     queryKey: ['productos'],
     queryFn: async () => { const { data } = await api.get<any>('/productos?disponible=true'); return (data.data || data) as Producto[] },
     enabled: modalP,
+  })
+  const { data: clientes = [] } = useQuery({
+    queryKey: ['clientes-select'],
+    queryFn: async () => { const { data } = await api.get<any>('/clientes'); return (data.data || data) as Cliente[] },
+    enabled: modalC,
   })
   const actualizar = useMutation({
     mutationFn: (body: Record<string,unknown>) => api.patch(`/pedidos/${id}`, body),
@@ -36,7 +44,7 @@ export default function PedidoDetailPage() {
   const cobrar = async () => {
     try {
       const d = parseFloat(desc)||0; const p = parseFloat(prop)||0
-      await actualizar.mutateAsync({estado: esPrecierre ? 'cobrado' : 'precierre', metodo_pago:metodo, descuento:d, propina:p})
+      await actualizar.mutateAsync({estado: esPrecierre ? 'cobrado' : 'precierre', metodo_pago:metodo, descuento:d, propina:p, cliente_id: clienteId || undefined})
       toast.success(esPrecierre ? 'Pedido cobrado' : 'Pedido enviado a precierre'); setModalC(false); navigate('/app/pedidos')
     } catch { toast.error('Error al cobrar') }
   }
@@ -53,7 +61,7 @@ export default function PedidoDetailPage() {
           <h1 className="page-title">Pedido #{pedido.numero || '-'}</h1>
           <p className="page-subtitle">{r.mesa_numero ? `Mesa ${r.mesa_numero} · ` : ''}{r.mesero_nombre || r.usuario_nombre || ''} · {formatDate(pedido.apertura_at,'HH:mm')}</p>
         </div>
-        <span className={`badge ${pedido.estado==='abierto'?'badge-blue':pedido.estado==='listo'?'badge-green':pedido.estado==='cobrado'?'badge-gray':'badge-red'}`}>{pedido.estado.replace('_',' ')}</span>
+        <div className="flex items-center gap-2"><button type="button" onClick={()=>{ if (!imprimirPedido(pedido,user?.empresa)) toast.error('El navegador bloqueo la ventana de impresion') }} className="btn-secondary btn-sm" title="Imprimir comprobante"><Printer className="w-4 h-4"/>Imprimir</button><span className={`badge ${pedido.estado==='abierto'?'badge-blue':pedido.estado==='listo'?'badge-green':pedido.estado==='cobrado'?'badge-gray':'badge-red'}`}>{pedido.estado.replace('_',' ')}</span></div>
       </div>
       <div className="card">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
@@ -94,6 +102,7 @@ export default function PedidoDetailPage() {
         footer={<div className="flex gap-3"><button onClick={() => setModalC(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={cobrar} className="btn-primary flex-1"><Check className="w-4 h-4"/>Confirmar</button></div>}>
         <div className="space-y-4">
           <div><label className="label">Método de pago</label><select className="input" value={metodo} onChange={e => setMetodo(e.target.value)}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m => <option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>
+          <div><label className="label">Cliente (opcional)</label><select className="input" value={clienteId} onChange={e => setClienteId(e.target.value)}><option value="" className="bg-surface-800">Consumidor final</option>{clientes.map(cliente => <option key={cliente.id} value={cliente.id} className="bg-surface-800">{cliente.nombre}{cliente.documento ? ` - ${cliente.documento}` : ''}</option>)}</select></div>
           <div><label className="label">Descuento</label><input type="number" min="0" className="input" value={desc} onChange={e => setDesc(e.target.value)}/></div>
           <div><label className="label">Propina</label><input type="number" min="0" className="input" value={prop} onChange={e => setProp(e.target.value)}/></div>
           <div className="p-4 bg-white/5 rounded-xl">

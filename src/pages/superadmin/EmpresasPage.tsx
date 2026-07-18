@@ -76,7 +76,7 @@ export default function EmpresasPage() {
           <div><h4 className="text-xs font-semibold text-surface-200/50 uppercase tracking-wide mb-3">Datos del negocio</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2"><label className="label">Nombre *</label><input className="input" placeholder="Nombre del establecimiento" value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))}/></div>
-              <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))}><option value="bar">Bar</option><option value="discoteca">Discoteca</option><option value="bar_discoteca">Bar & Discoteca</option><option value="restaurante_bar">Restaurante Bar</option></select></div>
+              <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))}><option value="bar">Bar</option><option value="discoteca">Discoteca</option><option value="bar_discoteca">Bar & Discoteca</option><option value="restaurante">Restaurante</option><option value="restaurante_bar">Restaurante Bar</option></select></div>
               <div><label className="label">Ciudad</label><input className="input" value={form.ciudad} onChange={e=>setForm(p=>({...p,ciudad:e.target.value}))}/></div>
               <div><label className="label">NIT</label><input className="input" value={form.nit} onChange={e=>setForm(p=>({...p,nit:e.target.value}))}/></div>
               <div><label className="label">Licencia hasta</label><input type="date" className="input" value={form.licencia_fin} onChange={e=>setForm(p=>({...p,licencia_fin:e.target.value}))}/></div>

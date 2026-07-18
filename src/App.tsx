@@ -17,6 +17,8 @@ import PedidoDetailPage from './pages/app/PedidoDetailPage'
 import CajaPage from './pages/app/CajaPage'
 import ProductosPage from './pages/app/ProductosPage'
 import InventarioPage from './pages/app/InventarioPage'
+import ClientesPage from './pages/app/ClientesPage'
+import IntegracionesPage from './pages/app/IntegracionesPage'
 import UsuariosPage from './pages/app/UsuariosPage'
 import ReportesPage from './pages/app/ReportesPage'
 import ConfiguracionPage from './pages/app/ConfiguracionPage'
@@ -75,6 +77,8 @@ export default function App(){
       <Route path="caja" element={<CajaPage/>}/>
       <Route path="productos" element={<ProductosPage/>}/>
       <Route path="inventario" element={<InventarioPage/>}/>
+      <Route path="clientes" element={<ClientesPage/>}/>
+      <Route path="integraciones" element={<IntegracionesPage/>}/>
       <Route path="usuarios" element={<UsuariosPage/>}/>
       <Route path="reportes" element={<ReportesPage/>}/>
       <Route path="configuracion" element={<ConfiguracionPage/>}/>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X, ChevronDown, Phone } from 'lucide-react'
+import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X, ChevronDown, Phone, ContactRound, Plug } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 const groups=[
@@ -13,11 +13,13 @@ const groups=[
   {label:'Gestión',items:[
     {to:'/app/productos',label:'Productos',icon:Package,roles:['admin','supervisor']},
     {to:'/app/inventario',label:'Inventario',icon:Package,roles:['admin','supervisor']},
+    {to:'/app/clientes',label:'Clientes',icon:ContactRound,roles:['admin','supervisor']},
   ]},
   {label:'Admin',items:[
     {to:'/app/usuarios',label:'Usuarios',icon:Users,roles:['admin','supervisor']},
     {to:'/app/reportes',label:'Reportes',icon:BarChart3,roles:['admin','supervisor']},
     {to:'/app/configuracion',label:'Configuración',icon:Settings,roles:['admin']},
+    {to:'/app/integraciones',label:'Integraciones ERP',icon:Plug,roles:['admin','supervisor']},
   ]},
 ]
 export default function Sidebar({onClose}:{onClose?:()=>void}){
