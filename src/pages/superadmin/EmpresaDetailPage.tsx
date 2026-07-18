@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Building2, Users, CheckCircle, XCircle, Pencil, Save, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Building2, Users, CheckCircle, XCircle, Pencil, Save, ShieldCheck, KeyRound } from 'lucide-react'
 import api from '@/lib/axios'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -16,6 +16,9 @@ export default function EmpresaDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [editarAbierto, setEditarAbierto] = useState(false)
   const [soporteAbierto, setSoporteAbierto] = useState(false)
+  const [usuarioPassword, setUsuarioPassword] = useState<any | null>(null)
+  const [nuevaPassword, setNuevaPassword] = useState('')
+  const [confirmarPassword, setConfirmarPassword] = useState('')
   const [edicion, setEdicion] = useState({ nombre:'', tipo:'bar', nit:'', ciudad:'', telefono:'', email:'', direccion:'', plan:'basico', licencia_fin:'', notificar_pago:false, mensaje_pago:'' })
 
   const { data, isLoading } = useQuery({
@@ -45,6 +48,11 @@ export default function EmpresaDetailPage() {
       navigate('/app/dashboard')
     },
     onError: (e: any) => toast.error(e?.response?.data?.msg ?? e?.message ?? 'No fue posible iniciar el modo de soporte'),
+  })
+  const cambiarPassword = useMutation({
+    mutationFn: () => api.patch(`/superadmin/empresas/${id}/usuarios/${usuarioPassword.id}/password`, { password:nuevaPassword }),
+    onSuccess: () => { setUsuarioPassword(null); setNuevaPassword(''); setConfirmarPassword(''); toast.success('Contraseña actualizada') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo actualizar la contraseña'),
   })
 
   const abrirEdicion = (empresa: any = data) => {
@@ -103,7 +111,7 @@ export default function EmpresaDetailPage() {
                 <td className="p-4 text-surface-200/70 text-sm">{u.email}</td>
                 <td className="p-4"><span className="badge badge-blue capitalize">{u.rol}</span></td>
                 <td className="p-4 text-xs text-surface-200/50">{u.ultimo_acceso ? formatDate(u.ultimo_acceso,'dd/MM HH:mm') : 'Nunca'}</td>
-                <td className="p-4"><span className={u.activo?'badge-green':'badge-gray'}>{u.activo?'Activo':'Inactivo'}</span></td>
+                <td className="p-4"><div className="flex items-center gap-2"><span className={u.activo?'badge-green':'badge-gray'}>{u.activo?'Activo':'Inactivo'}</span><button type="button" className="btn-secondary btn-sm" title="Cambiar contraseña" onClick={()=>{ setUsuarioPassword(u); setNuevaPassword(''); setConfirmarPassword('') }}><KeyRound className="h-4 w-4"/>Contraseña</button></div></td>
               </tr>
             ))}
           </tbody>
@@ -124,6 +132,9 @@ export default function EmpresaDetailPage() {
           <p>Podras gestionar mesas, pedidos, caja, productos, inventario, usuarios, reportes y configuracion. Los cambios se aplican solamente a esta empresa.</p>
           <p className="rounded-lg border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-100/85">La sesion de soporte dura hasta dos horas y mostrara un aviso permanente. Podras volver al panel de superadministrador en cualquier momento.</p>
         </div>
+      </Modal>
+      <Modal open={!!usuarioPassword} onClose={()=>setUsuarioPassword(null)} title="Cambiar contraseña" size="sm" footer={<div className="flex gap-3"><button className="btn-secondary flex-1" onClick={()=>setUsuarioPassword(null)}>Cancelar</button><button className="btn-primary flex-1" onClick={()=>cambiarPassword.mutate()} disabled={cambiarPassword.isPending || nuevaPassword.length < 6 || nuevaPassword !== confirmarPassword}>{cambiarPassword.isPending?'Actualizando...':'Guardar contraseña'}</button></div>}>
+        <div className="space-y-4"><p className="text-sm text-surface-200/65">Nueva contraseña para <strong className="text-surface-50">{usuarioPassword?.nombre}</strong> (@{usuarioPassword?.username}). La contraseña anterior no puede verse ni recuperarse.</p><div><label className="label">Nueva contraseña</label><input type="password" autoComplete="new-password" className="input" value={nuevaPassword} onChange={e=>setNuevaPassword(e.target.value)}/></div><div><label className="label">Confirmar contraseña</label><input type="password" autoComplete="new-password" className="input" value={confirmarPassword} onChange={e=>setConfirmarPassword(e.target.value)}/></div>{nuevaPassword && nuevaPassword.length < 6 && <p className="text-xs text-red-300">Debe tener al menos 6 caracteres.</p>}{confirmarPassword && nuevaPassword !== confirmarPassword && <p className="text-xs text-red-300">Las contraseñas no coinciden.</p>}</div>
       </Modal>
     </div>
   )

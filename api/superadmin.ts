@@ -103,6 +103,16 @@ export default async function handler(req: any, res: any) {
       }
     }
   } else {
+    // PATCH /api/superadmin/empresas/[id]/usuarios/[userId]/password
+    if (parts[4] === 'usuarios' && parts[5] && parts[6] === 'password' && req.method === 'PATCH') {
+      const password = String(req.body?.password || '')
+      if (password.length < 6) return res.status(400).json({ ok:false, msg:'La contraseña debe tener al menos 6 caracteres' })
+      const usuario = await queryOne(`SELECT id,nombre,username FROM usuarios WHERE id=$1 AND empresa_id=$2`, [parts[5], empresaId]) as any
+      if (!usuario) return res.status(404).json({ ok:false, msg:'Usuario no encontrado en esta empresa' })
+      const hash = await bcrypt.hash(password, 12)
+      await query(`UPDATE usuarios SET password_hash=$1, updated_at=NOW() WHERE id=$2 AND empresa_id=$3`, [hash, usuario.id, empresaId])
+      return res.status(200).json({ ok:true, data:{ id:usuario.id, nombre:usuario.nombre, username:usuario.username } })
+    }
     // POST /api/superadmin/empresas/[id]/support-session
     // A short-lived delegated session lets support correct the same modules an admin can manage.
     if (parts[4] === 'support-session' && req.method === 'POST') {
