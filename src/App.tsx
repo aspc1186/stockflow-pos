@@ -24,6 +24,7 @@ import ReportesPage from './pages/app/ReportesPage'
 import ConfiguracionPage from './pages/app/ConfiguracionPage'
 import MeseroPage from './pages/mesero/MeseroPage'
 import MesaPedidoPage from './pages/mesero/MesaPedidoPage'
+import RestauranteOperacionPage from './pages/app/RestauranteOperacionPage'
 
 function RequireAuth({children}:{children:React.ReactNode}){
   const {user,loading}=useAuth()
@@ -79,6 +80,10 @@ export default function App(){
       <Route path="inventario" element={<InventarioPage/>}/>
       <Route path="clientes" element={<ClientesPage/>}/>
       <Route path="integraciones" element={<IntegracionesPage/>}/>
+      <Route path="ingredientes" element={<RestauranteOperacionPage modo="ingredientes"/>}/>
+      <Route path="recetas" element={<RestauranteOperacionPage modo="recetas"/>}/>
+      <Route path="compras-ingredientes" element={<RestauranteOperacionPage modo="compras"/>}/>
+      <Route path="mermas-ingredientes" element={<RestauranteOperacionPage modo="mermas"/>}/>
       <Route path="usuarios" element={<UsuariosPage/>}/>
       <Route path="reportes" element={<ReportesPage/>}/>
       <Route path="configuracion" element={<ConfiguracionPage/>}/>

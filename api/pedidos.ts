@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { query, queryOne } from '../_db.js'
 import { authenticate, cors } from '../_auth.js'
+import { ensureRestaurantSchema, esRestaurante, movimientoIngrediente } from './_restaurante.js'
 
 let mesasSchemaReady: Promise<void> | null = null
 
@@ -35,6 +36,14 @@ async function cajaAbierta(empresaId: string) {
 async function moverInventario(empresaId: string, productoId: string, usuarioId: string, cantidad: any, tipo: 'venta' | 'devolucion', notas: string) {
   const q = Math.abs(parseFloat(String(cantidad)) || 0)
   if (!q) return
+  if (await esRestaurante(empresaId)) {
+    const receta = await queryOne(`SELECT id FROM recetas_restaurante WHERE empresa_id=$1 AND producto_id=$2 AND activa=true`, [empresaId,productoId]) as any
+    if (receta) {
+      const lineas = await query(`SELECT ingrediente_id,cantidad_bruta FROM receta_ingredientes WHERE receta_id=$1 AND empresa_id=$2`, [receta.id,empresaId]) as any[]
+      for (const linea of lineas) await movimientoIngrediente({ empresaId, ingredienteId:linea.ingrediente_id, usuarioId, tipo:tipo==='venta'?'venta':'devolucion', salida:tipo==='venta'?q*Number(linea.cantidad_bruta):0, entrada:tipo==='devolucion'?q*Number(linea.cantidad_bruta):0, motivo:tipo==='venta'?'Salida por receta':'Devolucion por receta', observaciones:notas })
+      return
+    }
+  }
   const receta = await query(`SELECT ingrediente_id,cantidad FROM recetas_producto WHERE empresa_id=$1 AND producto_id=$2`, [empresaId, productoId]) as any[]
   if (receta.length) {
     for (const ingrediente of receta) await moverInventarioBase(empresaId, ingrediente.ingrediente_id, usuarioId, q * (parseFloat(String(ingrediente.cantidad)) || 0), tipo, `${notas} - receta ${productoId}`)
@@ -100,6 +109,7 @@ export default async function handler(req: any, res: any) {
   if (!auth || !auth.empresa_id) return
   const eid = auth.empresa_id
   await ensureMesasSchema()
+  await ensureRestaurantSchema()
   const urlPath = (req.url||'').split('?')[0]
   const parts = urlPath.split('/').filter(Boolean)
   const pedidoId = parts[2]||null

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X, ChevronDown, Phone, ContactRound, Plug } from 'lucide-react'
+import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X, ChevronDown, Phone, ContactRound, Plug, CookingPot, ShoppingCart, BadgeAlert, BookOpen } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 const groups=[
@@ -24,6 +24,7 @@ const groups=[
 ]
 export default function Sidebar({onClose}:{onClose?:()=>void}){
   const {user,isRole,logout}=useAuth()
+  const esRestaurante = String(user?.empresa?.tipo || '').toLowerCase() === 'restaurante'
   const [providerOpen,setProviderOpen]=useState(false)
   return <div className="w-60 h-full bg-surface-800 border-r border-white/5 flex flex-col">
     <div className="relative border-b border-white/5">
@@ -48,6 +49,7 @@ export default function Sidebar({onClose}:{onClose?:()=>void}){
         if(!vis.length) return null
         return <div key={g.label}><p className="px-3 mb-1.5 text-[10px] font-semibold text-surface-200/30 uppercase tracking-widest">{g.label}</p><div className="space-y-0.5">{vis.map(item=><NavLink key={item.to} to={item.to} onClick={onClose} className={({isActive})=>cn('sidebar-link',isActive&&'active')}><item.icon className="w-4 h-4 flex-shrink-0"/><span className="truncate">{item.label}</span></NavLink>)}</div></div>
       })}
+      {esRestaurante && <div><p className="px-3 mb-1.5 text-[10px] font-semibold text-surface-200/30 uppercase tracking-widest">Restaurante</p><div className="space-y-0.5">{[{to:'/app/ingredientes',label:'Ingredientes',icon:CookingPot},{to:'/app/recetas',label:'Recetas',icon:BookOpen},{to:'/app/compras-ingredientes',label:'Compras',icon:ShoppingCart},{to:'/app/mermas-ingredientes',label:'Mermas y ajustes',icon:BadgeAlert}].map(item=><NavLink key={item.to} to={item.to} onClick={onClose} className={({isActive})=>cn('sidebar-link',isActive&&'active')}><item.icon className="w-4 h-4 flex-shrink-0"/><span className="truncate">{item.label}</span></NavLink>)}</div></div>}
     </nav>
     <div className="p-3 border-t border-white/5">
       <div className="flex items-center gap-2.5 px-3 py-2 mb-1"><div className="w-7 h-7 rounded-full bg-brand-600/30 flex items-center justify-center"><span className="text-[11px] font-bold text-brand-300">{user?.nombre?.[0]??'U'}</span></div><div className="min-w-0"><p className="text-xs font-medium text-surface-50 truncate">{user?.nombre}</p><p className="text-[10px] text-surface-200/40 capitalize">{user?.rol}</p></div></div>
