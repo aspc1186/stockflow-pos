@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { TrendingUp, ShoppingBag, Users, AlertTriangle, CreditCard, Wine, Package, CircleDollarSign, BarChart3 } from 'lucide-react'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { AreaChart, Area, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import api from '@/lib/axios'
 import type { DashboardStats } from '@/types'
 import StatCard from '@/components/ui/StatCard'
@@ -8,6 +9,7 @@ import { PageLoader } from '@/components/ui/Spinner'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 export default function DashboardPage() {
+  const [grafico, setGrafico] = useState<'area'|'linea'|'barras'|'dona'>('area')
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => { const { data } = await api.get<any>('/dashboard'); return (data.data || data) as DashboardStats },
@@ -52,15 +54,16 @@ export default function DashboardPage() {
       </div>
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="card p-5 lg:col-span-2">
-          <h3 className="text-sm font-semibold text-surface-200/70 mb-4 uppercase tracking-wide">Ventas por hora - caja actual</h3>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold text-surface-200/70 uppercase tracking-wide">Ventas por hora - caja actual</h3><select className="input h-8 w-36 py-1 text-xs" value={grafico} onChange={e=>setGrafico(e.target.value as any)}><option value="area">Área</option><option value="linea">Línea</option><option value="barras">Barras</option><option value="dona">Dona</option></select></div>
           {data.ventas_por_hora?.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
+              {grafico==='dona' ? <PieChart><Pie data={data.ventas_por_hora} dataKey="total" nameKey="hora" innerRadius={45} outerRadius={75} paddingAngle={3}>{data.ventas_por_hora.map((_:any,i:number)=><Cell key={i} fill={['#6366f1','#22c55e','#f59e0b','#ec4899','#38bdf8','#a855f7'][i%6]}/>)}</Pie><Tooltip formatter={(v:number)=>[formatCurrency(v),'Ventas']}/></PieChart> : grafico==='barras' ? <BarChart data={data.ventas_por_hora}><XAxis dataKey="hora" tick={{fontSize:11,fill:'#9ca3af'}}/><YAxis tick={{fontSize:11,fill:'#9ca3af'}} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`}/><Tooltip formatter={(v:number)=>[formatCurrency(v),'Ventas']}/><Bar dataKey="total" fill="#6366f1" radius={[5,5,0,0]}/></BarChart> : grafico==='linea' ? <LineChart data={data.ventas_por_hora}><XAxis dataKey="hora" tick={{fontSize:11,fill:'#9ca3af'}}/><YAxis tick={{fontSize:11,fill:'#9ca3af'}} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`}/><Tooltip formatter={(v:number)=>[formatCurrency(v),'Ventas']}/><Line type="monotone" dataKey="total" stroke="#38bdf8" strokeWidth={3}/></LineChart> :
               <AreaChart data={data.ventas_por_hora}>
                 <defs><linearGradient id="gv" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs>
                 <XAxis dataKey="hora" tick={{fontSize:11,fill:'#9ca3af'}}/><YAxis tick={{fontSize:11,fill:'#9ca3af'}} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`}/>
                 <Tooltip contentStyle={{background:'#1a1f2e',border:'1px solid #2a3048',borderRadius:'8px'}} formatter={(v:number)=>[formatCurrency(v),'Ventas']}/>
                 <Area type="monotone" dataKey="total" stroke="#6366f1" fill="url(#gv)" strokeWidth={2}/>
-              </AreaChart>
+              </AreaChart>}
             </ResponsiveContainer>
           ) : <div className="h-[200px] flex items-center justify-center"><div className="text-center"><Wine className="w-10 h-10 text-surface-200/20 mx-auto mb-2"/><p className="text-sm text-surface-200/30">Sin ventas en la caja actual</p></div></div>}
         </div>

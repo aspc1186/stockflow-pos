@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X, ChevronDown, Phone, ContactRound, Plug, CookingPot, ShoppingCart, BadgeAlert, BookOpen } from 'lucide-react'
+import { LayoutDashboard, UtensilsCrossed, ClipboardList, Package, Users, BarChart3, Settings, CreditCard, X, ChevronDown, Phone, ContactRound, Plug, CookingPot, ShoppingCart, BadgeAlert, BookOpen, CalendarDays, PartyPopper } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 const groups=[
@@ -14,6 +14,8 @@ const groups=[
     {to:'/app/productos',label:'Productos',icon:Package,roles:['admin','supervisor']},
     {to:'/app/inventario',label:'Inventario',icon:Package,roles:['admin','supervisor']},
     {to:'/app/clientes',label:'Clientes',icon:ContactRound,roles:['admin','supervisor']},
+    {to:'/app/reservas',label:'Reservas',icon:CalendarDays,roles:['admin','supervisor']},
+    {to:'/app/eventos',label:'Eventos y promociones',icon:PartyPopper,roles:['admin','supervisor']},
   ]},
   {label:'Admin',items:[
     {to:'/app/usuarios',label:'Usuarios',icon:Users,roles:['admin','supervisor']},

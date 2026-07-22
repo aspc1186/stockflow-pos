@@ -25,6 +25,8 @@ import ConfiguracionPage from './pages/app/ConfiguracionPage'
 import MeseroPage from './pages/mesero/MeseroPage'
 import MesaPedidoPage from './pages/mesero/MesaPedidoPage'
 import RestauranteOperacionPage from './pages/app/RestauranteOperacionPage'
+import MenuDigitalPage from './pages/public/MenuDigitalPage'
+import ReservasEventosPage from './pages/app/ReservasEventosPage'
 
 function RequireAuth({children}:{children:React.ReactNode}){
   const {user,loading}=useAuth()
@@ -58,10 +60,11 @@ export default function App(){
   const def=!user?'/login':isSuperAdmin?'/superadmin':isMesero?'/mesero':'/app/dashboard'
   return <Routes>
     <Route element={<AuthLayout/>}>
-      <Route path="/login" element={<LoginPage/>}/>
+    <Route path="/login" element={<LoginPage/>}/>
       <Route path="/forgot-password" element={<ForgotPasswordPage/>}/>
       <Route path="/reset-password/:token" element={<ResetPasswordPage/>}/>
     </Route>
+    <Route path="/menu/:empresa/:mesa" element={<MenuDigitalPage/>}/>
     <Route path="/superadmin" element={<RequireSuperAdmin><SuperAdminLayout/></RequireSuperAdmin>}>
       <Route index element={<SuperDashboardPage/>}/>
       <Route path="empresas" element={<EmpresasPage/>}/>
@@ -79,6 +82,8 @@ export default function App(){
       <Route path="productos" element={<ProductosPage/>}/>
       <Route path="inventario" element={<InventarioPage/>}/>
       <Route path="clientes" element={<ClientesPage/>}/>
+      <Route path="reservas" element={<ReservasEventosPage modo="reservas"/>}/>
+      <Route path="eventos" element={<ReservasEventosPage modo="eventos"/>}/>
       <Route path="integraciones" element={<IntegracionesPage/>}/>
       <Route path="ingredientes" element={<RestauranteOperacionPage modo="ingredientes"/>}/>
       <Route path="recetas" element={<RestauranteOperacionPage modo="recetas"/>}/>

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCw, Users, Clock, MapPin, UtensilsCrossed, ClipboardList, UserRoundCheck, Pencil } from 'lucide-react'
+import { Plus, RefreshCw, Users, Clock, MapPin, UtensilsCrossed, ClipboardList, UserRoundCheck, Pencil, QrCode } from 'lucide-react'
+import QRCode from 'qrcode'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
 import type { Mesa, EstadoMesa } from '@/types'
@@ -47,14 +48,17 @@ function MesaImagen({ mesa, cfg }: { mesa: Mesa; cfg: typeof CFG[EstadoMesa] }) 
   )
 }
 
+function CodigoMesa({url}:{url:string}) { const [src,setSrc]=useState(''); useEffect(()=>{QRCode.toDataURL(url,{width:260,margin:1,errorCorrectionLevel:'M'}).then(setSrc)},[url]); return src?<img src={src} alt="Código QR de la mesa" className="mx-auto h-52 w-52 rounded-lg bg-white p-2"/>:null }
+
 export default function MesasPage() {
-  const navigate = useNavigate(); const { isAdmin } = useAuth(); const qc = useQueryClient()
+  const navigate = useNavigate(); const { isAdmin, user } = useAuth(); const qc = useQueryClient()
   const [filtro, setFiltro] = useState<EstadoMesa|'todas'>('todas')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({numero:'',nombre:'',capacidad:'4',tipo:'mesa',consumo_minimo:'0'})
   const [mesaEditando, setMesaEditando] = useState<Mesa | null>(null)
   const [edicion, setEdicion] = useState({numero:'',nombre:'',capacidad:'4'})
   const [meseroMasivo, setMeseroMasivo] = useState('')
+  const [mesaQr, setMesaQr] = useState<Mesa | null>(null)
 
   const { data: mesas = [], isLoading, refetch } = useQuery({
     queryKey: ['mesas'],
@@ -156,6 +160,7 @@ export default function MesasPage() {
                       className="btn-ghost btn-sm h-7 w-7 p-0"
                       title="Editar mesa"
                     ><Pencil className="w-3.5 h-3.5"/></button>}
+                    {isAdmin && <button onClick={()=>setMesaQr(mesa)} className="btn-ghost btn-sm h-7 w-7 p-0" title="Ver QR del menú"><QrCode className="w-3.5 h-3.5"/></button>}
                   </div>
                 </div>
 
@@ -213,6 +218,7 @@ export default function MesasPage() {
           <div><label className="label">Cantidad de personas</label><input type="number" min={1} className="input" value={edicion.capacidad} onChange={e => setEdicion(p => ({...p, capacidad:e.target.value}))}/></div>
         </div>
       </Modal>
+      <Modal open={!!mesaQr} onClose={()=>setMesaQr(null)} title={`QR · Mesa ${mesaQr?.numero || ''}`} size="sm"><div className="space-y-4 text-center"><p className="text-sm text-surface-200/60">Al escanearlo, el cliente verá el menú disponible de esta mesa.</p>{mesaQr&&<CodigoMesa url={`${window.location.origin}/menu/${user?.empresa?.slug}/${encodeURIComponent(String(mesaQr.numero))}`}/>}<p className="break-all text-xs text-surface-200/45">{mesaQr&&`${window.location.origin}/menu/${user?.empresa?.slug}/${encodeURIComponent(String(mesaQr.numero))}`}</p></div></Modal>
     </div>
   )
 }
