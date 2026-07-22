@@ -19,8 +19,16 @@ export default async function handler(req:any,res:any) {
   }
   if (!id && req.method==='POST') {
     const b=req.body||{}; if(!String(b.nombre||'').trim()) return res.status(400).json({ok:false,msg:'Nombre requerido'})
-    const [row]=await query(`INSERT INTO ingredientes (id,empresa_id,codigo,nombre,descripcion,categoria,unidad_compra,unidad_consumo,factor_conversion,stock_actual,stock_minimo,stock_maximo,punto_reorden,merma_pct,rendimiento,proveedor_principal,activo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,$11,$12,$13,$14,$15,true) RETURNING *`,[uuid(),eid,b.codigo||null,String(b.nombre).trim(),b.descripcion||null,b.categoria||null,b.unidad_compra||'unidad',b.unidad_consumo||'unidad',Math.max(0.0001,Number(b.factor_conversion)||1),Number(b.stock_minimo)||0,b.stock_maximo||null,b.punto_reorden||null,Number(b.merma_pct)||0,Math.max(0,Math.min(1,Number(b.rendimiento)||1)),b.proveedor_principal||null])
-    return res.status(201).json({ok:true,data:row})
+    try {
+      const codigo=String(b.codigo||'').trim()
+      const existente=codigo?await queryOne(`SELECT id FROM ingredientes WHERE empresa_id=$1 AND LOWER(TRIM(codigo))=LOWER($2)`,[eid,codigo]):null
+      if(existente){
+        const [row]=await query(`UPDATE ingredientes SET nombre=$1,descripcion=$2,categoria=$3,unidad_compra=$4,unidad_consumo=$5,factor_conversion=$6,stock_minimo=$7,stock_maximo=$8,punto_reorden=$9,merma_pct=$10,rendimiento=$11,proveedor_principal=$12,activo=true,updated_at=NOW() WHERE id=$13 AND empresa_id=$14 RETURNING *`,[String(b.nombre).trim(),b.descripcion||null,b.categoria||null,b.unidad_compra||'unidad',b.unidad_consumo||'unidad',Math.max(0.0001,Number(b.factor_conversion)||1),Number(b.stock_minimo)||0,b.stock_maximo||null,b.punto_reorden||null,Number(b.merma_pct)||0,Math.max(0,Math.min(1,Number(b.rendimiento)||1)),b.proveedor_principal||null,existente.id,eid])
+        return res.status(200).json({ok:true,data:row,actualizado:true})
+      }
+      const [row]=await query(`INSERT INTO ingredientes (id,empresa_id,codigo,nombre,descripcion,categoria,unidad_compra,unidad_consumo,factor_conversion,stock_actual,stock_minimo,stock_maximo,punto_reorden,merma_pct,rendimiento,proveedor_principal,activo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,$11,$12,$13,$14,$15,true) RETURNING *`,[uuid(),eid,codigo||null,String(b.nombre).trim(),b.descripcion||null,b.categoria||null,b.unidad_compra||'unidad',b.unidad_consumo||'unidad',Math.max(0.0001,Number(b.factor_conversion)||1),Number(b.stock_minimo)||0,b.stock_maximo||null,b.punto_reorden||null,Number(b.merma_pct)||0,Math.max(0,Math.min(1,Number(b.rendimiento)||1)),b.proveedor_principal||null])
+      return res.status(201).json({ok:true,data:row})
+    } catch(error:any) { return res.status(500).json({ok:false,msg:`No se pudo guardar el ingrediente: ${error.message}`}) }
   }
   if (!id && req.method==='DELETE') {
     const ids=Array.isArray(req.body?.ids)?req.body.ids.filter(Boolean):[]
