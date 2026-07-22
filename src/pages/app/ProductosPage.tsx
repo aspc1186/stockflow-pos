@@ -103,11 +103,12 @@ export default function ProductosPage() {
         return { nombre, codigo:String(datos.codigo || '').trim() || undefined, precio_venta:precioVenta, precio_costo:numero(datos.preciocosto), categoria_id:categorias.get(clave(datos.categoria)) || undefined, destino:['barra','cocina','ambos','directo'].includes(clave(datos.destino)) ? clave(datos.destino) : 'barra', impuesto_pct:numero(datos.impuestopct), stock_inicial:numero(datos.stockinicial), stock_minimo:numero(datos.stockminimo), controla_stock:controla, disponible:true }
       }).filter(Boolean) as any[]
       if (!validas.length) throw new Error('No hay filas validas. Se requiere nombre y precio_venta mayor que cero.')
-      const resultados = await Promise.allSettled(validas.map(producto => api.post('/productos', producto)))
-      const creados = resultados.filter(resultado => resultado.status === 'fulfilled').length
-      const fallidos = resultados.length - creados
+      if (validas.some(producto => !producto.codigo)) throw new Error('Cada fila debe tener codigo para actualizar la lista sin duplicados.')
+      if (!window.confirm('Esta importacion reemplazara la lista visible de productos por la plantilla. Las ventas anteriores se conservaran. Deseas continuar?')) return
+      const { data } = await api.post<any>('/productos?sincronizar=true', { productos: validas })
+      const resultado = data.data || data
       qc.invalidateQueries({queryKey:['productos']}); qc.invalidateQueries({queryKey:['inventario']})
-      toast.success(`${creados} productos importados${fallidos ? `, ${fallidos} con error` : ''}`)
+      toast.success(`${resultado.creados || 0} creados, ${resultado.actualizados || 0} actualizados y ${resultado.retirados || 0} retirados de la lista`)
     } catch (e:any) { toast.error(e?.message || 'No se pudo leer el archivo Excel') }
     finally { setImportando(false); if (archivoRef.current) archivoRef.current.value = '' }
   }

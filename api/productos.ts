@@ -71,6 +71,35 @@ export default async function handler(req: any, res: any) {
     }
     if (req.method === 'POST') {
       const { categoria_id,nombre,descripcion,codigo,precio_venta,precio_costo,impuesto_pct,impuesto_tipo,impuesto_incluido,tipo,unidad_medida,destino,imagen_url,disponible,controla_stock,stock_inicial,stock_minimo,stock_maximo } = req.body||{}
+      if (req.query?.sincronizar === 'true') {
+        const productos = Array.isArray(req.body?.productos) ? req.body.productos : []
+        if (!productos.length) return res.status(400).json({ ok: false, msg: 'La plantilla no tiene productos validos' })
+        if (productos.some((producto: any) => !String(producto.codigo || '').trim())) return res.status(400).json({ ok: false, msg: 'Cada producto debe tener un codigo para sincronizar la plantilla' })
+        const codigos = productos.map((producto: any) => String(producto.codigo).trim().toLowerCase())
+        if (new Set(codigos).size !== codigos.length) return res.status(400).json({ ok: false, msg: 'Hay codigos repetidos en la plantilla' })
+        const existentes = await query(`SELECT id,codigo FROM productos WHERE empresa_id=$1 AND eliminado_at IS NULL`, [eid]) as any[]
+        const porCodigo = new Map(existentes.filter(producto => producto.codigo).map(producto => [String(producto.codigo).trim().toLowerCase(), producto]))
+        const conservados: string[] = []
+        let creados = 0
+        let actualizados = 0
+        for (const producto of productos) {
+          const codigoNormalizado = String(producto.codigo).trim().toLowerCase()
+          const existente = porCodigo.get(codigoNormalizado)
+          if (existente) {
+            await query(`UPDATE productos SET categoria_id=$1,nombre=$2,descripcion=$3,codigo=$4,precio_venta=$5,precio_costo=$6,impuesto_pct=$7,impuesto_tipo=$8,impuesto_incluido=$9,unidad_medida=$10,destino=$11,disponible=$12,controla_stock=$13,stock_maximo=$14,eliminado_at=NULL,updated_at=NOW() WHERE id=$15 AND empresa_id=$16`, [producto.categoria_id || null,producto.nombre,producto.descripcion || null,producto.codigo,producto.precio_venta,producto.precio_costo || 0,producto.impuesto_pct || 0,producto.impuesto_tipo || 'iva',!!producto.impuesto_incluido,producto.unidad_medida || 'unidad',producto.destino || (tipoNegocio.includes('restaurante') ? 'cocina' : 'barra'),producto.disponible !== false,producto.controla_stock !== false,producto.stock_maximo || null,existente.id,eid])
+            conservados.push(existente.id)
+            actualizados += 1
+          } else {
+            const productoId = uuid()
+            await query(`INSERT INTO productos (id,empresa_id,categoria_id,nombre,descripcion,codigo,precio_venta,precio_costo,impuesto_pct,impuesto_tipo,impuesto_incluido,tipo,unidad_medida,destino,imagen_url,disponible,controla_stock,stock_maximo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`, [productoId,eid,producto.categoria_id || null,producto.nombre,producto.descripcion || null,producto.codigo,producto.precio_venta,producto.precio_costo || 0,producto.impuesto_pct || 0,producto.impuesto_tipo || 'iva',!!producto.impuesto_incluido,producto.tipo || 'unidad',producto.unidad_medida || 'unidad',producto.destino || (tipoNegocio.includes('restaurante') ? 'cocina' : 'barra'),producto.imagen_url || null,producto.disponible !== false,producto.controla_stock !== false,producto.stock_maximo || null])
+            if (producto.controla_stock !== false) await query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,$4)`, [eid,productoId,producto.stock_inicial || 0,producto.stock_minimo || 0])
+            conservados.push(productoId)
+            creados += 1
+          }
+        }
+        const deshabilitados = await query(`UPDATE productos SET disponible=false,eliminado_at=NOW(),updated_at=NOW() WHERE empresa_id=$1 AND eliminado_at IS NULL AND NOT (id = ANY($2::uuid[])) RETURNING id`, [eid, conservados]) as any[]
+        return res.status(200).json({ ok: true, data: { creados, actualizados, retirados: deshabilitados.length } })
+      }
       if (!nombre || precio_venta===undefined) return res.status(400).json({ ok: false, msg: 'Nombre y precio requeridos' })
       try {
         const pid=uuid()
