@@ -52,6 +52,7 @@ export default function ProductosPage() {
   const esRestaurante = String(user?.empresa?.tipo || '').toLowerCase() === 'restaurante'
   const [modal, setModal] = useState(false)
   const [productoEliminar, setProductoEliminar] = useState<Producto | null>(null)
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const archivoRef = useRef<HTMLInputElement>(null)
   const imagenRef = useRef<HTMLInputElement>(null)
   const imagenArchivoRef = useRef<HTMLInputElement>(null)
@@ -79,6 +80,16 @@ export default function ProductosPage() {
     mutationFn: () => api.delete(`/productos/${productoEliminar?.id}`),
     onSuccess: () => { qc.invalidateQueries({queryKey:['productos']}); qc.invalidateQueries({queryKey:['inventario']}); setProductoEliminar(null); toast.success('Producto eliminado') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo eliminar el producto'),
+  })
+  const eliminarSeleccionados = useMutation({
+    mutationFn: () => api.delete('/productos', { data: { ids: [...seleccionados] } }),
+    onSuccess: (respuesta: any) => {
+      qc.invalidateQueries({queryKey:['productos']}); qc.invalidateQueries({queryKey:['inventario']})
+      const cantidad = respuesta?.data?.data?.eliminados || seleccionados.size
+      setSeleccionados(new Set())
+      toast.success(`${cantidad} producto${cantidad===1?'':'s'} eliminado${cantidad===1?'':'s'}`)
+    },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudieron eliminar los productos'),
   })
   const descargarPlantilla = () => {
     const hoja = XLSX.utils.json_to_sheet([{ nombre:'Cerveza ejemplo', codigo:'CER-001', precio_venta:8000, precio_costo:6000, categoria:'Cervezas', destino:'barra', impuesto_pct:0, stock_inicial:24, stock_minimo:6, controla_stock:'si' }])
@@ -128,16 +139,17 @@ export default function ProductosPage() {
     <div className="space-y-5">
       <div className="page-header">
         <div><h1 className="page-title">Productos</h1><p className="page-subtitle">{productos.length} productos</p></div>
-        <div className="flex flex-wrap gap-2"><button onClick={descargarPlantilla} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Plantilla Excel</button><button onClick={() => archivoRef.current?.click()} disabled={importando} className="btn-secondary btn-sm"><FileUp className="w-4 h-4"/>{importando ? 'Importando...' : 'Importar Excel'}</button><button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nuevo producto</button></div>
+        <div className="flex flex-wrap gap-2"><button onClick={descargarPlantilla} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Plantilla Excel</button><button onClick={() => archivoRef.current?.click()} disabled={importando} className="btn-secondary btn-sm"><FileUp className="w-4 h-4"/>{importando ? 'Importando...' : 'Importar Excel'}</button>{seleccionados.size>0&&<button onClick={()=>{if(window.confirm(`Eliminar ${seleccionados.size} producto(s) seleccionados? Se conservara el historial.`))eliminarSeleccionados.mutate()}} disabled={eliminarSeleccionados.isPending} className="btn-danger btn-sm"><Trash2 className="w-4 h-4"/>{eliminarSeleccionados.isPending?'Eliminando...':`Eliminar (${seleccionados.size})`}</button>}<button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nuevo producto</button></div>
       </div>
       <input ref={archivoRef} className="hidden" type="file" accept=".xlsx,.xls,.csv" onChange={e => importarArchivo(e.target.files?.[0])}/>
       <input ref={imagenRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={e => cargarImagen(e.target.files?.[0])}/>
       <input ref={imagenArchivoRef} className="hidden" type="file" accept="image/*" onChange={e => cargarImagen(e.target.files?.[0])}/>
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
-        <thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Destino</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th className="w-10"><input aria-label="Seleccionar todos los productos" type="checkbox" checked={productos.length>0&&seleccionados.size===productos.length} onChange={e=>setSeleccionados(e.target.checked?new Set(productos.map(producto=>producto.id)):new Set())}/></th><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Destino</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {productos.map(p => { const pr = p as any; return (
             <tr key={p.id}>
+              <td><input aria-label={`Seleccionar ${p.nombre}`} type="checkbox" checked={seleccionados.has(p.id)} onChange={e=>setSeleccionados(actual=>{const siguiente=new Set(actual);if(e.target.checked)siguiente.add(p.id);else siguiente.delete(p.id);return siguiente})}/></td>
               <td><div><p className="font-medium text-surface-50">{p.nombre}</p>{p.codigo&&<p className="text-xs text-surface-200/40">{p.codigo}</p>}</div></td>
               <td className="text-surface-200/60">{pr.categoria_nombre ?? '—'}</td>
               <td className="font-semibold text-brand-400">{formatCurrency(p.precio_venta)}</td>
@@ -147,7 +159,7 @@ export default function ProductosPage() {
               <td><div className="flex items-center justify-end gap-1"><button onClick={() => toggle.mutate({id:p.id,disponible:!p.disponible})} className={`text-xs px-2 py-1 rounded font-medium ${p.disponible?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{p.disponible?'Deshabilitar':'Habilitar'}</button><button onClick={() => setProductoEliminar(p)} className="btn-ghost btn-sm text-red-400 hover:bg-red-500/10" title="Eliminar producto"><Trash2 className="w-4 h-4"/></button></div></td>
             </tr>
           )})}
-          {productos.length===0&&<tr><td colSpan={7} className="text-center py-12 text-surface-200/30">Sin productos</td></tr>}
+          {productos.length===0&&<tr><td colSpan={8} className="text-center py-12 text-surface-200/30">Sin productos</td></tr>}
         </tbody>
       </table></div></div>
       <Modal open={modal} onClose={() => setModal(false)} title={esRestaurante ? 'Nuevo producto de restaurante' : 'Nuevo producto'} size="lg"

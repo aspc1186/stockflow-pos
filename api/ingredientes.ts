@@ -22,6 +22,12 @@ export default async function handler(req:any,res:any) {
     const [row]=await query(`INSERT INTO ingredientes (id,empresa_id,codigo,nombre,descripcion,categoria,unidad_compra,unidad_consumo,factor_conversion,stock_actual,stock_minimo,stock_maximo,punto_reorden,merma_pct,rendimiento,proveedor_principal,activo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,$11,$12,$13,$14,$15,true) RETURNING *`,[uuid(),eid,b.codigo||null,String(b.nombre).trim(),b.descripcion||null,b.categoria||null,b.unidad_compra||'unidad',b.unidad_consumo||'unidad',Math.max(0.0001,Number(b.factor_conversion)||1),Number(b.stock_minimo)||0,b.stock_maximo||null,b.punto_reorden||null,Number(b.merma_pct)||0,Math.max(0,Math.min(1,Number(b.rendimiento)||1)),b.proveedor_principal||null])
     return res.status(201).json({ok:true,data:row})
   }
+  if (!id && req.method==='DELETE') {
+    const ids=Array.isArray(req.body?.ids)?req.body.ids.filter(Boolean):[]
+    if(!ids.length)return res.status(400).json({ok:false,msg:'Selecciona al menos un ingrediente'})
+    const eliminados=await query(`UPDATE ingredientes SET activo=false,updated_at=NOW() WHERE empresa_id=$1 AND id = ANY($2::uuid[]) AND activo=true RETURNING id`,[eid,ids]) as any[]
+    return res.status(200).json({ok:true,data:{eliminados:eliminados.length}})
+  }
   if (!id) return res.status(405).end()
   const actual=await queryOne(`SELECT * FROM ingredientes WHERE id=$1 AND empresa_id=$2`,[id,eid]); if(!actual) return res.status(404).json({ok:false,msg:'Ingrediente no encontrado'})
   if(req.method==='PATCH') { const b=req.body||{}; const [row]=await query(`UPDATE ingredientes SET codigo=COALESCE($1,codigo),nombre=COALESCE($2,nombre),descripcion=COALESCE($3,descripcion),categoria=COALESCE($4,categoria),unidad_compra=COALESCE($5,unidad_compra),unidad_consumo=COALESCE($6,unidad_consumo),factor_conversion=COALESCE($7,factor_conversion),stock_minimo=COALESCE($8,stock_minimo),stock_maximo=COALESCE($9,stock_maximo),punto_reorden=COALESCE($10,punto_reorden),merma_pct=COALESCE($11,merma_pct),rendimiento=COALESCE($12,rendimiento),proveedor_principal=COALESCE($13,proveedor_principal),activo=COALESCE($14,activo),updated_at=NOW() WHERE id=$15 AND empresa_id=$16 RETURNING *`,[b.codigo,b.nombre,b.descripcion,b.categoria,b.unidad_compra,b.unidad_consumo,b.factor_conversion,b.stock_minimo,b.stock_maximo,b.punto_reorden,b.merma_pct,b.rendimiento,b.proveedor_principal,b.activo,id,eid]); return res.status(200).json({ok:true,data:row}) }

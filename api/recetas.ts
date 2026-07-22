@@ -5,7 +5,15 @@ import { ensureRestaurantSchema, esRestaurante, recalcularReceta } from './_rest
 
 export default async function handler(req:any,res:any) {
   cors(res); if(req.method==='OPTIONS')return res.status(200).end(); const auth=await authenticate(req,res); if(!auth?.empresa_id)return
-  await ensureRestaurantSchema(); const eid=auth.empresa_id; const restaurante=await esRestaurante(eid); const productoId=String(req.query?.producto_id||'')
+  await ensureRestaurantSchema(); const eid=auth.empresa_id; const restaurante=await esRestaurante(eid)
+  if (restaurante && req.method==='DELETE') {
+    const productoIds=Array.isArray(req.body?.producto_ids)?req.body.producto_ids.filter(Boolean):[]
+    if(!productoIds.length)return res.status(400).json({ok:false,msg:'Selecciona al menos una receta'})
+    const eliminadas=await query(`UPDATE recetas_restaurante SET activa=false,updated_at=NOW() WHERE empresa_id=$1 AND producto_id = ANY($2::uuid[]) AND activa=true RETURNING producto_id`,[eid,productoIds]) as any[]
+    await query(`UPDATE productos SET producto_tipo='simple',updated_at=NOW() WHERE empresa_id=$1 AND id = ANY($2::uuid[])`,[eid,productoIds])
+    return res.status(200).json({ok:true,data:{eliminadas:eliminadas.length}})
+  }
+  const productoId=String(req.query?.producto_id||'')
   if(!productoId)return res.status(400).json({ok:false,msg:'Producto requerido'})
   if(restaurante){
     if(req.method==='GET'){const receta=await queryOne(`SELECT * FROM recetas_restaurante WHERE empresa_id=$1 AND producto_id=$2 AND activa=true`,[eid,productoId]) as any;if(!receta)return res.status(200).json({ok:true,data:null});const lineas=await query(`SELECT ri.*,i.nombre as ingrediente_nombre,i.stock_actual,i.unidad_consumo FROM receta_ingredientes ri JOIN ingredientes i ON i.id=ri.ingrediente_id WHERE ri.receta_id=$1 ORDER BY i.nombre`,[receta.id]);return res.status(200).json({ok:true,data:{...receta,ingredientes:lineas}})}

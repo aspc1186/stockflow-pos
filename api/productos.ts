@@ -95,8 +95,14 @@ export default async function handler(req: any, res: any) {
             if (producto.controla_stock !== false) await query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,$4)`, [eid,productoId,producto.stock_inicial || 0,producto.stock_minimo || 0])
             conservados.push(productoId)
             creados += 1
-          }
-        }
+      }
+    }
+    if (req.method === 'DELETE') {
+      const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean) : []
+      if (!ids.length) return res.status(400).json({ ok: false, msg: 'Selecciona al menos un producto' })
+      const eliminados = await query(`UPDATE productos SET disponible=false,eliminado_at=NOW(),updated_at=NOW() WHERE empresa_id=$1 AND id = ANY($2::uuid[]) AND eliminado_at IS NULL RETURNING id`, [eid, ids]) as any[]
+      return res.status(200).json({ ok: true, data: { eliminados: eliminados.length } })
+    }
         const deshabilitados = await query(`UPDATE productos SET disponible=false,eliminado_at=NOW(),updated_at=NOW() WHERE empresa_id=$1 AND eliminado_at IS NULL AND NOT (id = ANY($2::uuid[])) RETURNING id`, [eid, conservados]) as any[]
         return res.status(200).json({ ok: true, data: { creados, actualizados, retirados: deshabilitados.length } })
       }
