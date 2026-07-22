@@ -239,16 +239,31 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
       const hoja = libro.Sheets[libro.SheetNames[0]]
       const filas = XLSX.utils.sheet_to_json<Record<string, unknown>>(hoja, { defval: '' })
       if (!filas.length) throw new Error('El archivo no contiene recetas')
-      const productosPorCodigo = new Map(productos.filter((producto: any) => normalizar(producto.codigo)).map((producto: any) => [normalizar(producto.codigo), producto]))
-      const productosPorNombre = new Map(productos.map((producto: any) => [normalizar(producto.nombre), producto]))
-      const ingredientesPorCodigo = new Map(ingredientes.filter((item: any) => normalizar(item.codigo)).map((item: any) => [normalizar(item.codigo), item]))
-      const ingredientesPorNombre = new Map(ingredientes.map((item: any) => [normalizar(item.nombre), item]))
+      // Se consultan nuevamente antes de validar el archivo: evita importar contra
+      // una cache vacia mientras la pantalla de recetas aun esta cargando datos.
+      const [{ data: productosRespuesta }, { data: ingredientesRespuesta }] = await Promise.all([
+        api.get<any>('/productos'),
+        api.get<any>('/ingredientes'),
+      ])
+      const platos = productosRespuesta.data || productosRespuesta || productos
+      const insumos = ingredientesRespuesta.data || ingredientesRespuesta || ingredientes
+      if (!platos.length) throw new Error('No hay platos creados para este negocio. Importa primero la plantilla de Productos.')
+      if (!insumos.length) throw new Error('No hay ingredientes creados para este negocio. Importa primero la plantilla de Ingredientes.')
+      const productosPorCodigo = new Map(platos.filter((producto: any) => normalizar(producto.codigo)).map((producto: any) => [normalizar(producto.codigo), producto]))
+      const productosPorNombre = new Map(platos.map((producto: any) => [normalizar(producto.nombre), producto]))
+      const ingredientesPorCodigo = new Map(insumos.filter((item: any) => normalizar(item.codigo)).map((item: any) => [normalizar(item.codigo), item]))
+      const ingredientesPorNombre = new Map(insumos.map((item: any) => [normalizar(item.nombre), item]))
       const recetas = new Map<string, { producto: any; porciones: number; costos_adicionales: number; ingredientes: any[] }>()
       filas.forEach((fila, indice) => {
         const datos = Object.fromEntries(Object.entries(fila).map(([clave, valor]) => [normalizar(clave), valor])) as Record<string, unknown>
-        const producto = productosPorCodigo.get(normalizar(datos.productocodigo)) || productosPorNombre.get(normalizar(datos.productonombre))
-        const ingrediente = ingredientesPorCodigo.get(normalizar(datos.ingredientecodigo)) || ingredientesPorNombre.get(normalizar(datos.ingredientenombre))
-        if (!producto || !ingrediente) throw new Error(`Fila ${indice + 2}: no se encontro el plato o ingrediente`)
+        const codigoProducto = datos.productocodigo || datos.productocod || datos.codigoproducto || datos.codproducto
+        const nombreProducto = datos.productonombre || datos.productonom || datos.nombreproducto || datos.plato
+        const codigoIngrediente = datos.ingredientecodigo || datos.ingredientecod || datos.codigoingrediente || datos.codingrediente
+        const nombreIngrediente = datos.ingredientenombre || datos.ingredientenom || datos.nombreingrediente || datos.ingrediente
+        const producto = productosPorCodigo.get(normalizar(codigoProducto)) || productosPorNombre.get(normalizar(nombreProducto))
+        const ingrediente = ingredientesPorCodigo.get(normalizar(codigoIngrediente)) || ingredientesPorNombre.get(normalizar(nombreIngrediente))
+        if (!producto) throw new Error(`Fila ${indice + 2}: no se encontro el plato "${codigoProducto || nombreProducto || 'sin dato'}"`)
+        if (!ingrediente) throw new Error(`Fila ${indice + 2}: no se encontro el ingrediente "${codigoIngrediente || nombreIngrediente || 'sin dato'}"`)
         const cantidad = numero(datos.cantidadneta)
         if (cantidad <= 0) throw new Error(`Fila ${indice + 2}: cantidad_neta debe ser mayor que cero`)
         const receta = recetas.get(producto.id) || { producto, porciones: Math.max(1, numero(datos.porciones, 1)), costos_adicionales: Math.max(0, numero(datos.costosadicionales)), ingredientes: [] }
