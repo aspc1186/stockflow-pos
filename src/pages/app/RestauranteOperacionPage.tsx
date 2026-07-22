@@ -8,7 +8,7 @@ import Modal from '@/components/ui/Modal'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
-const unidades = ['kilogramo', 'gramo', 'litro', 'mililitro', 'unidad', 'porcion', 'caja', 'bolsa', 'paquete', 'botella', 'lata']
+const unidades = ['kilogramo', 'gramo', 'litro', 'mililitro', 'unidad', 'porcion', 'caja', 'bolsa', 'paquete', 'botella', 'lata', 'canasta', 'docena', 'bandeja', 'saco', 'bulto', 'galon', 'libra', 'onza', 'tira', 'atado', 'manojo', 'cubeta', 'vaso', 'tarro', 'frasco', 'rollo', 'sobre']
 
 type Modo = 'ingredientes' | 'compras' | 'mermas' | 'recetas'
 
@@ -23,6 +23,20 @@ const normalizar = (valor: unknown) => String(valor ?? '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
   .replace(/[^a-z0-9]/g, '')
+
+const normalizarUnidad = (valor: unknown) => {
+  const unidad = normalizar(valor)
+  const equivalencias: Record<string, string> = {
+    kilogramos: 'kilogramo', kilos: 'kilogramo', kg: 'kilogramo', gramos: 'gramo', gr: 'gramo',
+    litros: 'litro', lt: 'litro', mililitros: 'mililitro', ml: 'mililitro', unidades: 'unidad',
+    porciones: 'porcion', cajas: 'caja', bolsas: 'bolsa', paquetes: 'paquete', botellas: 'botella',
+    latas: 'lata', canastas: 'canasta', docenas: 'docena', bandejas: 'bandeja', sacos: 'saco',
+    bultos: 'bulto', galones: 'galon', libras: 'libra', onzas: 'onza', tiras: 'tira', atados: 'atado',
+    manojos: 'manojo', cubetas: 'cubeta', vasos: 'vaso', tarros: 'tarro', frascos: 'frasco',
+    rollos: 'rollo', sobres: 'sobre',
+  }
+  return equivalencias[unidad] || unidad
+}
 
 export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
   const queryClient = useQueryClient()
@@ -101,8 +115,8 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         const datos = Object.fromEntries(Object.entries(fila).map(([clave, valor]) => [normalizar(clave), valor])) as Record<string, unknown>
         const nombre = String(datos.nombre || '').trim()
         if (!nombre) throw new Error(`Fila ${indice + 2}: el nombre es obligatorio`)
-        const unidadCompra = normalizar(datos.unidadcompra || 'unidad')
-        const unidadConsumo = normalizar(datos.unidadconsumo || 'unidad')
+        const unidadCompra = normalizarUnidad(datos.unidadcompra || 'unidad')
+        const unidadConsumo = normalizarUnidad(datos.unidadconsumo || 'unidad')
         if (!unidades.includes(unidadCompra) || !unidades.includes(unidadConsumo)) {
           throw new Error(`Fila ${indice + 2}: unidad de compra o consumo no valida`)
         }
