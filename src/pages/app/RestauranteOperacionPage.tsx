@@ -246,14 +246,45 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         api.get<any>('/ingredientes'),
       ])
       const platos = productosRespuesta.data || productosRespuesta || productos
-      const insumos = ingredientesRespuesta.data || ingredientesRespuesta || ingredientes
-      if (!insumos.length) throw new Error('No hay ingredientes creados para este negocio. Importa primero la plantilla de Ingredientes.')
+      let insumos = ingredientesRespuesta.data || ingredientesRespuesta || ingredientes
       const filasNormalizadas = filas.map((fila) => Object.fromEntries(Object.entries(fila).map(([clave, valor]) => [normalizar(clave), valor])) as Record<string, unknown>)
       if (!platos.length) throw new Error('No hay platos creados para este negocio. Importa primero la plantilla de Productos.')
       const productosPorCodigo = new Map(platos.filter((producto: any) => normalizar(producto.codigo)).map((producto: any) => [normalizar(producto.codigo), producto]))
       const productosPorNombre = new Map(platos.map((producto: any) => [normalizar(producto.nombre), producto]))
       const ingredientesPorCodigo = new Map(insumos.filter((item: any) => normalizar(item.codigo)).map((item: any) => [normalizar(item.codigo), item]))
       const ingredientesPorNombre = new Map(insumos.map((item: any) => [normalizar(item.nombre), item]))
+      const ingredientesPendientes = new Map<string, { codigo: string; nombre: string; unidad: string }>()
+      filasNormalizadas.forEach((datos, indice) => {
+        const codigo = String(datos.ingredientecodigo || datos.ingredientecod || datos.codigoingrediente || datos.codingrediente || '').trim()
+        const nombre = String(datos.ingredientenombre || datos.ingredientenom || datos.nombreingrediente || datos.ingrediente || '').trim()
+        const unidad = normalizarUnidad(datos.unidad || 'unidad') || 'unidad'
+        if (!codigo && !nombre) throw new Error(`Fila ${indice + 2}: falta ingrediente_codigo o ingrediente_nombre`)
+        if (!ingredientesPorCodigo.get(normalizar(codigo)) && !ingredientesPorNombre.get(normalizar(nombre))) {
+          ingredientesPendientes.set(normalizar(codigo || nombre), { codigo, nombre: nombre || codigo, unidad })
+        }
+      })
+      if (ingredientesPendientes.size) {
+        for (const ingredientePendiente of ingredientesPendientes.values()) {
+          await api.post('/ingredientes', {
+            codigo: ingredientePendiente.codigo || undefined,
+            nombre: ingredientePendiente.nombre,
+            unidad_compra: ingredientePendiente.unidad,
+            unidad_consumo: ingredientePendiente.unidad,
+            factor_conversion: 1,
+            stock_minimo: 0,
+            punto_reorden: 0,
+          })
+        }
+        const { data: ingredientesActualizados } = await api.get<any>('/ingredientes')
+        insumos = ingredientesActualizados.data || ingredientesActualizados || []
+        ingredientesPorCodigo.clear()
+        ingredientesPorNombre.clear()
+        insumos.forEach((ingrediente: any) => {
+          if (normalizar(ingrediente.codigo)) ingredientesPorCodigo.set(normalizar(ingrediente.codigo), ingrediente)
+          ingredientesPorNombre.set(normalizar(ingrediente.nombre), ingrediente)
+        })
+        await queryClient.invalidateQueries({ queryKey: ['ingredientes'] })
+      }
       const platosPendientes = new Map<string, { codigo: string; nombre: string }>()
       filasNormalizadas.forEach((datos, indice) => {
         const codigo = String(datos.productocodigo || datos.productocod || datos.codigoproducto || datos.codproducto || '').trim()
@@ -302,7 +333,8 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
       })
       for (const receta of recetas.values()) await api.put(`/recetas?producto_id=${receta.producto.id}`, receta)
       await queryClient.invalidateQueries({ queryKey: ['productos'] })
-      toast.success(`${recetas.size} receta${recetas.size === 1 ? '' : 's'} importada${recetas.size === 1 ? '' : 's'}`)
+      const detalleIngredientes = ingredientesPendientes.size ? ` e ${ingredientesPendientes.size} ingrediente${ingredientesPendientes.size === 1 ? '' : 's'} creado${ingredientesPendientes.size === 1 ? '' : 's'} con costo pendiente` : ''
+      toast.success(`${recetas.size} receta${recetas.size === 1 ? '' : 's'} importada${recetas.size === 1 ? '' : 's'}${detalleIngredientes}`)
     } catch (error: any) {
       toast.error(error?.response?.data?.msg || error?.message || 'No se pudieron importar las recetas')
     } finally {
