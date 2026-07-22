@@ -58,11 +58,13 @@ export default function ProductosPage() {
   const imagenArchivoRef = useRef<HTMLInputElement>(null)
   const [importando, setImportando] = useState(false)
   const [cargandoImagen, setCargandoImagen] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
   const [form, setForm] = useState({nombre:'',codigo:'',descripcion:'',imagen_url:'',precio_venta:'',precio_costo:'',categoria_id:'',impuesto_pct:'0',impuesto_tipo:'iva',impuesto_incluido:false,unidad_medida:'unidad',disponible:true,controla_stock:true,destino:esRestaurante?'cocina':'barra',stock_inicial:'0',stock_minimo:'0',stock_maximo:''})
   const [receta, setReceta] = useState<{ingrediente_id:string;cantidad:string;unidad:string}[]>([])
   const { data: productos = [], isLoading } = useQuery({ queryKey: ['productos'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as Producto[] } })
   const { data: ingredientes = [] } = useQuery({ queryKey: ['ingredientes-receta'], queryFn: async () => { const { data } = await api.get<any>('/ingredientes'); return data.data || data }, enabled: esRestaurante })
   const { data: cats = [] } = useQuery({ queryKey: ['categorias'], queryFn: async () => { const { data } = await api.get<any>('/categorias'); return (data.data||data) as Categoria[] } })
+  const productosFiltrados = productos.filter((producto: any) => clave([producto.nombre, producto.codigo, producto.categoria_nombre, producto.destino].join(' ')).includes(clave(busqueda)))
   const crear = useMutation({
     mutationFn: async () => {
       const { data } = await api.post<any>('/productos', {...form,precio_venta:parseFloat(form.precio_venta)||0,precio_costo:parseFloat(form.precio_costo)||0,impuesto_pct:parseFloat(form.impuesto_pct)||0,stock_inicial:parseFloat(form.stock_inicial)||0,stock_minimo:parseFloat(form.stock_minimo)||0,stock_maximo:parseFloat(form.stock_maximo)||undefined,categoria_id:form.categoria_id||undefined})
@@ -144,10 +146,11 @@ export default function ProductosPage() {
       <input ref={archivoRef} className="hidden" type="file" accept=".xlsx,.xls,.csv" onChange={e => importarArchivo(e.target.files?.[0])}/>
       <input ref={imagenRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={e => cargarImagen(e.target.files?.[0])}/>
       <input ref={imagenArchivoRef} className="hidden" type="file" accept="image/*" onChange={e => cargarImagen(e.target.files?.[0])}/>
+      <input className="input max-w-md" value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Buscar por nombre, codigo, categoria o destino..." />
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
         <thead><tr><th className="w-10"><input aria-label="Seleccionar todos los productos" type="checkbox" checked={productos.length>0&&seleccionados.size===productos.length} onChange={e=>setSeleccionados(e.target.checked?new Set(productos.map(producto=>producto.id)):new Set())}/></th><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Destino</th><th>Estado</th><th></th></tr></thead>
         <tbody>
-          {productos.map(p => { const pr = p as any; return (
+          {productosFiltrados.map(p => { const pr = p as any; return (
             <tr key={p.id}>
               <td><input aria-label={`Seleccionar ${p.nombre}`} type="checkbox" checked={seleccionados.has(p.id)} onChange={e=>setSeleccionados(actual=>{const siguiente=new Set(actual);if(e.target.checked)siguiente.add(p.id);else siguiente.delete(p.id);return siguiente})}/></td>
               <td><div><p className="font-medium text-surface-50">{p.nombre}</p>{p.codigo&&<p className="text-xs text-surface-200/40">{p.codigo}</p>}</div></td>
@@ -159,7 +162,7 @@ export default function ProductosPage() {
               <td><div className="flex items-center justify-end gap-1"><button onClick={() => toggle.mutate({id:p.id,disponible:!p.disponible})} className={`text-xs px-2 py-1 rounded font-medium ${p.disponible?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{p.disponible?'Deshabilitar':'Habilitar'}</button><button onClick={() => setProductoEliminar(p)} className="btn-ghost btn-sm text-red-400 hover:bg-red-500/10" title="Eliminar producto"><Trash2 className="w-4 h-4"/></button></div></td>
             </tr>
           )})}
-          {productos.length===0&&<tr><td colSpan={8} className="text-center py-12 text-surface-200/30">Sin productos</td></tr>}
+          {productosFiltrados.length===0&&<tr><td colSpan={8} className="text-center py-12 text-surface-200/30">{busqueda?'No se encontraron productos':'Sin productos'}</td></tr>}
         </tbody>
       </table></div></div>
       <Modal open={modal} onClose={() => setModal(false)} title={esRestaurante ? 'Nuevo producto de restaurante' : 'Nuevo producto'} size="lg"
