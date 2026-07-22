@@ -32,7 +32,6 @@ export function ensureRestaurantSchema() {
       saldo NUMERIC(14,3) NOT NULL, costo_unitario NUMERIC(14,4) NOT NULL DEFAULT 0, costo_total NUMERIC(14,2) NOT NULL DEFAULT 0,
       proveedor VARCHAR(160), documento VARCHAR(100), pedido_id UUID, pedido_item_id UUID, motivo VARCHAR(120), observaciones TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS movimientos_ingredientes_venta_unica ON movimientos_ingredientes(pedido_item_id,ingrediente_id,tipo) WHERE pedido_item_id IS NOT NULL AND tipo='venta';
     CREATE TABLE IF NOT EXISTS ingrediente_costos (
       id UUID PRIMARY KEY, empresa_id UUID NOT NULL, ingrediente_id UUID NOT NULL, costo_anterior NUMERIC(14,4) NOT NULL, costo_nuevo NUMERIC(14,4) NOT NULL,
       motivo VARCHAR(80), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -57,8 +56,9 @@ export function ensureRestaurantSchema() {
     ALTER TABLE ingredientes ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE ingredientes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS activa BOOLEAN NOT NULL DEFAULT true;
-    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  `)).then(() => undefined)
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE movimientos_ingredientes ADD COLUMN IF NOT EXISTS pedido_item_id UUID
+  `)).then(() => query(`CREATE UNIQUE INDEX IF NOT EXISTS movimientos_ingredientes_venta_unica ON movimientos_ingredientes(pedido_item_id,ingrediente_id,tipo) WHERE pedido_item_id IS NOT NULL AND tipo='venta'`)).then(() => undefined)
   return schemaReady
 }
 
