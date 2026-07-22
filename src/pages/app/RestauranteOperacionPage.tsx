@@ -8,7 +8,7 @@ import Modal from '@/components/ui/Modal'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
-const unidades = ['kilogramo', 'gramo', 'litro', 'mililitro', 'unidad', 'porcion', 'caja', 'bolsa', 'paquete', 'botella', 'lata', 'canasta', 'docena', 'bandeja', 'saco', 'bulto', 'galon', 'libra', 'onza', 'tira', 'atado', 'manojo', 'cubeta', 'vaso', 'tarro', 'frasco', 'rollo', 'sobre']
+const unidades = ['kilogramo', 'gramo', 'litro', 'mililitro', 'unidad', 'porcion', 'caja', 'bolsa', 'paquete', 'botella', 'lata', 'canasta', 'docena', 'bandeja', 'saco', 'bulto', 'galon', 'libra', 'onza', 'tira', 'atado', 'manojo', 'cubeta', 'vaso', 'tarro', 'frasco', 'rollo', 'sobre', 'garrafa']
 
 type Modo = 'ingredientes' | 'compras' | 'mermas' | 'recetas'
 
@@ -117,9 +117,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         if (!nombre) throw new Error(`Fila ${indice + 2}: el nombre es obligatorio`)
         const unidadCompra = normalizarUnidad(datos.unidadcompra || 'unidad')
         const unidadConsumo = normalizarUnidad(datos.unidadconsumo || 'unidad')
-        if (!unidades.includes(unidadCompra) || !unidades.includes(unidadConsumo)) {
-          throw new Error(`Fila ${indice + 2}: unidad de compra o consumo no valida`)
-        }
+        if (!unidadCompra || !unidadConsumo) throw new Error(`Fila ${indice + 2}: unidad de compra y consumo son obligatorias`)
         const factorConversion = numero(datos.factorconversion, 1)
         if (factorConversion <= 0) throw new Error(`Fila ${indice + 2}: el factor de conversion debe ser mayor a cero`)
         return {
