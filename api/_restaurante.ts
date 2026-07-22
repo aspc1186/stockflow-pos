@@ -39,6 +39,8 @@ export function ensureRestaurantSchema() {
     CREATE TABLE IF NOT EXISTS recetas_restaurante (
       id UUID PRIMARY KEY, empresa_id UUID NOT NULL, producto_id UUID NOT NULL, nombre VARCHAR(160) NOT NULL,
       porciones NUMERIC(12,3) NOT NULL DEFAULT 1, costos_adicionales NUMERIC(14,2) NOT NULL DEFAULT 0,
+      mano_obra NUMERIC(14,2) NOT NULL DEFAULT 0, costos_indirectos NUMERIC(14,2) NOT NULL DEFAULT 0,
+      empaque NUMERIC(14,2) NOT NULL DEFAULT 0, otros_costos NUMERIC(14,2) NOT NULL DEFAULT 0,
       costo_ingredientes NUMERIC(14,2) NOT NULL DEFAULT 0, costo_total NUMERIC(14,2) NOT NULL DEFAULT 0,
       costo_por_porcion NUMERIC(14,4) NOT NULL DEFAULT 0, activa BOOLEAN NOT NULL DEFAULT true, version INTEGER NOT NULL DEFAULT 1,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -75,6 +77,11 @@ export function ensureRestaurantSchema() {
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS porciones NUMERIC(12,3) NOT NULL DEFAULT 1;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS nombre VARCHAR(160) NOT NULL DEFAULT 'Receta';
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costos_adicionales NUMERIC(14,2) NOT NULL DEFAULT 0;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS mano_obra NUMERIC(14,2) NOT NULL DEFAULT 0;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costos_indirectos NUMERIC(14,2) NOT NULL DEFAULT 0;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS empaque NUMERIC(14,2) NOT NULL DEFAULT 0;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS otros_costos NUMERIC(14,2) NOT NULL DEFAULT 0;
+    UPDATE recetas_restaurante SET otros_costos=costos_adicionales WHERE COALESCE(otros_costos,0)=0 AND COALESCE(costos_adicionales,0)<>0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costo_ingredientes NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costo_total NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costo_por_porcion NUMERIC(14,4) NOT NULL DEFAULT 0;
@@ -109,10 +116,10 @@ export async function recalcularReceta(recetaId: string, empresaId: string) {
     ingredientes += costo
     await query(`UPDATE receta_ingredientes SET costo_unitario=$1,costo_total=$2 WHERE id=$3`, [linea.costo_unitario || 0,costo,linea.id])
   }
-  const receta = await queryOne(`SELECT producto_id,porciones,costos_adicionales FROM recetas_restaurante WHERE id=$1 AND empresa_id=$2`, [recetaId,empresaId]) as any
+  const receta = await queryOne(`SELECT producto_id,porciones,costos_adicionales,mano_obra,costos_indirectos,empaque,otros_costos FROM recetas_restaurante WHERE id=$1 AND empresa_id=$2`, [recetaId,empresaId]) as any
   if (!receta) return
-  const total = ingredientes + Number(receta.costos_adicionales || 0)
-  const porcion = total / Math.max(1, Number(receta.porciones || 1))
+  const total = Math.round(ingredientes + Number(receta.mano_obra || 0) + Number(receta.costos_indirectos || 0) + Number(receta.empaque || 0) + Number(receta.otros_costos ?? receta.costos_adicionales ?? 0))
+  const porcion = Math.round(total / Math.max(1, Number(receta.porciones || 1)))
   await query(`UPDATE recetas_restaurante SET costo_ingredientes=$1,costo_total=$2,costo_por_porcion=$3,updated_at=NOW() WHERE id=$4`, [ingredientes,total,porcion,recetaId])
   await query(`UPDATE productos SET precio_costo=$1,producto_tipo='receta',updated_at=NOW() WHERE id=$2 AND empresa_id=$3`, [porcion,receta.producto_id,empresaId])
 }

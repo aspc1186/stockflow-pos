@@ -51,12 +51,15 @@ export default async function handler(req:any,res:any) {
         const actual=await queryOne(`SELECT * FROM recetas_restaurante WHERE empresa_id=$1 AND producto_id=$2 AND COALESCE(activa,true)=true ORDER BY updated_at DESC NULLS LAST,created_at DESC NULLS LAST LIMIT 1`,[eid,productoId]) as any
         const recetaId=actual?.id||uuid()
         const porciones=Math.max(1,Number(b.porciones)||1)
-        const costosAdicionales=Math.max(0,Number(b.costos_adicionales)||0)
+        const manoObra=Math.max(0,Number(b.mano_obra)||0)
+        const costosIndirectos=Math.max(0,Number(b.costos_indirectos)||0)
+        const empaque=Math.max(0,Number(b.empaque)||0)
+        const otrosCostos=Math.max(0,Number(b.otros_costos ?? b.costos_adicionales)||0)
         if(actual){
-          await query(`UPDATE recetas_restaurante SET nombre=$1,porciones=$2,costos_adicionales=$3,activa=true,updated_at=NOW() WHERE id=$4 AND empresa_id=$5`,[b.nombre||`Receta ${producto.nombre}`,porciones,costosAdicionales,recetaId,eid])
+          await query(`UPDATE recetas_restaurante SET nombre=$1,porciones=$2,costos_adicionales=$3,mano_obra=$4,costos_indirectos=$5,empaque=$6,otros_costos=$7,activa=true,updated_at=NOW() WHERE id=$8 AND empresa_id=$9`,[b.nombre||`Receta ${producto.nombre}`,porciones,otrosCostos,manoObra,costosIndirectos,empaque,otrosCostos,recetaId,eid])
           await query(`DELETE FROM receta_ingredientes WHERE receta_id=$1 AND empresa_id=$2`,[recetaId,eid])
         } else {
-          await query(`INSERT INTO recetas_restaurante (id,empresa_id,producto_id,nombre,porciones,costos_adicionales,activa) VALUES ($1,$2,$3,$4,$5,$6,true)`,[recetaId,eid,productoId,b.nombre||`Receta ${producto.nombre}`,porciones,costosAdicionales])
+          await query(`INSERT INTO recetas_restaurante (id,empresa_id,producto_id,nombre,porciones,costos_adicionales,mano_obra,costos_indirectos,empaque,otros_costos,activa) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)`,[recetaId,eid,productoId,b.nombre||`Receta ${producto.nombre}`,porciones,otrosCostos,manoObra,costosIndirectos,empaque,otrosCostos])
         }
         for(const linea of lineas){
           const bruta=linea.neta/(1-linea.merma/100)
