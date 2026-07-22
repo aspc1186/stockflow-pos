@@ -18,7 +18,7 @@ const TEMAS_VALIDOS = new Set(['noche','discoteca','restaurante','claro','oceano
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const esRutaPublica = typeof window !== 'undefined' && window.location.pathname.startsWith('/menu/')
+  const esRutaPublica = typeof window !== 'undefined' && (window.location.pathname.startsWith('/menu/') || window.location.pathname.startsWith('/c/'))
 
   useEffect(() => {
     // A QR menu is public. An expired POS session saved on a customer's phone
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser({ ...superUser, token })
       return true
     } catch { return false }
-  }, [])
+  }, [esRutaPublica])
 
   const startSupport = useCallback(async (empresaId: string) => {
     const currentToken = localStorage.getItem('pos_token')

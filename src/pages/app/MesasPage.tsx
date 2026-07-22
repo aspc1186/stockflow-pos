@@ -225,7 +225,7 @@ export default function MesasPage() {
           <div><label className="label">Cantidad de personas</label><input type="number" min={1} className="input" value={edicion.capacidad} onChange={e => setEdicion(p => ({...p, capacidad:e.target.value}))}/></div>
         </div>
       </Modal>
-      <Modal open={!!mesaQr} onClose={()=>setMesaQr(null)} title={`QR · Mesa ${mesaQr?.numero || ''}`} size="sm"><div className="space-y-4 text-center"><p className="text-sm text-surface-200/60">Este código abre la carta pública de la mesa, sin usuario ni contraseña.</p>{urlMesaPublica&&<CodigoMesa url={urlMesaPublica}/>}<a href={urlMesaPublica} target="_blank" rel="noreferrer" className="btn-secondary mx-auto w-full text-xs"><ExternalLink className="h-4 w-4"/>Abrir carta pública</a><p className="break-all text-xs text-surface-200/45">{urlMesaPublica}</p></div></Modal>
+      <Modal open={!!mesaQr} onClose={()=>setMesaQr(null)} title={`QR · Mesa ${mesaQr?.numero || ''}`} size="sm"><div className="space-y-4 text-center"><p className="text-sm text-surface-200/60">Este código abre la carta pública de la mesa, sin usuario ni contraseña.</p>{urlMesaPublica&&<CodigoMesa url={urlMesaPublica}/>}<a href={urlMesaPublica} target="_blank" rel="noreferrer" className="btn-secondary mx-auto w-full text-xs"><ExternalLink className="h-4 w-4"/>Abrir carta pública</a></div></Modal>
     </div>
   )
 }

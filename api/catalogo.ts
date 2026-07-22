@@ -9,14 +9,15 @@ export default async function handler(req: any, res: any) {
   if (parts[1] === 'menu') {
     const esQrCorto = parts[2] === 'qr'
     const empresa = esQrCorto
-      ? await queryOne(`SELECT e.id,e.nombre,e.logo_url,e.tema FROM mesas m JOIN empresas e ON e.id=m.empresa_id WHERE m.qr_token=$1 AND m.activa=true AND e.activa=true`, [decodeURIComponent(parts[3] || '')]) as any
-      : await queryOne(`SELECT id,nombre,logo_url,tema FROM empresas WHERE (id::text=$1 OR slug=$1) AND activa=true`, [decodeURIComponent(parts[2] || '')]) as any
+      ? await queryOne(`SELECT e.id,e.nombre,e.logo_url,e.tema,e.tipo FROM mesas m JOIN empresas e ON e.id=m.empresa_id WHERE m.qr_token=$1 AND m.activa=true AND e.activa=true`, [decodeURIComponent(parts[3] || '')]) as any
+      : await queryOne(`SELECT id,nombre,logo_url,tema,tipo FROM empresas WHERE (id::text=$1 OR slug=$1) AND activa=true`, [decodeURIComponent(parts[2] || '')]) as any
     if (!empresa) return res.status(404).json({ok:false,msg:'Código QR no válido'})
     const mesa = esQrCorto
       ? await queryOne(`SELECT id,numero,nombre,capacidad,mesero_id FROM mesas WHERE empresa_id=$1 AND qr_token=$2 AND activa=true`, [empresa.id, decodeURIComponent(parts[3] || '')]) as any
       : await queryOne(`SELECT id,numero,nombre,capacidad,mesero_id FROM mesas WHERE empresa_id=$1 AND (id::text=$2 OR LOWER(numero::text)=LOWER($2)) AND activa=true`, [empresa.id, decodeURIComponent(parts[3] || '')]) as any
     if (!mesa) return res.status(404).json({ok:false,msg:'Mesa no encontrada'})
     if (req.method === 'POST' && esQrCorto && parts[4] === 'pedido') {
+      if (String(empresa.tipo || '').trim().toLowerCase() !== 'restaurante') return res.status(403).json({ok:false,msg:'Los pedidos desde la carta QR están disponibles solo para restaurantes'})
       const items = Array.isArray(req.body?.items) ? req.body.items.filter((i:any) => i?.producto_id && Number(i.cantidad) > 0).slice(0,30) : []
       if (!items.length) return res.status(400).json({ok:false,msg:'Selecciona al menos un producto'})
       const caja = await queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[empresa.id]) as any
@@ -41,7 +42,7 @@ export default async function handler(req: any, res: any) {
     const productos = await query(`SELECT p.id,p.nombre,p.descripcion,p.imagen_url,p.precio_venta,p.impuesto_pct,p.destino,c.nombre as categoria FROM productos p LEFT JOIN categorias c ON c.id=p.categoria_id WHERE p.empresa_id=$1 AND p.disponible=true ORDER BY c.nombre NULLS LAST,p.nombre`,[empresa.id])
     // The public QR must work even before an administrator has opened Eventos.
     await query(`CREATE TABLE IF NOT EXISTS eventos_promocionales (id UUID PRIMARY KEY, empresa_id UUID NOT NULL, titulo VARCHAR(160) NOT NULL, descripcion TEXT, fecha_inicio TIMESTAMPTZ, fecha_fin TIMESTAMPTZ, imagen_url TEXT, tipo VARCHAR(30) NOT NULL DEFAULT 'evento', activo BOOLEAN NOT NULL DEFAULT true, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-    const eventos = await query(`SELECT id,titulo,descripcion,fecha_inicio,fecha_fin,imagen_url,tipo FROM eventos_promocionales WHERE empresa_id=$1 AND activo=true AND (fecha_inicio IS NULL OR fecha_inicio<=NOW()) AND (fecha_fin IS NULL OR fecha_fin>=NOW()) ORDER BY fecha_inicio NULLS LAST,created_at DESC LIMIT 8`,[empresa.id])
+    const eventos = await query(`SELECT id,titulo,descripcion,fecha_inicio,fecha_fin,imagen_url,tipo FROM eventos_promocionales WHERE empresa_id=$1 AND activo=true AND (fecha_fin IS NULL OR fecha_fin>=NOW()) ORDER BY fecha_inicio NULLS LAST,created_at DESC`,[empresa.id])
     return res.status(200).json({ok:true,data:{empresa,mesa,productos,eventos}})
   }
   const auth = await authenticate(req, res)
