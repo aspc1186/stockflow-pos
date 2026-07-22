@@ -43,7 +43,7 @@ export function ensureRestaurantSchema() {
       costo_por_porcion NUMERIC(14,4) NOT NULL DEFAULT 0, activa BOOLEAN NOT NULL DEFAULT true, version INTEGER NOT NULL DEFAULT 1,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS recetas_restaurante_activa_unica ON recetas_restaurante(empresa_id,producto_id) WHERE activa=true;
+    CREATE INDEX IF NOT EXISTS recetas_restaurante_activa_idx ON recetas_restaurante(empresa_id,producto_id) WHERE activa=true;
     CREATE TABLE IF NOT EXISTS receta_ingredientes (
       id UUID PRIMARY KEY, empresa_id UUID NOT NULL, receta_id UUID NOT NULL, ingrediente_id UUID NOT NULL,
       cantidad_neta NUMERIC(14,3) NOT NULL, unidad VARCHAR(30) NOT NULL DEFAULT 'unidad', merma_pct NUMERIC(6,3) NOT NULL DEFAULT 0,
@@ -73,18 +73,26 @@ export function ensureRestaurantSchema() {
     ALTER TABLE compras_ingredientes ADD COLUMN IF NOT EXISTS observaciones TEXT;
     ALTER TABLE compras_ingredientes ADD COLUMN IF NOT EXISTS usuario_id UUID;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS porciones NUMERIC(12,3) NOT NULL DEFAULT 1;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS nombre VARCHAR(160) NOT NULL DEFAULT 'Receta';
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costos_adicionales NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costo_ingredientes NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costo_total NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costo_por_porcion NUMERIC(14,4) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS activa BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS empresa_id UUID;
+    ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS receta_id UUID;
+    ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS ingrediente_id UUID;
+    ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS cantidad_neta NUMERIC(14,3) NOT NULL DEFAULT 0;
+    ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS unidad VARCHAR(30) NOT NULL DEFAULT 'unidad';
     ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS merma_pct NUMERIC(6,3) NOT NULL DEFAULT 0;
     ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS cantidad_bruta NUMERIC(14,3) NOT NULL DEFAULT 0;
     ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS costo_unitario NUMERIC(14,4) NOT NULL DEFAULT 0;
     ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS costo_total NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE movimientos_ingredientes ADD COLUMN IF NOT EXISTS pedido_item_id UUID
-  `)).then(() => query(`CREATE UNIQUE INDEX IF NOT EXISTS movimientos_ingredientes_venta_unica ON movimientos_ingredientes(pedido_item_id,ingrediente_id,tipo) WHERE pedido_item_id IS NOT NULL AND tipo='venta'`)).then(() => undefined)
+  `)).then(() => query(`CREATE INDEX IF NOT EXISTS movimientos_ingredientes_venta_idx ON movimientos_ingredientes(pedido_item_id,ingrediente_id,tipo) WHERE pedido_item_id IS NOT NULL AND tipo='venta'`)).then(() => undefined)
   return schemaReady
 }
 
