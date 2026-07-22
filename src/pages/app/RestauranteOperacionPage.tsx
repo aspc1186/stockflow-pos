@@ -254,6 +254,36 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
       const productosPorNombre = new Map(platos.map((producto: any) => [normalizar(producto.nombre), producto]))
       const ingredientesPorCodigo = new Map(insumos.filter((item: any) => normalizar(item.codigo)).map((item: any) => [normalizar(item.codigo), item]))
       const ingredientesPorNombre = new Map(insumos.map((item: any) => [normalizar(item.nombre), item]))
+      const platosPendientes = new Map<string, { codigo: string; nombre: string }>()
+      filasNormalizadas.forEach((datos, indice) => {
+        const codigo = String(datos.productocodigo || datos.productocod || datos.codigoproducto || datos.codproducto || '').trim()
+        const nombre = String(datos.productonombre || datos.productonom || datos.nombreproducto || datos.plato || '').trim()
+        if (!codigo && !nombre) throw new Error(`Fila ${indice + 2}: falta producto_codigo o producto_nombre`)
+        if (!productosPorCodigo.get(normalizar(codigo)) && !productosPorNombre.get(normalizar(nombre))) {
+          platosPendientes.set(normalizar(codigo || nombre), { codigo, nombre: nombre || codigo })
+        }
+      })
+      if (platosPendientes.size) {
+        for (const plato of platosPendientes.values()) {
+          await api.post('/productos', {
+            nombre: plato.nombre,
+            codigo: plato.codigo || undefined,
+            precio_venta: 0,
+            precio_costo: 0,
+            destino: 'cocina',
+            controla_stock: false,
+          })
+        }
+        const { data: productosActualizados } = await api.get<any>('/productos')
+        const catalogoActualizado = productosActualizados.data || productosActualizados || []
+        productosPorCodigo.clear()
+        productosPorNombre.clear()
+        catalogoActualizado.forEach((producto: any) => {
+          if (normalizar(producto.codigo)) productosPorCodigo.set(normalizar(producto.codigo), producto)
+          productosPorNombre.set(normalizar(producto.nombre), producto)
+        })
+        await queryClient.invalidateQueries({ queryKey: ['productos'] })
+      }
       const recetas = new Map<string, { producto: any; porciones: number; costos_adicionales: number; ingredientes: any[] }>()
       filasNormalizadas.forEach((datos, indice) => {
         const codigoProducto = datos.productocodigo || datos.productocod || datos.codigoproducto || datos.codproducto
@@ -322,18 +352,21 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
 
   if (isLoading) return <PageLoader />
 
-  if (modo === 'recetas') return <div className="space-y-5">
+  if (modo === 'recetas') {
+    const recetasConfiguradas = productos.filter((producto: any) => producto.producto_tipo === 'receta')
+    return <div className="space-y-5">
     <div className="page-header">
       <div><h1 className="page-title">Recetas</h1><p className="page-subtitle">Ingredientes y cantidades requeridas por cada plato.</p></div>
       <div className="flex flex-wrap gap-2"><input ref={recetaArchivoRef} className="hidden" type="file" accept=".xlsx,.xls" onChange={(event) => importarRecetas(event.target.files?.[0])} /><button className="btn-secondary btn-sm" onClick={descargarPlantillaRecetas}><Download className="w-4 h-4" />Plantilla Excel</button><button className="btn-secondary btn-sm" onClick={() => recetaArchivoRef.current?.click()} disabled={importandoRecetas}><FileUp className="w-4 h-4" />{importandoRecetas ? 'Importando...' : 'Importar Excel'}</button>{seleccionados.size>0&&<button className="btn-danger btn-sm" disabled={eliminarSeleccionados.isPending} onClick={()=>{if(window.confirm(`Eliminar ${seleccionados.size} receta(s) seleccionada(s)?`))eliminarSeleccionados.mutate()}}><Trash2 className="w-4 h-4" />{eliminarSeleccionados.isPending?'Eliminando...':`Eliminar (${seleccionados.size})`}</button>}</div>
     </div>
-    <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base"><thead><tr><th className="w-10"><input aria-label="Seleccionar todas las recetas" type="checkbox" checked={productos.filter((producto:any)=>producto.producto_tipo==='receta').length>0&&seleccionados.size===productos.filter((producto:any)=>producto.producto_tipo==='receta').length} onChange={event=>setSeleccionados(event.target.checked?new Set(productos.filter((producto:any)=>producto.producto_tipo==='receta').map((producto:any)=>producto.id)):new Set())}/></th><th>Plato</th><th>Receta</th><th>Ingredientes</th><th>Costo por porcion</th><th></th></tr></thead><tbody>{productos.map((producto: any) => <tr key={producto.id}><td><input aria-label={`Seleccionar receta ${producto.nombre}`} type="checkbox" disabled={producto.producto_tipo!=='receta'} checked={seleccionados.has(producto.id)} onChange={event=>setSeleccionados(actual=>{const siguiente=new Set(actual);if(event.target.checked)siguiente.add(producto.id);else siguiente.delete(producto.id);return siguiente})}/></td><td className="font-medium">{producto.nombre}</td><td><span className={producto.producto_tipo === 'receta' ? 'badge-green' : 'badge-gray'}>{producto.producto_tipo === 'receta' ? 'Configurada' : 'Sin receta'}</span></td><td>{producto.producto_tipo === 'receta' ? 'Ver y editar composicion' : '-'}</td><td>{formatCurrency(producto.precio_costo || 0)}</td><td><button className="btn-secondary btn-sm" onClick={() => abrirReceta(producto)}><Pencil className="w-4 h-4" />{producto.producto_tipo === 'receta' ? 'Editar receta' : 'Crear receta'}</button></td></tr>)}{productos.length === 0 && <tr><td colSpan={6} className="py-12 text-center text-surface-200/40">Crea primero los platos en Productos.</td></tr>}</tbody></table></div></div>
+    <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base"><thead><tr><th className="w-10"><input aria-label="Seleccionar todas las recetas" type="checkbox" checked={recetasConfiguradas.length>0&&seleccionados.size===recetasConfiguradas.length} onChange={event=>setSeleccionados(event.target.checked?new Set(recetasConfiguradas.map((producto:any)=>producto.id)):new Set())}/></th><th>Plato</th><th>Receta</th><th>Ingredientes</th><th>Costo por porcion</th><th></th></tr></thead><tbody>{recetasConfiguradas.map((producto: any) => <tr key={producto.id}><td><input aria-label={`Seleccionar receta ${producto.nombre}`} type="checkbox" checked={seleccionados.has(producto.id)} onChange={event=>setSeleccionados(actual=>{const siguiente=new Set(actual);if(event.target.checked)siguiente.add(producto.id);else siguiente.delete(producto.id);return siguiente})}/></td><td className="font-medium">{producto.nombre}</td><td><span className="badge-green">Configurada</span></td><td>Ver y editar composicion</td><td>{formatCurrency(producto.precio_costo || 0)}</td><td><button className="btn-secondary btn-sm" onClick={() => abrirReceta(producto)}><Pencil className="w-4 h-4" />Editar receta</button></td></tr>)}{recetasConfiguradas.length === 0 && <tr><td colSpan={6} className="py-12 text-center text-surface-200/40">Aun no hay recetas importadas.</td></tr>}</tbody></table></div></div>
     <Modal open={!!recetaModal} onClose={() => setRecetaModal(null)} title={recetaModal ? `Receta: ${recetaModal.nombre}` : 'Receta'} size="2xl" footer={<div className="flex gap-3"><button className="btn-secondary flex-1" onClick={() => setRecetaModal(null)}>Cancelar</button><button className="btn-primary flex-1" onClick={() => guardarReceta.mutate()} disabled={guardarReceta.isPending || !recetaLineas.length}>{guardarReceta.isPending ? 'Guardando...' : 'Guardar receta'}</button></div>}>
       <div className="grid grid-cols-2 gap-3"><div><label className="label">Porciones</label><input className="input" min="1" type="number" value={recetaDatos.porciones} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, porciones: event.target.value }))} /></div><div><label className="label">Costos adicionales</label><input className="input" min="0" type="number" value={recetaDatos.costos_adicionales} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, costos_adicionales: event.target.value }))} /></div></div>
       <div className="mt-5 space-y-3"><div className="hidden grid-cols-[minmax(260px,1fr)_120px_150px_110px_auto] gap-3 px-1 text-xs font-medium uppercase text-surface-200/55 sm:grid"><span>Ingrediente</span><span>Cantidad</span><span>Unidad</span><span>Merma %</span><span></span></div>{recetaLineas.map((linea, indice) => <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/5 bg-surface-900/30 p-2 sm:grid-cols-[minmax(260px,1fr)_120px_150px_110px_auto] sm:items-center sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0" key={indice}><select aria-label="Ingrediente" className="input col-span-2 sm:col-span-1" value={linea.ingrediente_id} onChange={(event) => setRecetaLineas((actual) => actual.map((fila, posicion) => posicion === indice ? { ...fila, ingrediente_id: event.target.value } : fila))}><option value="">Ingrediente</option>{ingredientes.map((item: any) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select><input aria-label="Cantidad" className="input" type="number" min="0" step="0.001" placeholder="Cantidad" value={linea.cantidad_neta} onChange={(event) => setRecetaLineas((actual) => actual.map((fila, posicion) => posicion === indice ? { ...fila, cantidad_neta: event.target.value } : fila))} /><select aria-label="Unidad" className="input" value={linea.unidad} onChange={(event) => setRecetaLineas((actual) => actual.map((fila, posicion) => posicion === indice ? { ...fila, unidad: event.target.value } : fila))}>{unidades.map((unidad) => <option key={unidad}>{unidad}</option>)}</select><input aria-label="Merma porcentual" className="input" type="number" min="0" max="99" placeholder="Merma %" value={linea.merma_pct} onChange={(event) => setRecetaLineas((actual) => actual.map((fila, posicion) => posicion === indice ? { ...fila, merma_pct: event.target.value } : fila))} /><button className="btn-ghost text-red-300" type="button" onClick={() => setRecetaLineas((actual) => actual.filter((_, posicion) => posicion !== indice))}>Quitar</button></div>)}</div>
       <button className="btn-secondary btn-sm mt-4" type="button" onClick={() => setRecetaLineas((actual) => [...actual, { ingrediente_id: '', cantidad_neta: '', unidad: 'unidad', merma_pct: '0' }])}><Plus className="w-4 h-4" />Agregar ingrediente</button>
     </Modal>
   </div>
+  }
 
   const titulo = modo === 'ingredientes' ? 'Ingredientes' : modo === 'compras' ? 'Compras de ingredientes' : 'Mermas y ajustes'
   const registros = modo === 'ingredientes' ? ingredientes : modo === 'compras' ? compras : mermas
