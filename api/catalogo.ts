@@ -12,7 +12,10 @@ export default async function handler(req: any, res: any) {
     const mesa = await queryOne(`SELECT numero,nombre,capacidad FROM mesas WHERE empresa_id=$1 AND LOWER(numero::text)=LOWER($2) AND activa=true`, [empresa.id, decodeURIComponent(parts[3] || '')]) as any
     if (!mesa) return res.status(404).json({ok:false,msg:'Mesa no encontrada'})
     const productos = await query(`SELECT p.id,p.nombre,p.descripcion,p.imagen_url,p.precio_venta,p.impuesto_pct,p.destino,c.nombre as categoria FROM productos p LEFT JOIN categorias c ON c.id=p.categoria_id WHERE p.empresa_id=$1 AND p.disponible=true ORDER BY c.nombre NULLS LAST,p.nombre`,[empresa.id])
-    return res.status(200).json({ok:true,data:{empresa,mesa,productos}})
+    // The public QR must work even before an administrator has opened Eventos.
+    await query(`CREATE TABLE IF NOT EXISTS eventos_promocionales (id UUID PRIMARY KEY, empresa_id UUID NOT NULL, titulo VARCHAR(160) NOT NULL, descripcion TEXT, fecha_inicio TIMESTAMPTZ, fecha_fin TIMESTAMPTZ, imagen_url TEXT, tipo VARCHAR(30) NOT NULL DEFAULT 'evento', activo BOOLEAN NOT NULL DEFAULT true, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
+    const eventos = await query(`SELECT id,titulo,descripcion,fecha_inicio,fecha_fin,imagen_url,tipo FROM eventos_promocionales WHERE empresa_id=$1 AND activo=true AND (fecha_inicio IS NULL OR fecha_inicio<=NOW()) AND (fecha_fin IS NULL OR fecha_fin>=NOW()) ORDER BY fecha_inicio NULLS LAST,created_at DESC LIMIT 8`,[empresa.id])
+    return res.status(200).json({ok:true,data:{empresa,mesa,productos,eventos}})
   }
   const auth = await authenticate(req, res)
   if (!auth || !auth.empresa_id) return
