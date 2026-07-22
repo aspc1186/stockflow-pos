@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCw, Users, Clock, MapPin, UtensilsCrossed, ClipboardList, UserRoundCheck, Pencil, QrCode } from 'lucide-react'
+import { Plus, RefreshCw, Users, Clock, MapPin, UtensilsCrossed, ClipboardList, UserRoundCheck, Pencil, QrCode, ExternalLink } from 'lucide-react'
 import QRCode from 'qrcode'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
@@ -48,7 +48,11 @@ function MesaImagen({ mesa, cfg }: { mesa: Mesa; cfg: typeof CFG[EstadoMesa] }) 
   )
 }
 
-function CodigoMesa({url}:{url:string}) { const [src,setSrc]=useState(''); useEffect(()=>{QRCode.toDataURL(url,{width:260,margin:1,errorCorrectionLevel:'M'}).then(setSrc)},[url]); return src?<img src={src} alt="Código QR de la mesa" className="mx-auto h-52 w-52 rounded-lg bg-white p-2"/>:null }
+function CodigoMesa({url}:{url:string}) {
+  const [src,setSrc]=useState('')
+  useEffect(()=>{ QRCode.toDataURL([{ data:url, mode:'byte' }],{width:512,margin:4,errorCorrectionLevel:'H'}).then(setSrc) },[url])
+  return src?<img src={src} alt="Código QR público de la mesa" className="mx-auto h-64 w-64 max-w-full rounded-lg bg-white p-2"/>:null
+}
 
 export default function MesasPage() {
   const navigate = useNavigate(); const { isAdmin, user } = useAuth(); const qc = useQueryClient()
@@ -59,6 +63,9 @@ export default function MesasPage() {
   const [edicion, setEdicion] = useState({numero:'',nombre:'',capacidad:'4'})
   const [meseroMasivo, setMeseroMasivo] = useState('')
   const [mesaQr, setMesaQr] = useState<Mesa | null>(null)
+  const urlMesaPublica = mesaQr && user?.empresa?.slug
+    ? new URL(`/menu/${user.empresa.slug}/${encodeURIComponent(String(mesaQr.numero))}`, window.location.origin).toString()
+    : ''
 
   const { data: mesas = [], isLoading, refetch } = useQuery({
     queryKey: ['mesas'],
@@ -218,7 +225,7 @@ export default function MesasPage() {
           <div><label className="label">Cantidad de personas</label><input type="number" min={1} className="input" value={edicion.capacidad} onChange={e => setEdicion(p => ({...p, capacidad:e.target.value}))}/></div>
         </div>
       </Modal>
-      <Modal open={!!mesaQr} onClose={()=>setMesaQr(null)} title={`QR · Mesa ${mesaQr?.numero || ''}`} size="sm"><div className="space-y-4 text-center"><p className="text-sm text-surface-200/60">Al escanearlo, el cliente verá el menú disponible de esta mesa.</p>{mesaQr&&<CodigoMesa url={`${window.location.origin}/menu/${user?.empresa?.slug}/${encodeURIComponent(String(mesaQr.numero))}`}/>}<p className="break-all text-xs text-surface-200/45">{mesaQr&&`${window.location.origin}/menu/${user?.empresa?.slug}/${encodeURIComponent(String(mesaQr.numero))}`}</p></div></Modal>
+      <Modal open={!!mesaQr} onClose={()=>setMesaQr(null)} title={`QR · Mesa ${mesaQr?.numero || ''}`} size="sm"><div className="space-y-4 text-center"><p className="text-sm text-surface-200/60">Este código abre la carta pública de la mesa, sin usuario ni contraseña.</p>{urlMesaPublica&&<CodigoMesa url={urlMesaPublica}/>}<a href={urlMesaPublica} target="_blank" rel="noreferrer" className="btn-secondary mx-auto w-full text-xs"><ExternalLink className="h-4 w-4"/>Abrir carta pública</a><p className="break-all text-xs text-surface-200/45">{urlMesaPublica}</p></div></Modal>
     </div>
   )
 }
