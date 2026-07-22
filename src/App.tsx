@@ -65,6 +65,7 @@ export default function App(){
       <Route path="/reset-password/:token" element={<ResetPasswordPage/>}/>
     </Route>
     <Route path="/menu/:empresa/:mesa" element={<MenuDigitalPage/>}/>
+    <Route path="/c/:token" element={<MenuDigitalPage/>}/>
     <Route path="/superadmin" element={<RequireSuperAdmin><SuperAdminLayout/></RequireSuperAdmin>}>
       <Route index element={<SuperDashboardPage/>}/>
       <Route path="empresas" element={<EmpresasPage/>}/>

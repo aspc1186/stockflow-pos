@@ -6,13 +6,38 @@ export default async function handler(req: any, res: any) {
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
   const parts = (req.url||'').split('?')[0].split('/').filter(Boolean)
-  if (parts[1] === 'menu' && req.method === 'GET') {
-    // QR codes use immutable UUIDs. Slugs can be renamed and must not decide
-    // which customer's public catalog is shown.
-    const empresa = await queryOne(`SELECT id,nombre,logo_url,tema FROM empresas WHERE (id::text=$1 OR slug=$1) AND activa=true`, [decodeURIComponent(parts[2] || '')]) as any
-    if (!empresa) return res.status(404).json({ok:false,msg:'Negocio no encontrado'})
-    const mesa = await queryOne(`SELECT id,numero,nombre,capacidad FROM mesas WHERE empresa_id=$1 AND (id::text=$2 OR LOWER(numero::text)=LOWER($2)) AND activa=true`, [empresa.id, decodeURIComponent(parts[3] || '')]) as any
+  if (parts[1] === 'menu') {
+    const esQrCorto = parts[2] === 'qr'
+    const empresa = esQrCorto
+      ? await queryOne(`SELECT e.id,e.nombre,e.logo_url,e.tema FROM mesas m JOIN empresas e ON e.id=m.empresa_id WHERE m.qr_token=$1 AND m.activa=true AND e.activa=true`, [decodeURIComponent(parts[3] || '')]) as any
+      : await queryOne(`SELECT id,nombre,logo_url,tema FROM empresas WHERE (id::text=$1 OR slug=$1) AND activa=true`, [decodeURIComponent(parts[2] || '')]) as any
+    if (!empresa) return res.status(404).json({ok:false,msg:'Código QR no válido'})
+    const mesa = esQrCorto
+      ? await queryOne(`SELECT id,numero,nombre,capacidad,mesero_id FROM mesas WHERE empresa_id=$1 AND qr_token=$2 AND activa=true`, [empresa.id, decodeURIComponent(parts[3] || '')]) as any
+      : await queryOne(`SELECT id,numero,nombre,capacidad,mesero_id FROM mesas WHERE empresa_id=$1 AND (id::text=$2 OR LOWER(numero::text)=LOWER($2)) AND activa=true`, [empresa.id, decodeURIComponent(parts[3] || '')]) as any
     if (!mesa) return res.status(404).json({ok:false,msg:'Mesa no encontrada'})
+    if (req.method === 'POST' && esQrCorto && parts[4] === 'pedido') {
+      const items = Array.isArray(req.body?.items) ? req.body.items.filter((i:any) => i?.producto_id && Number(i.cantidad) > 0).slice(0,30) : []
+      if (!items.length) return res.status(400).json({ok:false,msg:'Selecciona al menos un producto'})
+      const caja = await queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`,[empresa.id]) as any
+      if (!caja) return res.status(400).json({ok:false,msg:'El negocio no está recibiendo pedidos en este momento'})
+      const responsable = mesa.mesero_id || (await queryOne(`SELECT id FROM usuarios WHERE empresa_id=$1 AND activo=true ORDER BY CASE WHEN rol_id IN (SELECT id FROM roles WHERE nombre IN ('admin','supervisor')) THEN 0 ELSE 1 END,nombre LIMIT 1`,[empresa.id]) as any)?.id
+      if (!responsable) return res.status(400).json({ok:false,msg:'No hay un responsable operativo asignado a esta mesa'})
+      let pedido = await queryOne(`SELECT id FROM pedidos WHERE empresa_id=$1 AND mesa_id=$2 AND estado IN ('abierto','en_preparacion','listo') ORDER BY created_at DESC LIMIT 1`,[empresa.id,mesa.id]) as any
+      const pedidoId = pedido?.id || uuid()
+      if (!pedido) await query(`INSERT INTO pedidos (id,empresa_id,mesa_id,usuario_id,mesero_id,estado,tipo,subtotal,impuestos,total,notas) VALUES ($1,$2,$3,$4,$5,'en_preparacion','mesa',0,0,0,'Pedido solicitado desde el menú QR')`,[pedidoId,empresa.id,mesa.id,responsable,mesa.mesero_id || responsable])
+      for (const item of items) {
+        const cantidad = Math.min(100, Math.max(1, Number(item.cantidad) || 1))
+        const producto = await queryOne(`SELECT id,precio_venta,precio_costo,impuesto_pct,destino,disponible FROM productos WHERE id=$1 AND empresa_id=$2`,[item.producto_id,empresa.id]) as any
+        if (!producto?.disponible) return res.status(400).json({ok:false,msg:'Uno de los productos ya no está disponible'})
+        await query(`INSERT INTO pedido_items (id,pedido_id,empresa_id,producto_id,cantidad,precio_unit,costo_unit,impuesto_pct,subtotal,observaciones,destino) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[uuid(),pedidoId,empresa.id,producto.id,cantidad,producto.precio_venta,producto.precio_costo || 0,producto.impuesto_pct || 0,producto.precio_venta*cantidad,'Solicitado desde QR',producto.destino || 'barra'])
+      }
+      const totales = await queryOne(`SELECT COALESCE(SUM(subtotal),0) as subtotal,COALESCE(SUM(subtotal*impuesto_pct/100),0) as impuestos FROM pedido_items WHERE pedido_id=$1 AND estado!='cancelado'`,[pedidoId]) as any
+      await query(`UPDATE pedidos SET estado='en_preparacion',subtotal=$1,impuestos=$2,total=$3,updated_at=NOW() WHERE id=$4`,[totales.subtotal,totales.impuestos,Number(totales.subtotal)+Number(totales.impuestos),pedidoId])
+      await query(`UPDATE mesas SET estado='ocupada' WHERE id=$1 AND empresa_id=$2`,[mesa.id,empresa.id])
+      return res.status(201).json({ok:true,data:{pedido_id:pedidoId,mesa:mesa.numero}})
+    }
+    if (req.method !== 'GET') return res.status(405).end()
     const productos = await query(`SELECT p.id,p.nombre,p.descripcion,p.imagen_url,p.precio_venta,p.impuesto_pct,p.destino,c.nombre as categoria FROM productos p LEFT JOIN categorias c ON c.id=p.categoria_id WHERE p.empresa_id=$1 AND p.disponible=true ORDER BY c.nombre NULLS LAST,p.nombre`,[empresa.id])
     // The public QR must work even before an administrator has opened Eventos.
     await query(`CREATE TABLE IF NOT EXISTS eventos_promocionales (id UUID PRIMARY KEY, empresa_id UUID NOT NULL, titulo VARCHAR(160) NOT NULL, descripcion TEXT, fecha_inicio TIMESTAMPTZ, fecha_fin TIMESTAMPTZ, imagen_url TEXT, tipo VARCHAR(30) NOT NULL DEFAULT 'evento', activo BOOLEAN NOT NULL DEFAULT true, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)

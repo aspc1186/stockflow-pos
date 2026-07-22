@@ -8,10 +8,13 @@ function ensureMesasSchema() {
   if (!schemaReady) schemaReady = query(`
     ALTER TABLE mesas
       ADD COLUMN IF NOT EXISTS mesero_id UUID,
+      ADD COLUMN IF NOT EXISTS qr_token VARCHAR(12),
       ADD COLUMN IF NOT EXISTS consumo_minimo NUMERIC(12,2) NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS pos_x NUMERIC(12,2) NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS pos_y NUMERIC(12,2) NOT NULL DEFAULT 0
-  `).then(() => undefined)
+  `).then(() => query(`UPDATE mesas SET qr_token=LOWER(SUBSTRING(REPLACE(id::text,'-',''),1,10)) WHERE qr_token IS NULL OR qr_token=''`))
+    .then(() => query(`CREATE UNIQUE INDEX IF NOT EXISTS mesas_qr_token_unico ON mesas(qr_token) WHERE qr_token IS NOT NULL`))
+    .then(() => undefined)
   return schemaReady
 }
 
@@ -96,9 +99,9 @@ export default async function handler(req: any, res: any) {
       if (repetida) return res.status(409).json({ ok: false, msg: `La mesa ${numeroFinal} ya existe` })
       try {
         const [m] = await query(
-          `INSERT INTO mesas (id,empresa_id,zona_id,numero,nombre,capacidad,tipo,consumo_minimo,pos_x,pos_y,estado,activa)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'libre',true) RETURNING *`,
-          [uuid(),eid,zona_id||null,numeroFinal,nombre||null,capacidad||4,tipo||'mesa',consumo_minimo||0,pos_x||0,pos_y||0])
+          `INSERT INTO mesas (id,empresa_id,zona_id,numero,nombre,capacidad,tipo,qr_token,consumo_minimo,pos_x,pos_y,estado,activa)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'libre',true) RETURNING *`,
+          [uuid(),eid,zona_id||null,numeroFinal,nombre||null,capacidad||4,tipo||'mesa',uuid().replace(/-/g,'').slice(0,10),consumo_minimo||0,pos_x||0,pos_y||0])
         return res.status(201).json({ ok: true, data: m })
       } catch(e: any) { return res.status(500).json({ ok: false, msg: e.message }) }
     }

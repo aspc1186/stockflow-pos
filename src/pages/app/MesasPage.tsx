@@ -63,8 +63,8 @@ export default function MesasPage() {
   const [edicion, setEdicion] = useState({numero:'',nombre:'',capacidad:'4'})
   const [meseroMasivo, setMeseroMasivo] = useState('')
   const [mesaQr, setMesaQr] = useState<Mesa | null>(null)
-  const urlMesaPublica = mesaQr && user?.empresa?.id
-    ? new URL(`/menu/${user.empresa.id}/${mesaQr.id}`, window.location.origin).toString()
+  const urlMesaPublica = mesaQr?.qr_token
+    ? new URL(`/c/${mesaQr.qr_token}`, window.location.origin).toString()
     : ''
 
   const { data: mesas = [], isLoading, refetch } = useQuery({
