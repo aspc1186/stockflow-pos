@@ -245,43 +245,15 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         api.get<any>('/productos'),
         api.get<any>('/ingredientes'),
       ])
-      let platos = productosRespuesta.data || productosRespuesta || productos
+      const platos = productosRespuesta.data || productosRespuesta || productos
       const insumos = ingredientesRespuesta.data || ingredientesRespuesta || ingredientes
       if (!insumos.length) throw new Error('No hay ingredientes creados para este negocio. Importa primero la plantilla de Ingredientes.')
       const filasNormalizadas = filas.map((fila) => Object.fromEntries(Object.entries(fila).map(([clave, valor]) => [normalizar(clave), valor])) as Record<string, unknown>)
-      let productosPorCodigo = new Map(platos.filter((producto: any) => normalizar(producto.codigo)).map((producto: any) => [normalizar(producto.codigo), producto]))
-      let productosPorNombre = new Map(platos.map((producto: any) => [normalizar(producto.nombre), producto]))
+      if (!platos.length) throw new Error('No hay platos creados para este negocio. Importa primero la plantilla de Productos.')
+      const productosPorCodigo = new Map(platos.filter((producto: any) => normalizar(producto.codigo)).map((producto: any) => [normalizar(producto.codigo), producto]))
+      const productosPorNombre = new Map(platos.map((producto: any) => [normalizar(producto.nombre), producto]))
       const ingredientesPorCodigo = new Map(insumos.filter((item: any) => normalizar(item.codigo)).map((item: any) => [normalizar(item.codigo), item]))
       const ingredientesPorNombre = new Map(insumos.map((item: any) => [normalizar(item.nombre), item]))
-
-      // La plantilla de recetas identifica cada plato por codigo y nombre. Si aun no
-      // existe en el catalogo de esta empresa, se crea como plato de cocina con precio
-      // pendiente de definir; asi la receta no queda bloqueada por un catalogo vacio.
-      const platosPendientes = new Map<string, { codigo: string; nombre: string }>()
-      filasNormalizadas.forEach((datos, indice) => {
-        const codigo = String(datos.productocodigo || datos.productocod || datos.codigoproducto || datos.codproducto || '').trim()
-        const nombre = String(datos.productonombre || datos.productonom || datos.nombreproducto || datos.plato || '').trim()
-        if (!codigo && !nombre) throw new Error(`Fila ${indice + 2}: falta producto_codigo o producto_nombre`)
-        const producto = productosPorCodigo.get(normalizar(codigo)) || productosPorNombre.get(normalizar(nombre))
-        if (!producto) platosPendientes.set(normalizar(codigo || nombre), { codigo, nombre: nombre || codigo })
-      })
-      if (platosPendientes.size) {
-        for (const plato of platosPendientes.values()) {
-          await api.post('/productos', {
-            nombre: plato.nombre,
-            codigo: plato.codigo || undefined,
-            precio_venta: 0,
-            precio_costo: 0,
-            destino: 'cocina',
-            controla_stock: false,
-          })
-        }
-        const { data: productosActualizados } = await api.get<any>('/productos')
-        platos = productosActualizados.data || productosActualizados || []
-        productosPorCodigo = new Map(platos.filter((producto: any) => normalizar(producto.codigo)).map((producto: any) => [normalizar(producto.codigo), producto]))
-        productosPorNombre = new Map(platos.map((producto: any) => [normalizar(producto.nombre), producto]))
-        await queryClient.invalidateQueries({ queryKey: ['productos'] })
-      }
       const recetas = new Map<string, { producto: any; porciones: number; costos_adicionales: number; ingredientes: any[] }>()
       filasNormalizadas.forEach((datos, indice) => {
         const codigoProducto = datos.productocodigo || datos.productocod || datos.codigoproducto || datos.codproducto

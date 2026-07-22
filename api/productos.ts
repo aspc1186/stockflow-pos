@@ -88,7 +88,9 @@ export default async function handler(req: any, res: any) {
     if (productos.some((producto: any) => !String(producto.codigo || '').trim())) return res.status(400).json({ ok: false, msg: 'Cada producto debe tener un codigo para sincronizar la plantilla' })
     const codigos = productos.map((producto: any) => String(producto.codigo).trim().toLowerCase())
     if (new Set(codigos).size !== codigos.length) return res.status(400).json({ ok: false, msg: 'Hay codigos repetidos en la plantilla' })
-    const existentes = await query(`SELECT id,codigo FROM productos WHERE empresa_id=$1 AND eliminado_at IS NULL`, [empresaId]) as any[]
+    // Incluye productos retirados: el codigo es unico aun despues de una eliminacion
+    // logica y la importacion debe reactivarlo, no intentar insertarlo de nuevo.
+    const existentes = await query(`SELECT id,codigo FROM productos WHERE empresa_id=$1 AND codigo IS NOT NULL`, [empresaId]) as any[]
     const porCodigo = new Map(existentes.filter(producto => producto.codigo).map(producto => [String(producto.codigo).trim().toLowerCase(), producto]))
     const conservados: string[] = []
     let creados = 0
@@ -116,8 +118,17 @@ export default async function handler(req: any, res: any) {
     const producto = req.body || {}
     if (!producto.nombre || producto.precio_venta === undefined) return res.status(400).json({ ok: false, msg: 'Nombre y precio requeridos' })
     try {
-      const productoId = uuid()
       const valores = valoresProducto(producto, tipoNegocio)
+      const codigo = String(producto.codigo || '').trim()
+      if (codigo) {
+        const existente = await queryOne(`SELECT id,eliminado_at FROM productos WHERE empresa_id=$1 AND LOWER(codigo)=LOWER($2)`, [empresaId, codigo]) as any
+        if (existente?.eliminado_at) {
+          const [reactivado] = await query(`UPDATE productos SET categoria_id=$1,nombre=$2,descripcion=$3,codigo=$4,precio_venta=$5,precio_costo=$6,impuesto_pct=$7,impuesto_tipo=$8,impuesto_incluido=$9,tipo=$10,unidad_medida=$11,destino=$12,imagen_url=$13,disponible=$14,controla_stock=$15,stock_maximo=$16,eliminado_at=NULL,updated_at=NOW() WHERE id=$17 AND empresa_id=$18 RETURNING *`, [...valores, existente.id, empresaId])
+          return res.status(200).json({ ok: true, data: reactivado, reactivado: true })
+        }
+        if (existente) return res.status(409).json({ ok: false, msg: `Ya existe un producto activo con el codigo ${codigo}` })
+      }
+      const productoId = uuid()
       const [creado] = await query(`INSERT INTO productos (id,empresa_id,categoria_id,nombre,descripcion,codigo,precio_venta,precio_costo,impuesto_pct,impuesto_tipo,impuesto_incluido,tipo,unidad_medida,destino,imagen_url,disponible,controla_stock,stock_maximo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`, [productoId, empresaId, ...valores])
       if (producto.controla_stock !== false) await query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,$4)`, [empresaId, productoId, Number(producto.stock_inicial) || 0, Number(producto.stock_minimo) || 0])
       return res.status(201).json({ ok: true, data: creado })
