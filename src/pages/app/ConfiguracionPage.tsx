@@ -62,6 +62,11 @@ export default function ConfiguracionPage() {
             <option value="discoteca" className="bg-surface-800">Discoteca neón</option>
             <option value="restaurante" className="bg-surface-800">Restaurante</option>
             <option value="claro" className="bg-surface-800">Claro</option>
+            <option value="oceano" className="bg-surface-800">Oceano ejecutivo</option>
+            <option value="bosque" className="bg-surface-800">Bosque elegante</option>
+            <option value="vino" className="bg-surface-800">Vino nocturno</option>
+            <option value="ambar" className="bg-surface-800">Ambar lounge</option>
+            <option value="grafito" className="bg-surface-800">Grafito moderno</option>
           </select>
         </div>
         <div className="space-y-3">

@@ -13,6 +13,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
+const TEMAS_VALIDOS = new Set(['noche','discoteca','restaurante','claro','oceano','bosque','vino','ambar','grafito'])
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -29,7 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    document.body.dataset.theme = user?.empresa?.tema || 'noche'
+    const tema = user?.empresa?.tema || 'noche'
+    document.body.dataset.theme = TEMAS_VALIDOS.has(tema) ? tema : 'noche'
   }, [user?.empresa?.tema])
 
   const login = useCallback(async (username: string, password: string) => {

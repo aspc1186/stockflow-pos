@@ -4,6 +4,7 @@ import { query, queryOne } from '../_db.js'
 import { authenticate, authSuperAdmin, cors, signToken } from '../_auth.js'
 
 let empresaSchemaReady: Promise<void> | null = null
+const TEMAS_VALIDOS = new Set(['noche','discoteca','restaurante','claro','oceano','bosque','vino','ambar','grafito'])
 function ensureEmpresaSchema() {
   if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ`).then(() => undefined)
   return empresaSchemaReady
@@ -33,6 +34,7 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'PATCH') {
       await ensureEmpresaSchema()
       const { nombre, tipo, telefono, email, ciudad, direccion, logo_url, color_primario, tema, fondo_url } = req.body || {}
+      if (tema !== undefined && !TEMAS_VALIDOS.has(String(tema))) return res.status(400).json({ ok:false, msg:'Tema visual no permitido' })
       const [u] = await query(
         `UPDATE empresas SET nombre=COALESCE($1,nombre),tipo=COALESCE($2,tipo),telefono=COALESCE($3,telefono),email=COALESCE($4,email),ciudad=COALESCE($5,ciudad),direccion=COALESCE($6,direccion),logo_url=COALESCE($7,logo_url),color_primario=COALESCE($8,color_primario),tema=COALESCE($9,tema),fondo_url=COALESCE($10,fondo_url),updated_at=NOW() WHERE id=$11 RETURNING *`,
         [nombre, tipo, telefono, email, ciudad, direccion, logo_url, color_primario, tema, fondo_url, id]

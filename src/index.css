@@ -2,11 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 @layer base { body { @apply bg-surface-900 text-surface-200 antialiased; } }
-body[data-theme="discoteca"] .app-shell { background-color:#15051f; }
-body[data-theme="discoteca"] .card, body[data-theme="discoteca"] .bg-surface-800 { background-color:rgba(35,13,54,.94); }
-body[data-theme="restaurante"] .app-shell { background-color:#10231c; }
-body[data-theme="restaurante"] .card, body[data-theme="restaurante"] .bg-surface-800 { background-color:rgba(20,42,33,.94); }
-body[data-theme="claro"] .app-shell { background-color:#e7edf4; color:#172033; }
+
+/* Variables compartidas: cada tema conserva contraste entre paneles, campos y texto. */
+body[data-theme="noche"] { --theme-bg:#0f172a; --theme-panel:rgba(30,41,59,.96); --theme-input:#0b1222; --theme-text:#f8fafc; --theme-muted:#cbd5e1; --theme-border:rgba(255,255,255,.09); }
+body[data-theme="discoteca"] { --theme-bg:#15051f; --theme-panel:rgba(42,15,62,.96); --theme-input:#16091f; --theme-text:#fff7ff; --theme-muted:#dfc9e7; --theme-border:rgba(240,171,252,.18); }
+body[data-theme="restaurante"] { --theme-bg:#10231c; --theme-panel:rgba(20,48,37,.96); --theme-input:#0d1c16; --theme-text:#f4fff8; --theme-muted:#c5dacd; --theme-border:rgba(110,231,183,.16); }
+body[data-theme="claro"] { --theme-bg:#eef3f8; --theme-panel:rgba(255,255,255,.97); --theme-input:#f8fafc; --theme-text:#172033; --theme-muted:#526176; --theme-border:rgba(23,32,51,.13); }
+body[data-theme="oceano"] { --theme-bg:#061b31; --theme-panel:rgba(10,39,67,.96); --theme-input:#051526; --theme-text:#f2fbff; --theme-muted:#b9d5e8; --theme-border:rgba(56,189,248,.18); }
+body[data-theme="bosque"] { --theme-bg:#0b2119; --theme-panel:rgba(17,49,36,.96); --theme-input:#081811; --theme-text:#f3fff7; --theme-muted:#c2ddcd; --theme-border:rgba(74,222,128,.17); }
+body[data-theme="vino"] { --theme-bg:#29101c; --theme-panel:rgba(64,22,41,.96); --theme-input:#200b15; --theme-text:#fff7fa; --theme-muted:#e5c4d1; --theme-border:rgba(251,113,133,.18); }
+body[data-theme="ambar"] { --theme-bg:#251906; --theme-panel:rgba(62,42,13,.96); --theme-input:#1d1404; --theme-text:#fffbed; --theme-muted:#e6d5a9; --theme-border:rgba(251,191,36,.18); }
+body[data-theme="grafito"] { --theme-bg:#15191f; --theme-panel:rgba(39,45,54,.97); --theme-input:#101419; --theme-text:#f5f7fa; --theme-muted:#c7ced7; --theme-border:rgba(203,213,225,.15); }
+
+body[data-theme] .app-shell { background-color:var(--theme-bg); color:var(--theme-text); }
+body[data-theme] .app-shell .card, body[data-theme] .app-shell .bg-surface-800 { background-color:var(--theme-panel) !important; border-color:var(--theme-border) !important; }
+body[data-theme] .app-shell .bg-surface-900, body[data-theme] .app-shell .input { background-color:var(--theme-input) !important; border-color:var(--theme-border) !important; }
+body[data-theme] .app-shell .text-surface-50, body[data-theme] .app-shell .text-surface-100 { color:var(--theme-text) !important; }
+body[data-theme] .app-shell [class*="text-surface-200"] { color:var(--theme-muted) !important; }
+body[data-theme] .app-shell .border-white\/5, body[data-theme] .app-shell .border-white\/10 { border-color:var(--theme-border) !important; }
+body[data-theme="claro"] .app-shell .text-white:not(.btn-primary) { color:var(--theme-text) !important; }
+body[data-theme="claro"] .app-shell .bg-surface-950 { background-color:#e8eef5 !important; }
 .brand-watermark { position:absolute; right:5%; bottom:8%; max-width:70%; overflow:hidden; color:rgba(255,255,255,.05); font-size:clamp(2rem,8vw,9rem); font-weight:800; line-height:.9; text-align:right; pointer-events:none; user-select:none; }
 @layer components {
   .card { @apply bg-surface-800 border border-white/5 rounded-xl; }
