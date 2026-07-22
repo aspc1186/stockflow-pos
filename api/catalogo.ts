@@ -7,9 +7,11 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   const parts = (req.url||'').split('?')[0].split('/').filter(Boolean)
   if (parts[1] === 'menu' && req.method === 'GET') {
-    const empresa = await queryOne(`SELECT id,nombre,logo_url,tema FROM empresas WHERE slug=$1 AND activa=true`, [parts[2]]) as any
+    // QR codes use immutable UUIDs. Slugs can be renamed and must not decide
+    // which customer's public catalog is shown.
+    const empresa = await queryOne(`SELECT id,nombre,logo_url,tema FROM empresas WHERE (id::text=$1 OR slug=$1) AND activa=true`, [decodeURIComponent(parts[2] || '')]) as any
     if (!empresa) return res.status(404).json({ok:false,msg:'Negocio no encontrado'})
-    const mesa = await queryOne(`SELECT numero,nombre,capacidad FROM mesas WHERE empresa_id=$1 AND LOWER(numero::text)=LOWER($2) AND activa=true`, [empresa.id, decodeURIComponent(parts[3] || '')]) as any
+    const mesa = await queryOne(`SELECT id,numero,nombre,capacidad FROM mesas WHERE empresa_id=$1 AND (id::text=$2 OR LOWER(numero::text)=LOWER($2)) AND activa=true`, [empresa.id, decodeURIComponent(parts[3] || '')]) as any
     if (!mesa) return res.status(404).json({ok:false,msg:'Mesa no encontrada'})
     const productos = await query(`SELECT p.id,p.nombre,p.descripcion,p.imagen_url,p.precio_venta,p.impuesto_pct,p.destino,c.nombre as categoria FROM productos p LEFT JOIN categorias c ON c.id=p.categoria_id WHERE p.empresa_id=$1 AND p.disponible=true ORDER BY c.nombre NULLS LAST,p.nombre`,[empresa.id])
     // The public QR must work even before an administrator has opened Eventos.
