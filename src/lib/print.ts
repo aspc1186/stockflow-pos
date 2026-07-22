@@ -5,7 +5,7 @@ function textoSeguro(value: unknown) {
 }
 
 function etiquetaPago(value: unknown) {
-  const pago = String(value || 'pendiente').replaceAll('_', ' ')
+  const pago = String(value || 'pendiente').replace(/_/g, ' ')
   return pago.charAt(0).toUpperCase() + pago.slice(1)
 }
 
@@ -28,7 +28,7 @@ export function imprimirPedido(pedido: any, empresa: any) {
   const impuestos = Number(pedido.impuestos || 0)
   const descuento = Number(pedido.descuento || 0)
   const propina = Number(pedido.propina || 0)
-  return ventana(`<h1>${textoSeguro(empresa?.nombre || 'StockFlow POS')}</h1><p class="muted" style="text-align:center">Comprobante de venta</p><div class="line"></div><p>Pedido: #${textoSeguro(pedido.numero || '-')}</p><p>Mesa: ${textoSeguro(pedido.mesa_numero || 'Sin mesa')}</p>${pedido.cliente_nombre ? `<p>Cliente: ${textoSeguro(pedido.cliente_nombre)}</p>` : ''}<p>Fecha: ${new Date(pedido.cierre_at || pedido.updated_at || Date.now()).toLocaleString('es-CO')}</p><p>Pago: ${textoSeguro(etiquetaPago(pedido.metodo_pago))}</p><div class="line"></div><p class="muted">DETALLE DE PRODUCTOS</p>${items}<div class="line"></div><div class="summary"><div class="row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>${impuestos > 0 ? `<div class="row"><span>Impuestos</span><span>${formatCurrency(impuestos)}</span></div>` : ''}${descuento > 0 ? `<div class="row"><span>Descuento</span><span>-${formatCurrency(descuento)}</span></div>` : ''}${propina > 0 ? `<div class="row"><span>Propina</span><span>${formatCurrency(propina)}</span></div>` : ''}</div><div class="line"></div><div class="row total"><span>TOTAL PAGADO</span><span>${formatCurrency(pedido.total || 0)}</span></div><p class="muted" style="text-align:center;margin-top:14px">Gracias por su compra</p>`)
+  return ventana(`<h1>${textoSeguro(empresa?.nombre || 'StockFlow POS')}</h1><p class="muted" style="text-align:center">Comprobante de venta</p><div class="line"></div><p>Pedido: #${textoSeguro(pedido.numero || '-')}</p><p>Mesa: ${textoSeguro(pedido.mesa_numero || 'Sin mesa')}</p>${pedido.cliente_nombre ? `<p>Cliente: ${textoSeguro(pedido.cliente_nombre)}</p>` : ''}<p>Fecha: ${new Date(pedido.cierre_at || pedido.updated_at || Date.now()).toLocaleString('es-CO')}</p><p>Pago: ${textoSeguro(etiquetaPago(pedido.metodo_pago))}</p><div class="line"></div><p class="muted">DETALLE DE PRODUCTOS</p>${items}<div class="line"></div><div class="summary"><div class="row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div><div class="row"><span>IVA / impuestos</span><span>${formatCurrency(impuestos)}</span></div>${descuento > 0 ? `<div class="row"><span>Descuento</span><span>-${formatCurrency(descuento)}</span></div>` : ''}${propina > 0 ? `<div class="row"><span>Propina</span><span>${formatCurrency(propina)}</span></div>` : ''}</div><div class="line"></div><div class="row total"><span>TOTAL PAGADO</span><span>${formatCurrency(pedido.total || 0)}</span></div><p class="muted" style="text-align:center;margin-top:14px">Gracias por su compra</p>`)
 }
 
 export function imprimirMovimientoCaja(movimiento: any, empresa: any) {

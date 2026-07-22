@@ -9,7 +9,7 @@ import Modal from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { imprimirMovimientoCaja } from '@/lib/print'
+import { imprimirMovimientoCaja, imprimirPedido } from '@/lib/print'
 
 export default function CajaPage() {
   const qc = useQueryClient()
@@ -45,6 +45,19 @@ export default function CajaPage() {
   const saldoJornada = (jornada:any) => jornada.estado === 'cerrada' ? Number(jornada.saldo_final || 0) : Number(jornada.saldo_inicial || 0) + Number(jornada.total_ventas || 0) + Number(jornada.total_ingresos || 0) - Number(jornada.total_egresos || 0) - Number(jornada.total_compras_inventario || 0) - Number(jornada.total_compras_no_inventario || 0)
   const esManual = (m:any) => ['ingreso','egreso','compra_no_inventario'].includes(m.tipo)
   const abrirEdicion = (m:any) => { setCorreccion({tipo:m.tipo,monto:String(m.monto),descripcion:m.descripcion || '',metodo_pago:m.metodo_pago || 'efectivo',motivo:''}); setMovimientoEditar(m) }
+  const imprimirComprobante = async (movimiento: any) => {
+    if (movimiento.tipo === 'venta' && movimiento.pedido_id) {
+      try {
+        const { data } = await api.get(`/pedidos/${movimiento.pedido_id}`)
+        const pedido = data.data || data
+        if (!imprimirPedido(pedido, user?.empresa)) toast.error('El navegador bloqueo la ventana de impresion')
+      } catch {
+        toast.error('No fue posible cargar el detalle del pedido')
+      }
+      return
+    }
+    if (!imprimirMovimientoCaja(movimiento, user?.empresa)) toast.error('El navegador bloqueo la ventana de impresion')
+  }
 
   return (
     <div className="space-y-5">
@@ -75,7 +88,7 @@ export default function CajaPage() {
                   <td className="text-surface-200/70">{m.descripcion ?? '—'}</td>
                   <td className="capitalize text-surface-200/60 text-xs">{m.metodo_pago}</td>
                   <td className={cn('font-semibold',m.tipo==='egreso'||m.tipo==='compra_inventario'||m.tipo==='compra_no_inventario'?'text-red-400':'text-emerald-400')}>{m.tipo==='egreso'||m.tipo==='compra_inventario'||m.tipo==='compra_no_inventario'?'-':'+'}{formatCurrency(m.monto)}</td>
-                  <td className="text-right"><button type="button" className="btn-ghost btn-sm p-2" title="Imprimir comprobante" onClick={()=>{ if (!imprimirMovimientoCaja(m, user?.empresa)) toast.error('El navegador bloqueo la ventana de impresion') }}><Printer className="h-4 w-4"/></button></td>
+                  <td className="text-right"><button type="button" className="btn-ghost btn-sm p-2" title={m.tipo === 'venta' ? 'Imprimir recibo de venta' : 'Imprimir comprobante'} onClick={()=>imprimirComprobante(m)}><Printer className="h-4 w-4"/></button></td>
                   {supportMode && <td className="text-right"><div className="flex justify-end gap-1">{esManual(m) ? <><button type="button" onClick={()=>abrirEdicion(m)} className="btn-ghost btn-sm p-2" title="Editar movimiento"><Pencil className="h-4 w-4"/></button><button type="button" onClick={()=>{ setCorreccion(p=>({...p,motivo:''})); setMovimientoEliminar(m) }} className="btn-ghost btn-sm p-2 text-red-300 hover:text-red-200" title="Eliminar movimiento"><Trash2 className="h-4 w-4"/></button></> : <span className="text-xs text-surface-200/35">Automatico</span>}</div></td>}
                 </tr>
               ))}
