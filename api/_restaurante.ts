@@ -18,7 +18,7 @@ export function ensureRestaurantSchema() {
     CREATE TABLE IF NOT EXISTS compras_ingredientes (
       id UUID PRIMARY KEY, empresa_id UUID NOT NULL, proveedor VARCHAR(160), numero_factura VARCHAR(100), fecha_compra DATE NOT NULL DEFAULT CURRENT_DATE,
       subtotal NUMERIC(14,2) NOT NULL DEFAULT 0, impuestos NUMERIC(14,2) NOT NULL DEFAULT 0, descuentos NUMERIC(14,2) NOT NULL DEFAULT 0,
-      transporte NUMERIC(14,2) NOT NULL DEFAULT 0, total NUMERIC(14,2) NOT NULL DEFAULT 0, observaciones TEXT, usuario_id UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      transporte NUMERIC(14,2) NOT NULL DEFAULT 0, total NUMERIC(14,2) NOT NULL DEFAULT 0, observaciones TEXT, soporte_url TEXT, usuario_id UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS compra_ingrediente_items (
       id UUID PRIMARY KEY, compra_id UUID NOT NULL, empresa_id UUID NOT NULL, ingrediente_id UUID NOT NULL,
@@ -51,7 +51,7 @@ export function ensureRestaurantSchema() {
       cantidad_bruta NUMERIC(14,3) NOT NULL, costo_unitario NUMERIC(14,4) NOT NULL DEFAULT 0, costo_total NUMERIC(14,2) NOT NULL DEFAULT 0,
       UNIQUE(receta_id,ingrediente_id)
     );
-  `).then(() => query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS producto_tipo VARCHAR(30) NOT NULL DEFAULT 'simple'`)).then(() => undefined)
+  `).then(() => query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS producto_tipo VARCHAR(30) NOT NULL DEFAULT 'simple'; ALTER TABLE compras_ingredientes ADD COLUMN IF NOT EXISTS soporte_url TEXT`)).then(() => undefined)
   return schemaReady
 }
 
