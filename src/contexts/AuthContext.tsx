@@ -18,8 +18,12 @@ const TEMAS_VALIDOS = new Set(['noche','discoteca','restaurante','claro','oceano
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const esRutaPublica = typeof window !== 'undefined' && window.location.pathname.startsWith('/menu/')
 
   useEffect(() => {
+    // A QR menu is public. An expired POS session saved on a customer's phone
+    // must never redirect that customer to the login page.
+    if (esRutaPublica) { setLoading(false); return }
     const token = localStorage.getItem('pos_token')
     const saved = localStorage.getItem('pos_user')
     if (token && saved) {
@@ -40,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('pos_token', data.token)
     localStorage.setItem('pos_user', JSON.stringify(data.user || data.data))
     setUser({ ...(data.user || data.data), token: data.token })
-  }, [])
+  }, [esRutaPublica])
 
   const restoreSuperAdmin = useCallback(() => {
     const token = localStorage.getItem('pos_superadmin_token')

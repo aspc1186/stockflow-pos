@@ -27,7 +27,8 @@ function Grafico({ data, etiqueta, clave, tipo }: { data: Record<string, any>[];
 }
 
 function PanelGrafico({ titulo, data, etiqueta, clave, tipo, onTipo, vacio }: { titulo:string; data:Record<string,any>[]; etiqueta:string; clave:string; tipo:TipoGrafico; onTipo:(tipo:TipoGrafico)=>void; vacio:string }) {
-  return <div className="card p-4 sm:p-5"><div className="mb-3 flex items-center justify-between gap-2"><h3 className="text-xs font-semibold uppercase tracking-wide text-surface-200/70">{titulo}</h3><SelectorGrafico value={tipo} onChange={onTipo}/></div>{data.length ? <ResponsiveContainer width="100%" height={220}><Grafico data={data} etiqueta={etiqueta} clave={clave} tipo={tipo}/></ResponsiveContainer> : <div className="flex h-[220px] items-center justify-center text-center text-sm text-surface-200/35">{vacio}</div>}</div>
+  const firma = `${tipo}-${data.length}-${data.map(d => d.total).join('-')}`
+  return <div className="card min-w-0 overflow-hidden p-4 sm:p-5"><div className="mb-3 flex items-center justify-between gap-2"><h3 className="text-xs font-semibold uppercase tracking-wide text-surface-200/70">{titulo}</h3><SelectorGrafico value={tipo} onChange={onTipo}/></div>{data.length ? <div className="h-56 w-full min-w-0"><ResponsiveContainer key={firma} width="100%" height="100%"><Grafico data={data} etiqueta={etiqueta} clave={clave} tipo={tipo}/></ResponsiveContainer></div> : <div className="flex h-56 items-center justify-center text-center text-sm text-surface-200/35">{vacio}</div>}</div>
 }
 
 export default function DashboardPage() {
