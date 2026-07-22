@@ -14,7 +14,7 @@ export default async function handler(req:any,res:any) {
       const rows=await query(`SELECT m.*,i.nombre as ingrediente_nombre,u.nombre as usuario_nombre FROM movimientos_ingredientes m JOIN ingredientes i ON i.id=m.ingrediente_id LEFT JOIN usuarios u ON u.id=m.usuario_id WHERE m.empresa_id=$1 ORDER BY m.created_at DESC LIMIT 500`,[eid])
       return res.status(200).json({ok:true,data:rows})
     }
-    const rows=await query(`SELECT *,stock_actual*costo_unitario as valor_inventario FROM ingredientes WHERE empresa_id=$1 ORDER BY nombre`,[eid])
+    const rows=await query(`SELECT *,stock_actual*costo_unitario as valor_inventario FROM ingredientes WHERE empresa_id=$1 AND activo=true ORDER BY nombre`,[eid])
     return res.status(200).json({ok:true,data:rows})
   }
   if (!id && req.method==='POST') {
@@ -25,8 +25,10 @@ export default async function handler(req:any,res:any) {
   if (!id && req.method==='DELETE') {
     const ids=Array.isArray(req.body?.ids)?req.body.ids.filter(Boolean):[]
     if(!ids.length)return res.status(400).json({ok:false,msg:'Selecciona al menos un ingrediente'})
-    const eliminados=await query(`UPDATE ingredientes SET activo=false,updated_at=NOW() WHERE empresa_id=$1 AND id = ANY($2::uuid[]) AND activo=true RETURNING id`,[eid,ids]) as any[]
-    return res.status(200).json({ok:true,data:{eliminados:eliminados.length}})
+    try {
+      const eliminados=await query(`UPDATE ingredientes SET activo=false,updated_at=NOW() WHERE empresa_id=$1 AND id = ANY($2::uuid[]) AND COALESCE(activo,true)=true RETURNING id`,[eid,ids]) as any[]
+      return res.status(200).json({ok:true,data:{eliminados:eliminados.length}})
+    } catch(error:any) { return res.status(500).json({ok:false,msg:`No se pudieron eliminar los ingredientes: ${error.message}`}) }
   }
   if (!id) return res.status(405).end()
   const actual=await queryOne(`SELECT * FROM ingredientes WHERE id=$1 AND empresa_id=$2`,[id,eid]); if(!actual) return res.status(404).json({ok:false,msg:'Ingrediente no encontrado'})

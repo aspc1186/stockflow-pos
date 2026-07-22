@@ -9,9 +9,11 @@ export default async function handler(req:any,res:any) {
   if (restaurante && req.method==='DELETE') {
     const productoIds=Array.isArray(req.body?.producto_ids)?req.body.producto_ids.filter(Boolean):[]
     if(!productoIds.length)return res.status(400).json({ok:false,msg:'Selecciona al menos una receta'})
-    const eliminadas=await query(`UPDATE recetas_restaurante SET activa=false,updated_at=NOW() WHERE empresa_id=$1 AND producto_id = ANY($2::uuid[]) AND activa=true RETURNING producto_id`,[eid,productoIds]) as any[]
-    await query(`UPDATE productos SET producto_tipo='simple',updated_at=NOW() WHERE empresa_id=$1 AND id = ANY($2::uuid[])`,[eid,productoIds])
-    return res.status(200).json({ok:true,data:{eliminadas:eliminadas.length}})
+    try {
+      const eliminadas=await query(`UPDATE recetas_restaurante SET activa=false,updated_at=NOW() WHERE empresa_id=$1 AND producto_id = ANY($2::uuid[]) AND COALESCE(activa,true)=true RETURNING producto_id`,[eid,productoIds]) as any[]
+      await query(`UPDATE productos SET producto_tipo='simple',updated_at=NOW() WHERE empresa_id=$1 AND id = ANY($2::uuid[])`,[eid,productoIds])
+      return res.status(200).json({ok:true,data:{eliminadas:eliminadas.length}})
+    } catch(error:any) { return res.status(500).json({ok:false,msg:`No se pudieron eliminar las recetas: ${error.message}`}) }
   }
   const productoId=String(req.query?.producto_id||'')
   if(!productoId)return res.status(400).json({ok:false,msg:'Producto requerido'})

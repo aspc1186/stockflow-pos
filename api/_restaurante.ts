@@ -51,7 +51,14 @@ export function ensureRestaurantSchema() {
       cantidad_bruta NUMERIC(14,3) NOT NULL, costo_unitario NUMERIC(14,4) NOT NULL DEFAULT 0, costo_total NUMERIC(14,2) NOT NULL DEFAULT 0,
       UNIQUE(receta_id,ingrediente_id)
     );
-  `).then(() => query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS producto_tipo VARCHAR(30) NOT NULL DEFAULT 'simple'; ALTER TABLE compras_ingredientes ADD COLUMN IF NOT EXISTS soporte_url TEXT`)).then(() => undefined)
+  `).then(() => query(`
+    ALTER TABLE productos ADD COLUMN IF NOT EXISTS producto_tipo VARCHAR(30) NOT NULL DEFAULT 'simple';
+    ALTER TABLE compras_ingredientes ADD COLUMN IF NOT EXISTS soporte_url TEXT;
+    ALTER TABLE ingredientes ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE ingredientes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS activa BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `)).then(() => undefined)
   return schemaReady
 }
 
