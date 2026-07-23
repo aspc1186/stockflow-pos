@@ -41,6 +41,7 @@ export function ensureRestaurantSchema() {
       porciones NUMERIC(12,3) NOT NULL DEFAULT 1, costos_adicionales NUMERIC(14,2) NOT NULL DEFAULT 0,
       mano_obra NUMERIC(14,2) NOT NULL DEFAULT 0, costos_indirectos NUMERIC(14,2) NOT NULL DEFAULT 0,
       empaque NUMERIC(14,2) NOT NULL DEFAULT 0, otros_costos NUMERIC(14,2) NOT NULL DEFAULT 0,
+      margen_objetivo_pct NUMERIC(6,2) NOT NULL DEFAULT 65, redondeo_precio NUMERIC(14,2) NOT NULL DEFAULT 500,
       costo_ingredientes NUMERIC(14,2) NOT NULL DEFAULT 0, costo_total NUMERIC(14,2) NOT NULL DEFAULT 0,
       costo_por_porcion NUMERIC(14,4) NOT NULL DEFAULT 0, activa BOOLEAN NOT NULL DEFAULT true, version INTEGER NOT NULL DEFAULT 1,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -81,6 +82,8 @@ export function ensureRestaurantSchema() {
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costos_indirectos NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS empaque NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS otros_costos NUMERIC(14,2) NOT NULL DEFAULT 0;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS margen_objetivo_pct NUMERIC(6,2) NOT NULL DEFAULT 65;
+    ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS redondeo_precio NUMERIC(14,2) NOT NULL DEFAULT 500;
     UPDATE recetas_restaurante SET otros_costos=costos_adicionales WHERE COALESCE(otros_costos,0)=0 AND COALESCE(costos_adicionales,0)<>0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costo_ingredientes NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE recetas_restaurante ADD COLUMN IF NOT EXISTS costo_total NUMERIC(14,2) NOT NULL DEFAULT 0;

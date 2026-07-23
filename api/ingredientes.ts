@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { query, queryOne } from '../_db.js'
 import { authenticate, cors } from '../_auth.js'
-import { ensureRestaurantSchema, esRestaurante } from './_restaurante.js'
+import { ensureRestaurantSchema, esRestaurante, recalcularRecetasIngrediente } from './_restaurante.js'
 
 export default async function handler(req:any,res:any) {
   cors(res); if (req.method==='OPTIONS') return res.status(200).end()
@@ -22,11 +22,15 @@ export default async function handler(req:any,res:any) {
     try {
       const codigo=String(b.codigo||'').trim()
       const existente=codigo?await queryOne(`SELECT id FROM ingredientes WHERE empresa_id=$1 AND LOWER(TRIM(codigo))=LOWER($2)`,[eid,codigo]):null
+      const tieneStockInicial=Object.prototype.hasOwnProperty.call(b,'stock_inicial')
+      const tieneCostoUnitario=Object.prototype.hasOwnProperty.call(b,'costo_unitario')
       if(existente){
-        const [row]=await query(`UPDATE ingredientes SET nombre=$1,descripcion=$2,categoria=$3,unidad_compra=$4,unidad_consumo=$5,factor_conversion=$6,stock_minimo=$7,stock_maximo=$8,punto_reorden=$9,merma_pct=$10,rendimiento=$11,proveedor_principal=$12,activo=true,updated_at=NOW() WHERE id=$13 AND empresa_id=$14 RETURNING *`,[String(b.nombre).trim(),b.descripcion||null,b.categoria||null,b.unidad_compra||'unidad',b.unidad_consumo||'unidad',Math.max(0.0001,Number(b.factor_conversion)||1),Number(b.stock_minimo)||0,b.stock_maximo||null,b.punto_reorden||null,Number(b.merma_pct)||0,Math.max(0,Math.min(1,Number(b.rendimiento)||1)),b.proveedor_principal||null,existente.id,eid])
+        const [row]=await query(`UPDATE ingredientes SET nombre=$1,descripcion=$2,categoria=$3,unidad_compra=$4,unidad_consumo=$5,factor_conversion=$6,stock_actual=CASE WHEN $7 THEN $8 ELSE stock_actual END,costo_unitario=CASE WHEN $9 THEN $10 ELSE costo_unitario END,stock_minimo=$11,stock_maximo=$12,punto_reorden=$13,merma_pct=$14,rendimiento=$15,proveedor_principal=$16,activo=true,updated_at=NOW() WHERE id=$17 AND empresa_id=$18 RETURNING *`,[String(b.nombre).trim(),b.descripcion||null,b.categoria||null,b.unidad_compra||'unidad',b.unidad_consumo||'unidad',Math.max(0.0001,Number(b.factor_conversion)||1),tieneStockInicial,Math.max(0,Number(b.stock_inicial)||0),tieneCostoUnitario,Math.max(0,Number(b.costo_unitario)||0),Number(b.stock_minimo)||0,b.stock_maximo||null,b.punto_reorden||null,Number(b.merma_pct)||0,Math.max(0,Math.min(1,Number(b.rendimiento)||1)),b.proveedor_principal||null,existente.id,eid])
+        await recalcularRecetasIngrediente(row.id,eid)
         return res.status(200).json({ok:true,data:row,actualizado:true})
       }
-      const [row]=await query(`INSERT INTO ingredientes (id,empresa_id,codigo,nombre,descripcion,categoria,unidad_compra,unidad_consumo,factor_conversion,stock_actual,stock_minimo,stock_maximo,punto_reorden,merma_pct,rendimiento,proveedor_principal,activo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,$11,$12,$13,$14,$15,true) RETURNING *`,[uuid(),eid,codigo||null,String(b.nombre).trim(),b.descripcion||null,b.categoria||null,b.unidad_compra||'unidad',b.unidad_consumo||'unidad',Math.max(0.0001,Number(b.factor_conversion)||1),Number(b.stock_minimo)||0,b.stock_maximo||null,b.punto_reorden||null,Number(b.merma_pct)||0,Math.max(0,Math.min(1,Number(b.rendimiento)||1)),b.proveedor_principal||null])
+      const [row]=await query(`INSERT INTO ingredientes (id,empresa_id,codigo,nombre,descripcion,categoria,unidad_compra,unidad_consumo,factor_conversion,stock_actual,costo_unitario,stock_minimo,stock_maximo,punto_reorden,merma_pct,rendimiento,proveedor_principal,activo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,true) RETURNING *`,[uuid(),eid,codigo||null,String(b.nombre).trim(),b.descripcion||null,b.categoria||null,b.unidad_compra||'unidad',b.unidad_consumo||'unidad',Math.max(0.0001,Number(b.factor_conversion)||1),Math.max(0,Number(b.stock_inicial)||0),Math.max(0,Number(b.costo_unitario)||0),Number(b.stock_minimo)||0,b.stock_maximo||null,b.punto_reorden||null,Number(b.merma_pct)||0,Math.max(0,Math.min(1,Number(b.rendimiento)||1)),b.proveedor_principal||null])
+      await recalcularRecetasIngrediente(row.id,eid)
       return res.status(201).json({ok:true,data:row})
     } catch(error:any) { return res.status(500).json({ok:false,msg:`No se pudo guardar el ingrediente: ${error.message}`}) }
   }

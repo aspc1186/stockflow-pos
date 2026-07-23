@@ -88,6 +88,7 @@ export default function App(){
       <Route path="integraciones" element={<IntegracionesPage/>}/>
       <Route path="ingredientes" element={<RestauranteOperacionPage modo="ingredientes"/>}/>
       <Route path="recetas" element={<RestauranteOperacionPage modo="recetas"/>}/>
+      <Route path="costeo" element={<RestauranteOperacionPage modo="costeo"/>}/>
       <Route path="compras-ingredientes" element={<RestauranteOperacionPage modo="compras"/>}/>
       <Route path="mermas-ingredientes" element={<RestauranteOperacionPage modo="mermas"/>}/>
       <Route path="usuarios" element={<UsuariosPage/>}/>

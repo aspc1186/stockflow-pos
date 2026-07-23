@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, Download, FileImage, FileUp, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Calculator, Camera, Download, FileImage, FileUp, Pencil, Plus, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import api from '@/lib/axios'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -10,10 +10,16 @@ import toast from 'react-hot-toast'
 
 const unidades = ['kilogramo', 'gramo', 'litro', 'mililitro', 'unidad', 'porcion', 'caja', 'bolsa', 'paquete', 'botella', 'lata', 'canasta', 'docena', 'bandeja', 'saco', 'bulto', 'galon', 'libra', 'onza', 'tira', 'atado', 'manojo', 'cubeta', 'vaso', 'tarro', 'frasco', 'rollo', 'sobre', 'garrafa']
 
-type Modo = 'ingredientes' | 'compras' | 'mermas' | 'recetas'
+type Modo = 'ingredientes' | 'compras' | 'mermas' | 'recetas' | 'costeo'
 
 const numero = (valor: unknown, porDefecto = 0) => {
-  const n = Number(String(valor ?? '').replace(',', '.'))
+  const texto = String(valor ?? '').trim().replace(/[^\d,.-]/g, '')
+  const normalizado = texto.includes(',') && texto.includes('.')
+    ? (texto.lastIndexOf(',') > texto.lastIndexOf('.') ? texto.replace(/\./g, '').replace(',', '.') : texto.replace(/,/g, ''))
+    : /^[-+]?\d{1,3}(\.\d{3})+$/.test(texto) ? texto.replace(/\./g, '')
+      : /^[-+]?\d{1,3}(,\d{3})+$/.test(texto) ? texto.replace(/,/g, '')
+        : texto.replace(',', '.')
+  const n = Number(normalizado)
   return Number.isFinite(n) ? n : porDefecto
 }
 
@@ -76,10 +82,10 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
   const [recetaModal, setRecetaModal] = useState<any>(null)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [recetaLineas, setRecetaLineas] = useState<{ ingrediente_id: string; cantidad_neta: string; unidad: string; merma_pct: string }[]>([])
-  const [recetaDatos, setRecetaDatos] = useState({ porciones: '1', mano_obra: '0', costos_indirectos: '0', empaque: '0', otros_costos: '0' })
+  const [recetaDatos, setRecetaDatos] = useState({ porciones: '1', mano_obra: '0', costos_indirectos: '0', empaque: '0', otros_costos: '0', margen_objetivo_pct: '65', redondeo_precio: '500' })
   const [ingrediente, setIngrediente] = useState({
     nombre: '', codigo: '', categoria: '', unidad_compra: 'kilogramo', unidad_consumo: 'gramo',
-    factor_conversion: '1000', stock_minimo: '0', stock_maximo: '', punto_reorden: '', proveedor_principal: '',
+    factor_conversion: '1000', stock_inicial: '0', costo_unitario: '0', stock_minimo: '0', stock_maximo: '', punto_reorden: '', proveedor_principal: '',
   })
   const [compra, setCompra] = useState({ proveedor: '', numero_factura: '', ingrediente_id: '', cantidad_compra: '', factor_conversion: '1', precio_unitario: '', transporte: '0', soporte_url: '' })
   const [merma, setMerma] = useState({ ingrediente_id: '', cantidad: '', tipo: 'merma', motivo: '', observaciones: '' })
@@ -112,6 +118,10 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
       return data.data || data
     },
   })
+  const { data: recetasCosteo = [] } = useQuery({
+    queryKey: ['recetas-costeo'], enabled: modo === 'costeo',
+    queryFn: async () => { const { data } = await api.get<any>('/recetas?listado=true'); return data.data || data },
+  })
 
   const actualizarListas = async () => {
     await Promise.all([
@@ -125,11 +135,11 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
     const hoja = XLSX.utils.json_to_sheet([{
       nombre: 'Tomate chonto', codigo: 'ING-001', categoria: 'Verduras', descripcion: 'Ingrediente fresco',
       unidad_compra: 'kilogramo', unidad_consumo: 'gramo', factor_conversion: 1000,
-      stock_minimo: 2, stock_maximo: 20, punto_reorden: 5, proveedor_principal: 'Proveedor ejemplo', merma_pct: 5, rendimiento: 0.95,
+      stock_inicial: 10, costo_unitario: 4500, stock_minimo: 2, stock_maximo: 20, punto_reorden: 5, proveedor_principal: 'Proveedor ejemplo', merma_pct: 5, rendimiento: 0.95,
     }])
     hoja['!cols'] = [
       { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 20 },
-      { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 14 },
+      { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 14 },
     ]
     const libro = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(libro, hoja, 'Ingredientes')
@@ -162,6 +172,8 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
           unidad_compra: unidadCompra,
           unidad_consumo: unidadConsumo,
           factor_conversion: factorConversion,
+          stock_inicial: datos.stockinicial === undefined || datos.stockinicial === '' ? undefined : Math.max(0, numero(datos.stockinicial)),
+          costo_unitario: datos.costounitario === undefined || datos.costounitario === '' ? undefined : Math.max(0, numero(datos.costounitario)),
           stock_minimo: Math.max(0, numero(datos.stockminimo)),
           stock_maximo: datos.stockmaximo === '' ? undefined : Math.max(0, numero(datos.stockmaximo)),
           punto_reorden: datos.puntoreorden === '' ? undefined : Math.max(0, numero(datos.puntoreorden)),
@@ -203,7 +215,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
       const { data } = await api.get<any>(`/recetas?producto_id=${producto.id}`)
       const receta = data.data
       setRecetaModal(producto)
-      setRecetaDatos({ porciones: String(receta?.porciones || 1), mano_obra: String(receta?.mano_obra || 0), costos_indirectos: String(receta?.costos_indirectos || 0), empaque: String(receta?.empaque || 0), otros_costos: String(receta?.otros_costos ?? receta?.costos_adicionales ?? 0) })
+      setRecetaDatos({ porciones: String(receta?.porciones || 1), mano_obra: String(receta?.mano_obra || 0), costos_indirectos: String(receta?.costos_indirectos || 0), empaque: String(receta?.empaque || 0), otros_costos: String(receta?.otros_costos ?? receta?.costos_adicionales ?? 0), margen_objetivo_pct: String(receta?.margen_objetivo_pct ?? 65), redondeo_precio: String(receta?.redondeo_precio ?? 500) })
       setRecetaLineas((receta?.ingredientes || []).map((linea: any) => ({ ingrediente_id: linea.ingrediente_id, cantidad_neta: String(linea.cantidad_neta), unidad: linea.unidad || 'unidad', merma_pct: String(linea.merma_pct || 0) })))
     } catch (error: any) {
       toast.error(error?.response?.data?.msg || 'No se pudo cargar la receta')
@@ -217,6 +229,8 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
       costos_indirectos: numero(recetaDatos.costos_indirectos),
       empaque: numero(recetaDatos.empaque),
       otros_costos: numero(recetaDatos.otros_costos),
+      margen_objetivo_pct: numero(recetaDatos.margen_objetivo_pct, 65),
+      redondeo_precio: numero(recetaDatos.redondeo_precio, 500),
       ingredientes: recetaLineas.map((linea) => ({ ...linea, cantidad_neta: numero(linea.cantidad_neta), merma_pct: numero(linea.merma_pct) })),
     }),
     onSuccess: () => {
@@ -228,8 +242,8 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
   })
 
   const descargarPlantillaRecetas = () => {
-    const hoja = XLSX.utils.json_to_sheet([{ producto_codigo: 'PLA-001', producto_nombre: 'Plato ejemplo', ingrediente_codigo: 'ING-001', ingrediente_nombre: 'Tomate chonto', cantidad_neta: 120, unidad: 'gramo', merma_pct: 5, porciones: 1, mano_obra: 0, costos_indirectos: 0, empaque: 0, otros_costos: 0 }])
-    hoja['!cols'] = [{ wch: 18 }, { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 16 }]
+    const hoja = XLSX.utils.json_to_sheet([{ producto_codigo: 'PLA-001', producto_nombre: 'Plato ejemplo', ingrediente_codigo: 'ING-001', ingrediente_nombre: 'Tomate chonto', cantidad_neta: 120, unidad: 'gramo', merma_pct: 5, porciones: 1, mano_obra: 0, costos_indirectos: 0, empaque: 0, otros_costos: 0, margen_objetivo_pct: 65, redondeo_precio: 500 }])
+    hoja['!cols'] = [{ wch: 18 }, { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 16 }]
     const libro = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(libro, hoja, 'Recetas')
     XLSX.writeFile(libro, 'plantilla_recetas_restaurante.xlsx')
@@ -319,7 +333,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         })
         await queryClient.invalidateQueries({ queryKey: ['productos'] })
       }
-      const recetas = new Map<string, { producto: any; porciones: number; mano_obra: number; costos_indirectos: number; empaque: number; otros_costos: number; ingredientes: any[] }>()
+      const recetas = new Map<string, { producto: any; porciones: number; mano_obra: number; costos_indirectos: number; empaque: number; otros_costos: number; margen_objetivo_pct: number; redondeo_precio: number; ingredientes: any[] }>()
       filasNormalizadas.forEach((datos, indice) => {
         const codigoProducto = datos.productocodigo || datos.productocod || datos.codigoproducto || datos.codproducto
         const nombreProducto = datos.productonombre || datos.productonom || datos.nombreproducto || datos.plato
@@ -331,7 +345,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         if (!ingrediente) throw new Error(`Fila ${indice + 2}: no se encontro el ingrediente "${codigoIngrediente || nombreIngrediente || 'sin dato'}"`)
         const cantidad = numero(datos.cantidadneta)
         if (cantidad <= 0) throw new Error(`Fila ${indice + 2}: cantidad_neta debe ser mayor que cero`)
-        const receta = recetas.get(producto.id) || { producto, porciones: Math.max(1, numero(datos.porciones, 1)), mano_obra: Math.max(0, numero(datos.manoobra)), costos_indirectos: Math.max(0, numero(datos.costosindirectos)), empaque: Math.max(0, numero(datos.empaque)), otros_costos: Math.max(0, numero(datos.otroscostos ?? datos.costosadicionales)), ingredientes: [] }
+        const receta = recetas.get(producto.id) || { producto, porciones: Math.max(1, numero(datos.porciones, 1)), mano_obra: Math.max(0, numero(datos.manoobra)), costos_indirectos: Math.max(0, numero(datos.costosindirectos)), empaque: Math.max(0, numero(datos.empaque)), otros_costos: Math.max(0, numero(datos.otroscostos ?? datos.costosadicionales)), margen_objetivo_pct: Math.max(0, numero(datos.margenobjetivopct, 65)), redondeo_precio: Math.max(1, numero(datos.redondeoprecio, 500)), ingredientes: [] }
         receta.ingredientes.push({ ingrediente_id: ingrediente.id, cantidad_neta: cantidad, unidad: normalizarUnidad(datos.unidad || ingrediente.unidad_consumo || 'unidad'), merma_pct: Math.max(0, numero(datos.mermapct)) })
         recetas.set(producto.id, receta)
       })
@@ -388,6 +402,23 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
 
   if (isLoading) return <PageLoader />
 
+  if (modo === 'costeo') {
+    const recetasFiltradas = recetasCosteo.filter((receta: any) => normalizar([receta.producto_nombre, receta.producto_codigo].join(' ')).includes(normalizar(busqueda)))
+    return <div className="space-y-5">
+      <div className="page-header"><div><h1 className="page-title">Costeo y precio sugerido</h1><p className="page-subtitle">El costo del plato suma ingredientes, mano de obra, indirectos, empaque y otros costos.</p></div></div>
+      <div className="grid gap-3 md:grid-cols-3"><div className="card p-4"><p className="text-xs uppercase text-surface-200/45">Formula de costo</p><p className="mt-1 text-sm text-surface-50">Ingredientes + mano de obra + indirectos + empaque + otros</p></div><div className="card p-4"><p className="text-xs uppercase text-surface-200/45">Precio sugerido</p><p className="mt-1 text-sm text-surface-50">Costo del plato x (1 + utilidad objetivo %)</p></div><div className="card p-4"><p className="text-xs uppercase text-surface-200/45">Redondeo</p><p className="mt-1 text-sm text-surface-50">Se redondea hacia arriba al valor comercial configurado.</p></div></div>
+      <input className="input max-w-md" value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Buscar plato por codigo o nombre..." />
+      <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base"><thead><tr><th>Codigo</th><th>Plato</th><th>Ingredientes</th><th>Mano de obra</th><th>Indirectos</th><th>Empaque</th><th>Costo total</th><th>Utilidad objetivo</th><th>Precio sugerido</th><th>Redondeado</th><th></th></tr></thead><tbody>{recetasFiltradas.map((receta: any) => {
+        const costo = Math.round(Number(receta.costo_por_porcion || 0))
+        const porcentaje = Number(receta.margen_objetivo_pct ?? 65)
+        const sugerido = Math.round(costo * (1 + porcentaje / 100))
+        const redondeo = Math.max(1, Number(receta.redondeo_precio || 500))
+        const comercial = Math.ceil(sugerido / redondeo) * redondeo
+        return <tr key={receta.id}><td className="font-mono text-xs text-surface-200/60">{receta.producto_codigo || '-'}</td><td className="font-medium">{receta.producto_nombre}</td><td>{formatCurrency(receta.costo_ingredientes || 0)}</td><td>{formatCurrency(receta.mano_obra || 0)}</td><td>{formatCurrency(receta.costos_indirectos || 0)}</td><td>{formatCurrency(receta.empaque || 0)}</td><td className="font-semibold">{formatCurrency(costo)}</td><td>{porcentaje}%</td><td>{formatCurrency(sugerido)}</td><td className="font-semibold text-emerald-300">{formatCurrency(comercial)}</td><td><button className="btn-secondary btn-sm" onClick={() => abrirReceta({ id: receta.producto_id, nombre: receta.producto_nombre })}><Pencil className="w-4 h-4" />Configurar</button></td></tr>
+      })}{recetasFiltradas.length===0&&<tr><td colSpan={11} className="py-12 text-center text-surface-200/40">Crea o importa recetas para calcular el costo y precio sugerido.</td></tr>}</tbody></table></div></div>
+    </div>
+  }
+
   if (modo === 'recetas') {
     const recetasConfiguradas = productos.filter((producto: any) => producto.producto_tipo === 'receta' && normalizar([producto.nombre, producto.codigo].join(' ')).includes(normalizar(busqueda)))
     return <div className="space-y-5">
@@ -398,7 +429,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
     <input className="input max-w-md" value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Buscar receta por plato o codigo..." />
     <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base"><thead><tr><th className="w-10"><input aria-label="Seleccionar todas las recetas" type="checkbox" checked={recetasConfiguradas.length>0&&seleccionados.size===recetasConfiguradas.length} onChange={event=>setSeleccionados(event.target.checked?new Set(recetasConfiguradas.map((producto:any)=>producto.id)):new Set())}/></th><th>Codigo</th><th>Plato</th><th>Receta</th><th>Ingredientes</th><th>Costo final por porcion</th><th></th></tr></thead><tbody>{recetasConfiguradas.map((producto: any) => <tr key={producto.id}><td><input aria-label={`Seleccionar receta ${producto.nombre}`} type="checkbox" checked={seleccionados.has(producto.id)} onChange={event=>setSeleccionados(actual=>{const siguiente=new Set(actual);if(event.target.checked)siguiente.add(producto.id);else siguiente.delete(producto.id);return siguiente})}/></td><td className="font-mono text-xs text-surface-200/60">{producto.codigo || '-'}</td><td className="font-medium">{producto.nombre}</td><td><span className="badge-green">Configurada</span></td><td>Ver y editar composicion</td><td className="font-semibold text-emerald-300">{formatCurrency(Math.round(Number(producto.precio_costo || 0)))}</td><td><button className="btn-secondary btn-sm" onClick={() => abrirReceta(producto)}><Pencil className="w-4 h-4" />Editar receta</button></td></tr>)}{recetasConfiguradas.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-surface-200/40">Aun no hay recetas importadas.</td></tr>}</tbody></table></div></div>
     <Modal open={!!recetaModal} onClose={() => setRecetaModal(null)} title={recetaModal ? `Receta: ${recetaModal.nombre}` : 'Receta'} size="2xl" footer={<div className="flex gap-3"><button className="btn-secondary flex-1" onClick={() => setRecetaModal(null)}>Cancelar</button><button className="btn-primary flex-1" onClick={() => guardarReceta.mutate()} disabled={guardarReceta.isPending || !recetaLineas.length}>{guardarReceta.isPending ? 'Guardando...' : 'Guardar receta'}</button></div>}>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3"><div><label className="label">Porciones por receta</label><input className="input" min="1" type="number" value={recetaDatos.porciones} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, porciones: event.target.value }))} /></div><div><label className="label">Mano de obra</label><input className="input" min="0" type="number" value={recetaDatos.mano_obra} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, mano_obra: event.target.value }))} /></div><div><label className="label">Costos indirectos</label><input className="input" min="0" type="number" value={recetaDatos.costos_indirectos} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, costos_indirectos: event.target.value }))} /></div><div><label className="label">Empaque</label><input className="input" min="0" type="number" value={recetaDatos.empaque} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, empaque: event.target.value }))} /></div><div><label className="label">Otros costos</label><input className="input" min="0" type="number" value={recetaDatos.otros_costos} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, otros_costos: event.target.value }))} /></div><p className="col-span-2 self-end text-xs text-surface-200/55 sm:col-span-1">El sistema suma estos valores al costo de ingredientes y divide el total entre las porciones.</p></div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3"><div><label className="label">Porciones por receta</label><input className="input" min="1" type="number" value={recetaDatos.porciones} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, porciones: event.target.value }))} /></div><div><label className="label">Mano de obra</label><input className="input" min="0" type="number" value={recetaDatos.mano_obra} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, mano_obra: event.target.value }))} /></div><div><label className="label">Costos indirectos</label><input className="input" min="0" type="number" value={recetaDatos.costos_indirectos} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, costos_indirectos: event.target.value }))} /></div><div><label className="label">Empaque</label><input className="input" min="0" type="number" value={recetaDatos.empaque} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, empaque: event.target.value }))} /></div><div><label className="label">Otros costos</label><input className="input" min="0" type="number" value={recetaDatos.otros_costos} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, otros_costos: event.target.value }))} /></div><div><label className="label">Utilidad objetivo %</label><input className="input" min="0" type="number" value={recetaDatos.margen_objetivo_pct} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, margen_objetivo_pct: event.target.value }))} /></div><div><label className="label">Redondeo comercial</label><input className="input" min="1" type="number" value={recetaDatos.redondeo_precio} onChange={(event) => setRecetaDatos((actual) => ({ ...actual, redondeo_precio: event.target.value }))} /></div><p className="col-span-2 self-end text-xs text-surface-200/55 sm:col-span-1">El costo total suma ingredientes, mano de obra, indirectos, empaque y otros costos; despues se divide entre las porciones.</p></div>
       <div className="mt-5 space-y-3"><div className="hidden grid-cols-[minmax(260px,1fr)_120px_150px_110px_auto] gap-3 px-1 text-xs font-medium uppercase text-surface-200/55 sm:grid"><span>Ingrediente</span><span>Cantidad</span><span>Unidad</span><span>Merma %</span><span></span></div>{recetaLineas.map((linea, indice) => <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/5 bg-surface-900/30 p-2 sm:grid-cols-[minmax(260px,1fr)_120px_150px_110px_auto] sm:items-center sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0" key={indice}><select aria-label="Ingrediente" className="input col-span-2 sm:col-span-1" value={linea.ingrediente_id} onChange={(event) => setRecetaLineas((actual) => actual.map((fila, posicion) => posicion === indice ? { ...fila, ingrediente_id: event.target.value } : fila))}><option value="">Ingrediente</option>{ingredientes.map((item: any) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select><input aria-label="Cantidad" className="input" type="number" min="0" step="0.001" placeholder="Cantidad" value={linea.cantidad_neta} onChange={(event) => setRecetaLineas((actual) => actual.map((fila, posicion) => posicion === indice ? { ...fila, cantidad_neta: event.target.value } : fila))} /><select aria-label="Unidad" className="input" value={linea.unidad} onChange={(event) => setRecetaLineas((actual) => actual.map((fila, posicion) => posicion === indice ? { ...fila, unidad: event.target.value } : fila))}>{unidades.map((unidad) => <option key={unidad}>{unidad}</option>)}</select><input aria-label="Merma porcentual" className="input" type="number" min="0" max="99" placeholder="Merma %" value={linea.merma_pct} onChange={(event) => setRecetaLineas((actual) => actual.map((fila, posicion) => posicion === indice ? { ...fila, merma_pct: event.target.value } : fila))} /><button className="btn-ghost text-red-300" type="button" onClick={() => setRecetaLineas((actual) => actual.filter((_, posicion) => posicion !== indice))}>Quitar</button></div>)}</div>
       <button className="btn-secondary btn-sm mt-4" type="button" onClick={() => setRecetaLineas((actual) => [...actual, { ingrediente_id: '', cantidad_neta: '', unidad: 'unidad', merma_pct: '0' }])}><Plus className="w-4 h-4" />Agregar ingrediente</button>
     </Modal>
@@ -423,6 +454,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
       </div>
     </div>
     <input className="input max-w-md" value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder={modo === 'ingredientes' ? 'Buscar ingrediente por nombre, codigo o categoria...' : 'Buscar registros...'} />
+    {modo === 'ingredientes' && <div className="rounded-lg border border-brand-400/20 bg-brand-500/5 px-4 py-3 text-sm text-surface-200/75"><strong className="text-surface-50">Como se mide el costo:</strong> el stock y costo inicial se leen de la plantilla. Cada compra posterior convierte la cantidad a la unidad de consumo y recalcula el costo unitario por promedio ponderado. Las recetas se actualizan con ese costo.</div>}
     <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
       <thead>{modo === 'ingredientes' ? <tr><th className="w-10"><input aria-label="Seleccionar todos los ingredientes" type="checkbox" checked={ingredientes.length>0&&seleccionados.size===ingredientes.length} onChange={event=>setSeleccionados(event.target.checked?new Set(ingredientes.map((ingrediente:any)=>ingrediente.id)):new Set())}/></th><th>Ingrediente</th><th>Unidad consumo</th><th>Stock</th><th>Costo unit.</th><th>Reorden</th><th>Estado</th></tr> : modo === 'compras' ? <tr><th>Fecha</th><th>Proveedor</th><th>Factura</th><th>Items</th><th>Total</th><th>Soporte</th></tr> : <tr><th>Fecha</th><th>Ingrediente</th><th>Tipo</th><th>Salida</th><th>Motivo</th></tr>}</thead>
       <tbody>{registrosFiltrados.map((registro: any) => {
@@ -439,6 +471,8 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         <div><label className="label">Unidad compra</label><select className="input" value={ingrediente.unidad_compra} onChange={(event) => setIngrediente((actual) => ({ ...actual, unidad_compra: event.target.value }))}>{unidades.map((unidad) => <option key={unidad}>{unidad}</option>)}</select></div>
         <div><label className="label">Unidad consumo</label><select className="input" value={ingrediente.unidad_consumo} onChange={(event) => setIngrediente((actual) => ({ ...actual, unidad_consumo: event.target.value }))}>{unidades.map((unidad) => <option key={unidad}>{unidad}</option>)}</select></div>
         <div><label className="label">Factor conversion</label><input type="number" className="input" value={ingrediente.factor_conversion} onChange={(event) => setIngrediente((actual) => ({ ...actual, factor_conversion: event.target.value }))} /></div>
+        <div><label className="label">Stock inicial</label><input type="number" min="0" className="input" value={ingrediente.stock_inicial} onChange={(event) => setIngrediente((actual) => ({ ...actual, stock_inicial: event.target.value }))} /></div>
+        <div><label className="label">Costo por unidad de consumo</label><input type="number" min="0" className="input" value={ingrediente.costo_unitario} onChange={(event) => setIngrediente((actual) => ({ ...actual, costo_unitario: event.target.value }))} /></div>
         <div><label className="label">Stock minimo</label><input type="number" className="input" value={ingrediente.stock_minimo} onChange={(event) => setIngrediente((actual) => ({ ...actual, stock_minimo: event.target.value }))} /></div>
         <div><label className="label">Proveedor principal</label><input className="input" value={ingrediente.proveedor_principal} onChange={(event) => setIngrediente((actual) => ({ ...actual, proveedor_principal: event.target.value }))} /></div>
       </div> : modo === 'compras' ? <div className="space-y-3">

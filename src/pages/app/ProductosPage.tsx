@@ -40,10 +40,15 @@ function clave(valor: unknown) {
 
 function numero(valor: unknown) {
   if (typeof valor === 'number') return valor
-  const texto = String(valor ?? '').trim().replace(/\s/g, '')
+  const texto = String(valor ?? '').trim().replace(/[^\d,.-]/g, '')
   if (!texto) return 0
-  if (texto.includes(',') && texto.includes('.')) return Number(texto.replace(/\./g, '').replace(',', '.')) || 0
-  return Number(texto.replace(',', '.')) || 0
+  if (texto.includes(',') && texto.includes('.')) {
+    const decimalEsComa = texto.lastIndexOf(',') > texto.lastIndexOf('.')
+    return Number(decimalEsComa ? texto.replace(/\./g, '').replace(',', '.') : texto.replace(/,/g, '')) || 0
+  }
+  if (texto.includes('.')) return Number(/^[-+]?\d{1,3}(\.\d{3})+$/.test(texto) ? texto.replace(/\./g, '') : texto) || 0
+  if (texto.includes(',')) return Number(/^[-+]?\d{1,3}(,\d{3})+$/.test(texto) ? texto.replace(/,/g, '') : texto.replace(',', '.')) || 0
+  return Number(texto) || 0
 }
 
 export default function ProductosPage() {
@@ -111,17 +116,17 @@ export default function ProductosPage() {
         const datos = Object.fromEntries(Object.entries(fila).map(([k,v]) => [clave(k), v])) as Record<string, unknown>
         const nombre = String(datos.nombre || '').trim()
         const precioVenta = numero(datos.precioventa)
-        if (!nombre || precioVenta <= 0) return null
+        if (!nombre) return null
         const controla = !['no','false','0'].includes(clave(datos.controlastock || 'si'))
         return { nombre, codigo:String(datos.codigo || '').trim() || undefined, precio_venta:precioVenta, precio_costo:numero(datos.preciocosto), categoria_id:categorias.get(clave(datos.categoria)) || undefined, destino:['barra','cocina','ambos','directo'].includes(clave(datos.destino)) ? clave(datos.destino) : 'barra', impuesto_pct:numero(datos.impuestopct), stock_inicial:numero(datos.stockinicial), stock_minimo:numero(datos.stockminimo), controla_stock:controla, disponible:true }
       }).filter(Boolean) as any[]
-      if (!validas.length) throw new Error('No hay filas validas. Se requiere nombre y precio_venta mayor que cero.')
+      if (!validas.length) throw new Error('No hay filas validas. Cada fila debe tener al menos el nombre del producto.')
       if (validas.some(producto => !producto.codigo)) throw new Error('Cada fila debe tener codigo para actualizar la lista sin duplicados.')
-      if (!window.confirm('Esta importacion reemplazara la lista visible de productos por la plantilla. Las ventas anteriores se conservaran. Deseas continuar?')) return
+      if (!window.confirm('La plantilla creara o actualizara productos por codigo. Los productos que no esten en el archivo se conservaran. Deseas continuar?')) return
       const { data } = await api.post<any>('/productos?sincronizar=true', { productos: validas })
       const resultado = data.data || data
       qc.invalidateQueries({queryKey:['productos']}); qc.invalidateQueries({queryKey:['inventario']})
-      toast.success(`${resultado.creados || 0} creados, ${resultado.actualizados || 0} actualizados y ${resultado.retirados || 0} retirados de la lista`)
+      toast.success(`${resultado.creados || 0} creados y ${resultado.actualizados || 0} actualizados`)
     } catch (e:any) { toast.error(e?.message || 'No se pudo leer el archivo Excel') }
     finally { setImportando(false); if (archivoRef.current) archivoRef.current.value = '' }
   }

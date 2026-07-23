@@ -6,6 +6,10 @@ import { ensureRestaurantSchema, esRestaurante, recalcularReceta } from './_rest
 export default async function handler(req:any,res:any) {
   cors(res); if(req.method==='OPTIONS')return res.status(200).end(); const auth=await authenticate(req,res); if(!auth?.empresa_id)return
   await ensureRestaurantSchema(); const eid=auth.empresa_id; const restaurante=await esRestaurante(eid)
+  if (restaurante && req.method==='GET' && req.query?.listado === 'true') {
+    const rows=await query(`SELECT r.*,p.nombre as producto_nombre,p.codigo as producto_codigo,p.precio_venta FROM recetas_restaurante r JOIN productos p ON p.id=r.producto_id AND p.empresa_id=r.empresa_id WHERE r.empresa_id=$1 AND COALESCE(r.activa,true)=true AND p.eliminado_at IS NULL ORDER BY p.nombre`,[eid])
+    return res.status(200).json({ok:true,data:rows})
+  }
   if (restaurante && req.method==='DELETE') {
     const productoIds=Array.isArray(req.body?.producto_ids)?req.body.producto_ids.filter(Boolean):[]
     if(!productoIds.length)return res.status(400).json({ok:false,msg:'Selecciona al menos una receta'})
@@ -56,10 +60,10 @@ export default async function handler(req:any,res:any) {
         const empaque=Math.max(0,Number(b.empaque)||0)
         const otrosCostos=Math.max(0,Number(b.otros_costos ?? b.costos_adicionales)||0)
         if(actual){
-          await query(`UPDATE recetas_restaurante SET nombre=$1,porciones=$2,costos_adicionales=$3,mano_obra=$4,costos_indirectos=$5,empaque=$6,otros_costos=$7,activa=true,updated_at=NOW() WHERE id=$8 AND empresa_id=$9`,[b.nombre||`Receta ${producto.nombre}`,porciones,otrosCostos,manoObra,costosIndirectos,empaque,otrosCostos,recetaId,eid])
+          await query(`UPDATE recetas_restaurante SET nombre=$1,porciones=$2,costos_adicionales=$3,mano_obra=$4,costos_indirectos=$5,empaque=$6,otros_costos=$7,margen_objetivo_pct=$8,redondeo_precio=$9,activa=true,updated_at=NOW() WHERE id=$10 AND empresa_id=$11`,[b.nombre||`Receta ${producto.nombre}`,porciones,otrosCostos,manoObra,costosIndirectos,empaque,otrosCostos,Math.max(0,Number(b.margen_objetivo_pct)||65),Math.max(1,Number(b.redondeo_precio)||500),recetaId,eid])
           await query(`DELETE FROM receta_ingredientes WHERE receta_id=$1 AND empresa_id=$2`,[recetaId,eid])
         } else {
-          await query(`INSERT INTO recetas_restaurante (id,empresa_id,producto_id,nombre,porciones,costos_adicionales,mano_obra,costos_indirectos,empaque,otros_costos,activa) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)`,[recetaId,eid,productoId,b.nombre||`Receta ${producto.nombre}`,porciones,otrosCostos,manoObra,costosIndirectos,empaque,otrosCostos])
+          await query(`INSERT INTO recetas_restaurante (id,empresa_id,producto_id,nombre,porciones,costos_adicionales,mano_obra,costos_indirectos,empaque,otros_costos,margen_objetivo_pct,redondeo_precio,activa) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,true)`,[recetaId,eid,productoId,b.nombre||`Receta ${producto.nombre}`,porciones,otrosCostos,manoObra,costosIndirectos,empaque,otrosCostos,Math.max(0,Number(b.margen_objetivo_pct)||65),Math.max(1,Number(b.redondeo_precio)||500)])
         }
         for(const linea of lineas){
           const bruta=linea.neta/(1-linea.merma/100)

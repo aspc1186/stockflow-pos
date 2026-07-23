@@ -110,7 +110,11 @@ export default async function handler(req: any, res: any) {
         creados += 1
       }
     }
-    const retirados = await query(`UPDATE productos SET disponible=false,eliminado_at=NOW(),updated_at=NOW() WHERE empresa_id=$1 AND eliminado_at IS NULL AND NOT (id = ANY($2::uuid[])) RETURNING id`, [empresaId, conservados]) as any[]
+    // La importacion normal es acumulativa: una nueva plantilla no puede ocultar
+    // productos creados fuera del archivo.
+    const retirados = req.query?.reemplazar === 'true'
+      ? await query(`UPDATE productos SET disponible=false,eliminado_at=NOW(),updated_at=NOW() WHERE empresa_id=$1 AND eliminado_at IS NULL AND NOT (id = ANY($2::uuid[])) RETURNING id`, [empresaId, conservados]) as any[]
+      : []
     return res.status(200).json({ ok: true, data: { creados, actualizados, retirados: retirados.length } })
   }
 
