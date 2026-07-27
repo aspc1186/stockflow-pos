@@ -46,6 +46,18 @@ export function ensureRestaurantSchema() {
       costo_por_porcion NUMERIC(14,4) NOT NULL DEFAULT 0, activa BOOLEAN NOT NULL DEFAULT true, version INTEGER NOT NULL DEFAULT 1,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS costeo_parametros_restaurante (
+      empresa_id UUID PRIMARY KEY,
+      mano_obra_mensual NUMERIC(14,2) NOT NULL DEFAULT 8400000,
+      indirectos_mensuales NUMERIC(14,2) NOT NULL DEFAULT 5200000,
+      porciones_mes NUMERIC(14,2) NOT NULL DEFAULT 3000,
+      minutos_productivos_mes NUMERIC(14,2) NOT NULL DEFAULT 24000,
+      empaque_predeterminado NUMERIC(14,2) NOT NULL DEFAULT 0,
+      otros_predeterminados NUMERIC(14,2) NOT NULL DEFAULT 0,
+      margen_objetivo_pct NUMERIC(6,2) NOT NULL DEFAULT 65,
+      redondeo_precio NUMERIC(14,2) NOT NULL DEFAULT 500,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE INDEX IF NOT EXISTS recetas_restaurante_activa_idx ON recetas_restaurante(empresa_id,producto_id) WHERE activa=true;
     CREATE TABLE IF NOT EXISTS receta_ingredientes (
       id UUID PRIMARY KEY, empresa_id UUID NOT NULL, receta_id UUID NOT NULL, ingrediente_id UUID NOT NULL,
@@ -102,7 +114,7 @@ export function ensureRestaurantSchema() {
     ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS costo_unitario NUMERIC(14,4) NOT NULL DEFAULT 0;
     ALTER TABLE receta_ingredientes ADD COLUMN IF NOT EXISTS costo_total NUMERIC(14,2) NOT NULL DEFAULT 0;
     ALTER TABLE movimientos_ingredientes ADD COLUMN IF NOT EXISTS pedido_item_id UUID
-  `)).then(() => query(`CREATE INDEX IF NOT EXISTS movimientos_ingredientes_venta_idx ON movimientos_ingredientes(pedido_item_id,ingrediente_id,tipo) WHERE pedido_item_id IS NOT NULL AND tipo='venta'`)).then(() => undefined)
+  `)).then(() => query(`CREATE INDEX IF NOT EXISTS movimientos_ingredientes_venta_idx ON movimientos_ingredientes(pedido_item_id,ingrediente_id,tipo) WHERE pedido_item_id IS NOT NULL AND tipo='venta'`)).then(() => query(`INSERT INTO costeo_parametros_restaurante (empresa_id) SELECT id FROM empresas WHERE LOWER(TRIM(tipo))='restaurante' ON CONFLICT (empresa_id) DO NOTHING`)).then(() => undefined)
   return schemaReady
 }
 

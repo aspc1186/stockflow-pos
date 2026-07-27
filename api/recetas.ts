@@ -6,8 +6,30 @@ import { ensureRestaurantSchema, esRestaurante, recalcularReceta } from './_rest
 export default async function handler(req:any,res:any) {
   cors(res); if(req.method==='OPTIONS')return res.status(200).end(); const auth=await authenticate(req,res); if(!auth?.empresa_id)return
   await ensureRestaurantSchema(); const eid=auth.empresa_id; const restaurante=await esRestaurante(eid)
+  if (restaurante && req.query?.parametros === 'true') {
+    const parametros = await queryOne(`SELECT * FROM costeo_parametros_restaurante WHERE empresa_id=$1`, [eid]) as any
+    if (req.method === 'GET') return res.status(200).json({ ok:true, data:parametros })
+    if (req.method === 'PATCH') {
+      const b=req.body||{}
+      const [actualizado]=await query(`UPDATE costeo_parametros_restaurante SET mano_obra_mensual=COALESCE($1,mano_obra_mensual),indirectos_mensuales=COALESCE($2,indirectos_mensuales),porciones_mes=COALESCE($3,porciones_mes),minutos_productivos_mes=COALESCE($4,minutos_productivos_mes),empaque_predeterminado=COALESCE($5,empaque_predeterminado),otros_predeterminados=COALESCE($6,otros_predeterminados),margen_objetivo_pct=COALESCE($7,margen_objetivo_pct),redondeo_precio=COALESCE($8,redondeo_precio),updated_at=NOW() WHERE empresa_id=$9 RETURNING *`,[b.mano_obra_mensual,b.indirectos_mensuales,b.porciones_mes,b.minutos_productivos_mes,b.empaque_predeterminado,b.otros_predeterminados,b.margen_objetivo_pct,b.redondeo_precio,eid])
+      return res.status(200).json({ok:true,data:actualizado})
+    }
+    if (req.method === 'POST' && req.query?.aplicar === 'true') {
+      const porcionesMes=Math.max(1,Number(parametros?.porciones_mes)||1)
+      const manoObraPorPorcion=(Number(parametros?.mano_obra_mensual)||0)/porcionesMes
+      const indirectosPorPorcion=(Number(parametros?.indirectos_mensuales)||0)/porcionesMes
+      const recetas=await query(`SELECT id,porciones FROM recetas_restaurante WHERE empresa_id=$1 AND COALESCE(activa,true)=true`,[eid]) as any[]
+      for(const receta of recetas){
+        const porciones=Math.max(1,Number(receta.porciones)||1)
+        await query(`UPDATE recetas_restaurante SET mano_obra=CASE WHEN COALESCE(mano_obra,0)=0 THEN $1 ELSE mano_obra END,costos_indirectos=CASE WHEN COALESCE(costos_indirectos,0)=0 THEN $2 ELSE costos_indirectos END,empaque=CASE WHEN COALESCE(empaque,0)=0 THEN $3 ELSE empaque END,otros_costos=CASE WHEN COALESCE(otros_costos,0)=0 THEN $4 ELSE otros_costos END,margen_objetivo_pct=CASE WHEN COALESCE(margen_objetivo_pct,0)=0 THEN $5 ELSE margen_objetivo_pct END,redondeo_precio=CASE WHEN COALESCE(redondeo_precio,0)=0 THEN $6 ELSE redondeo_precio END,updated_at=NOW() WHERE id=$7 AND empresa_id=$8`,[manoObraPorPorcion*porciones,indirectosPorPorcion*porciones,(Number(parametros?.empaque_predeterminado)||0)*porciones,(Number(parametros?.otros_predeterminados)||0)*porciones,Number(parametros?.margen_objetivo_pct)||65,Number(parametros?.redondeo_precio)||500,receta.id,eid])
+        await recalcularReceta(receta.id,eid)
+      }
+      return res.status(200).json({ok:true,data:{recetas_actualizadas:recetas.length,mano_obra_por_porcion:manoObraPorPorcion,indirectos_por_porcion:indirectosPorPorcion}})
+    }
+    return res.status(405).end()
+  }
   if (restaurante && req.method==='GET' && req.query?.listado === 'true') {
-    const rows=await query(`SELECT r.*,p.nombre as producto_nombre,p.codigo as producto_codigo,p.precio_venta FROM recetas_restaurante r JOIN productos p ON p.id=r.producto_id AND p.empresa_id=r.empresa_id WHERE r.empresa_id=$1 AND COALESCE(r.activa,true)=true AND p.eliminado_at IS NULL ORDER BY p.nombre`,[eid])
+    const rows=await query(`SELECT r.*,p.nombre as producto_nombre,p.codigo as producto_codigo,p.precio_venta,p.impuesto_pct,p.impuesto_incluido,p.impuesto_tipo FROM recetas_restaurante r JOIN productos p ON p.id=r.producto_id AND p.empresa_id=r.empresa_id WHERE r.empresa_id=$1 AND COALESCE(r.activa,true)=true AND p.eliminado_at IS NULL ORDER BY p.nombre`,[eid])
     return res.status(200).json({ok:true,data:rows})
   }
   if (restaurante && req.method==='DELETE') {
