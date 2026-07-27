@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Download, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, Download, Pencil, Plus } from 'lucide-react'
 import api from '@/lib/axios'
 import Modal from '@/components/ui/Modal'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -11,17 +11,23 @@ export default function InventarioPage() {
   const qc = useQueryClient()
   const [critico, setCritico] = useState(false)
   const [search, setSearch] = useState('')
+  const [searchApi, setSearchApi] = useState('')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+  useEffect(() => {
+    const espera = window.setTimeout(() => setSearchApi(search.trim()), 300)
+    return () => window.clearTimeout(espera)
+  }, [search])
   const { data: inventarioData, isLoading } = useQuery({
-    queryKey: ['inventario',critico,search],
-    queryFn: async () => { const p = new URLSearchParams(); if(critico)p.set('critico','true'); if(search)p.set('search',search); const { data } = await api.get<any>(`/inventario?${p}`); return (data.data || data) as any[] },
+    queryKey: ['inventario',critico,searchApi],
+    queryFn: async () => { const p = new URLSearchParams(); if(critico)p.set('critico','true'); if(searchApi)p.set('search',searchApi); const { data } = await api.get<any>(`/inventario?${p}`); return (data.data || data) as any[] },
+    placeholderData: keepPreviousData,
     refetchInterval: 20_000,
   })
   const { data: productos = [] } = useQuery({ queryKey: ['prods-inv'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as any[] }, enabled: modal })
   const ajustar = useMutation({
     mutationFn: () => api.post('/inventario', {...form,cantidad:parseFloat(form.cantidad)||0,costo_unit:form.costo_unit?parseFloat(form.costo_unit):undefined}),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['inventario']}); qc.invalidateQueries({queryKey:['caja']}); qc.invalidateQueries({queryKey:['dashboard-stats']}); setModal(false); setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'}); toast.success('Movimiento registrado') },
+    onSuccess: async () => { await Promise.all([qc.invalidateQueries({queryKey:['inventario']}), qc.invalidateQueries({queryKey:['caja']}), qc.invalidateQueries({queryKey:['dashboard-stats']})]); setModal(false); setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'}); toast.success('Movimiento registrado y saldo actualizado') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
   const descargarMovimientos = async () => {
@@ -36,6 +42,10 @@ export default function InventarioPage() {
   if (isLoading) return <PageLoader />
   const inv = inventarioData || []
   const valorTotal = inv.reduce((s:any, item:any) => s + Number(item.valor_costo || 0), 0)
+  const abrirCorreccion = (item:any) => {
+    setForm({ producto_id:item.producto_id, tipo:'ajuste', cantidad:String(Number(item.stock_actual || 0)), costo_unit:String(Number(item.precio_costo || 0)), notas:'Correccion de inventario', pagar_desde_caja:false, metodo_pago:'efectivo' })
+    setModal(true)
+  }
   return (
     <div className="space-y-5">
       <div className="page-header">
@@ -47,7 +57,7 @@ export default function InventarioPage() {
         <button onClick={() => setCritico(v => !v)} className={cn('btn btn-sm',critico?'btn-primary':'btn-secondary')}><AlertTriangle className="w-4 h-4"/>Solo criticos</button>
       </div>
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
-        <thead><tr><th>Producto</th><th>Saldo actual</th><th>Entradas hoy</th><th>Salidas hoy</th><th>Minimo</th><th>Costo unit.</th><th>Valor costo</th><th>Venta</th><th>Margen</th><th>Ult. salida</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Producto</th><th>Saldo actual</th><th>Entradas hoy</th><th>Salidas hoy</th><th>Minimo</th><th>Costo unit.</th><th>Valor costo</th><th>Venta</th><th>Margen</th><th>Ult. salida</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {inv.map((item:any) => { const c = Number(item.stock_actual)<=Number(item.stock_minimo)&&Number(item.stock_minimo)>0; return (
             <tr key={item.producto_id}>
@@ -62,17 +72,18 @@ export default function InventarioPage() {
               <td className={Number(item.margen_unitario) >= 0 ? 'text-emerald-400' : 'text-red-400'}>{formatCurrency(item.margen_unitario || 0)}</td>
               <td className="text-xs text-surface-200/60">{item.ultima_salida_at ? new Date(item.ultima_salida_at).toLocaleString('es-CO') : '-'}</td>
               <td>{c?<span className="badge-red">Critico</span>:<span className="badge-green">OK</span>}</td>
+              <td><button type="button" className="btn-ghost btn-sm p-2" title="Corregir inventario" onClick={() => abrirCorreccion(item)}><Pencil className="h-4 w-4"/></button></td>
             </tr>
           )})}
-          {inv.length===0&&<tr><td colSpan={11} className="text-center py-12 text-surface-200/30">Sin resultados</td></tr>}
+          {inv.length===0&&<tr><td colSpan={12} className="text-center py-12 text-surface-200/30">Sin resultados</td></tr>}
         </tbody>
       </table></div></div>
-      <Modal open={modal} onClose={() => setModal(false)} title="Movimiento de inventario" size="sm"
+      <Modal open={modal} onClose={() => setModal(false)} title={form.tipo === 'ajuste' ? 'Correccion de inventario' : 'Movimiento de inventario'} size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => ajustar.mutate()} disabled={ajustar.isPending||!form.producto_id||!form.cantidad} className="btn-primary flex-1">{ajustar.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Guardar'}</button></div>}>
         <div className="space-y-4">
           <div><label className="label">Producto *</label><select className="input" value={form.producto_id} onChange={e=>setForm(p=>({...p,producto_id:e.target.value}))}><option value="" className="bg-surface-800">Selecciona un producto</option>{productos.map((p:any)=><option key={p.id} value={p.id} className="bg-surface-800">{p.nombre}</option>)}</select></div>
           <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value,pagar_desde_caja:e.target.value==='entrada'?p.pagar_desde_caja:false}))}><option value="entrada" className="bg-surface-800">Entrada de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
-          <div><label className="label">Cantidad *</label><input type="number" min="0" className="input" value={form.cantidad} onChange={e=>setForm(p=>({...p,cantidad:e.target.value}))}/></div>
+          <div><label className="label">{form.tipo === 'ajuste' ? 'Saldo final contado *' : 'Cantidad *'}</label><input type="number" min="0" className="input" value={form.cantidad} onChange={e=>setForm(p=>({...p,cantidad:e.target.value}))}/>{form.tipo === 'ajuste' && <p className="mt-1 text-xs text-surface-200/50">La correccion queda registrada como movimiento de ajuste.</p>}</div>
           <div><label className="label">Costo unitario</label><input type="number" min="0" className="input" placeholder="Solo si cambia el costo" value={form.costo_unit} onChange={e=>setForm(p=>({...p,costo_unit:e.target.value}))}/></div>
           {form.tipo==='entrada' && <div className="space-y-3 rounded-lg border border-white/10 bg-surface-900/40 p-3"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={form.pagar_desde_caja} onChange={e=>setForm(p=>({...p,pagar_desde_caja:e.target.checked}))}/><span>Pagado desde caja</span></label>{form.pagar_desde_caja && <div><label className="label">Metodo de pago</label><select className="input" value={form.metodo_pago} onChange={e=>setForm(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>}</div>}
           <div><label className="label">Notas</label><input className="input" value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))}/></div>

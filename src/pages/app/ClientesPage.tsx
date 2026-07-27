@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search } from 'lucide-react'
+import { Pencil, Plus, Search } from 'lucide-react'
 import api from '@/lib/axios'
 import type { Cliente } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -12,6 +12,7 @@ export default function ClientesPage() {
   const qc = useQueryClient()
   const [modal, setModal] = useState(false)
   const [search, setSearch] = useState('')
+  const [editando, setEditando] = useState<Cliente | null>(null)
   const [form, setForm] = useState({nombre:'',telefono:'',email:'',documento:'',tipo_cliente:'regular',notas:''})
 
   const { data: clientes = [], isLoading } = useQuery({
@@ -23,9 +24,9 @@ export default function ClientesPage() {
     },
   })
 
-  const crear = useMutation({
-    mutationFn: () => api.post('/clientes', form),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['clientes']}); setModal(false); setForm({nombre:'',telefono:'',email:'',documento:'',tipo_cliente:'regular',notas:''}); toast.success('Cliente creado') },
+  const guardar = useMutation({
+    mutationFn: () => editando ? api.patch(`/clientes/${editando.id}`, form) : api.post('/clientes', form),
+    onSuccess: () => { qc.invalidateQueries({queryKey:['clientes']}); setModal(false); setEditando(null); setForm({nombre:'',telefono:'',email:'',documento:'',tipo_cliente:'regular',notas:''}); toast.success(editando ? 'Cliente actualizado' : 'Cliente creado') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
 
@@ -34,14 +35,14 @@ export default function ClientesPage() {
     <div className="space-y-5">
       <div className="page-header">
         <div><h1 className="page-title">Clientes</h1><p className="page-subtitle">{clientes.length} clientes</p></div>
-        <button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nuevo</button>
+        <button onClick={() => { setEditando(null); setForm({nombre:'',telefono:'',email:'',documento:'',tipo_cliente:'regular',notas:''}); setModal(true) }} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Nuevo</button>
       </div>
       <div className="relative max-w-xs">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-200/30"/>
         <input className="input pl-9" placeholder="Buscar cliente..." value={search} onChange={e => setSearch(e.target.value)}/>
       </div>
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
-        <thead><tr><th>Cliente</th><th>Teléfono</th><th>Tipo</th><th>Visitas</th><th>Total consumo</th><th>Registro</th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Teléfono</th><th>Tipo</th><th>Visitas</th><th>Total consumo</th><th>Registro</th><th></th></tr></thead>
         <tbody>
           {clientes.map(c => (
             <tr key={c.id}>
@@ -51,13 +52,14 @@ export default function ClientesPage() {
               <td className="text-surface-200/70">{c.total_visitas}</td>
               <td className="font-semibold text-brand-400">{formatCurrency(c.total_consumo)}</td>
               <td className="text-xs text-surface-200/50">{formatDate(c.created_at,'dd/MM/yy')}</td>
+              <td><button type="button" className="btn-ghost btn-sm p-2" title="Editar cliente" onClick={() => { setEditando(c); setForm({ nombre:c.nombre || '', telefono:c.telefono || '', email:c.email || '', documento:(c as any).documento || '', tipo_cliente:c.tipo_cliente || 'regular', notas:(c as any).notas || '' }); setModal(true) }}><Pencil className="h-4 w-4"/></button></td>
             </tr>
           ))}
-          {clientes.length===0&&<tr><td colSpan={6} className="text-center py-12 text-surface-200/30">Sin clientes</td></tr>}
+          {clientes.length===0&&<tr><td colSpan={7} className="text-center py-12 text-surface-200/30">Sin clientes</td></tr>}
         </tbody>
       </table></div></div>
-      <Modal open={modal} onClose={() => setModal(false)} title="Nuevo cliente" size="md"
-        footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => crear.mutate()} disabled={crear.isPending||!form.nombre} className="btn-primary flex-1">{crear.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Crear'}</button></div>}>
+      <Modal open={modal} onClose={() => setModal(false)} title={editando ? 'Editar cliente' : 'Nuevo cliente'} size="md"
+        footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => guardar.mutate()} disabled={guardar.isPending||!form.nombre} className="btn-primary flex-1">{guardar.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:editando?'Guardar cambios':'Crear'}</button></div>}>
         <div className="space-y-4">
           <div><label className="label">Nombre *</label><input className="input" value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))}/></div>
           <div className="grid grid-cols-2 gap-3">

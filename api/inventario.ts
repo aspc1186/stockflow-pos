@@ -71,12 +71,18 @@ export default async function handler(req: any, res: any) {
       )
       inv = { stock_actual: 0 }
     }
-    const q=parseFloat(String(cantidad))||0; const antes=parseFloat(String(inv.stock_actual))||0; let despues=antes
+    const q=parseFloat(String(cantidad))||0
+    if (q <= 0) return res.status(400).json({ ok:false, msg:'La cantidad debe ser mayor que cero' })
+    const antes=parseFloat(String(inv.stock_actual))||0; let despues=antes
     if (tipo === 'entrada') despues=antes+q
     else if (['salida','merma','rotura','venta'].includes(tipo)) despues=Math.max(0,antes-q)
     else if (tipo==='ajuste') despues=q
 
-    const costoFinal = costo_unit !== undefined && costo_unit !== null && costo_unit !== '' ? parseFloat(String(costo_unit)) || 0 : parseFloat(String(producto.precio_costo)) || 0
+    const tieneCostoNuevo = costo_unit !== undefined && costo_unit !== null && costo_unit !== ''
+    const costoFinal = tieneCostoNuevo ? parseFloat(String(costo_unit)) || 0 : parseFloat(String(producto.precio_costo)) || 0
+    const costoPromedio = tipo === 'entrada' && tieneCostoNuevo && antes + q > 0
+      ? ((antes * (parseFloat(String(producto.precio_costo)) || 0)) + (q * costoFinal)) / (antes + q)
+      : costoFinal
     const compraTotal = Math.abs(q) * costoFinal
     let cajaPago: any = null
     if (pagar_desde_caja) {
@@ -85,8 +91,8 @@ export default async function handler(req: any, res: any) {
       cajaPago = await queryOne(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1`, [eid])
       if (!cajaPago) return res.status(400).json({ ok:false, msg:'Abre la caja antes de pagar una compra de inventario' })
     }
-    if (costo_unit !== undefined && costo_unit !== null && costo_unit !== '') {
-      await query(`UPDATE productos SET precio_costo=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`, [costoFinal, producto_id, eid])
+    if (tieneCostoNuevo) {
+      await query(`UPDATE productos SET precio_costo=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`, [costoPromedio, producto_id, eid])
     }
 
     await query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE producto_id=$2 AND empresa_id=$3`,[despues,producto_id,eid])
