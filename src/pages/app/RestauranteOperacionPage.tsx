@@ -135,7 +135,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
     const hoja = XLSX.utils.json_to_sheet([{
       nombre: 'Tomate chonto', codigo: 'ING-001', categoria: 'Verduras', descripcion: 'Ingrediente fresco',
       unidad_compra: 'kilogramo', unidad_consumo: 'gramo', factor_conversion: 1000,
-      stock_inicial: 10, costo_unitario: 4500, stock_minimo: 2, stock_maximo: 20, punto_reorden: 5, proveedor_principal: 'Proveedor ejemplo', merma_pct: 5, rendimiento: 0.95,
+      stock_inicial: 10, precio_compra_ref: 4500, stock_minimo: 2, stock_maximo: 20, punto_reorden: 5, proveedor_principal: 'Proveedor ejemplo', merma_pct: 5, rendimiento: 0.95,
     }])
     hoja['!cols'] = [
       { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 20 },
@@ -164,6 +164,13 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         if (!unidadCompra || !unidadConsumo) throw new Error(`Fila ${indice + 2}: unidad de compra y consumo son obligatorias`)
         const factorConversion = numero(datos.factorconversion, 1)
         if (factorConversion <= 0) throw new Error(`Fila ${indice + 2}: el factor de conversion debe ser mayor a cero`)
+        const tieneCostoUnitario = datos.costounitario !== undefined && datos.costounitario !== ''
+        const tienePrecioCompra = datos.preciocompraref !== undefined && datos.preciocompraref !== ''
+        // costo_unitario siempre se guarda por unidad de consumo. El archivo de
+        // mercado entrega precio_compra_ref por unidad de compra, por eso se convierte.
+        const costoUnitario = tieneCostoUnitario
+          ? Math.max(0, numero(datos.costounitario))
+          : tienePrecioCompra ? Math.max(0, numero(datos.preciocompraref) / factorConversion) : undefined
         return {
           nombre,
           codigo: String(datos.codigo || '').trim() || undefined,
@@ -173,7 +180,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
           unidad_consumo: unidadConsumo,
           factor_conversion: factorConversion,
           stock_inicial: datos.stockinicial === undefined || datos.stockinicial === '' ? undefined : Math.max(0, numero(datos.stockinicial)),
-          costo_unitario: datos.costounitario === undefined || datos.costounitario === '' ? undefined : Math.max(0, numero(datos.costounitario)),
+          costo_unitario: costoUnitario,
           stock_minimo: Math.max(0, numero(datos.stockminimo)),
           stock_maximo: datos.stockmaximo === '' ? undefined : Math.max(0, numero(datos.stockmaximo)),
           punto_reorden: datos.puntoreorden === '' ? undefined : Math.max(0, numero(datos.puntoreorden)),
@@ -454,7 +461,7 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
       </div>
     </div>
     <input className="input max-w-md" value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder={modo === 'ingredientes' ? 'Buscar ingrediente por nombre, codigo o categoria...' : 'Buscar registros...'} />
-    {modo === 'ingredientes' && <div className="rounded-lg border border-brand-400/20 bg-brand-500/5 px-4 py-3 text-sm text-surface-200/75"><strong className="text-surface-50">Como se mide el costo:</strong> el stock y costo inicial se leen de la plantilla. Cada compra posterior convierte la cantidad a la unidad de consumo y recalcula el costo unitario por promedio ponderado. Las recetas se actualizan con ese costo.</div>}
+    {modo === 'ingredientes' && <div className="rounded-lg border border-brand-400/20 bg-brand-500/5 px-4 py-3 text-sm text-surface-200/75"><strong className="text-surface-50">Como se mide el costo:</strong> el stock y costo inicial se leen de la plantilla. La columna <strong>precio_compra_ref</strong> se convierte a la unidad de consumo: por ejemplo, $5.500 por kilogramo equivale a $5,50 por gramo. Cada compra posterior recalcula el costo por promedio ponderado y actualiza las recetas.</div>}
     <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
       <thead>{modo === 'ingredientes' ? <tr><th className="w-10"><input aria-label="Seleccionar todos los ingredientes" type="checkbox" checked={ingredientes.length>0&&seleccionados.size===ingredientes.length} onChange={event=>setSeleccionados(event.target.checked?new Set(ingredientes.map((ingrediente:any)=>ingrediente.id)):new Set())}/></th><th>Ingrediente</th><th>Unidad consumo</th><th>Stock</th><th>Costo unit.</th><th>Reorden</th><th>Estado</th></tr> : modo === 'compras' ? <tr><th>Fecha</th><th>Proveedor</th><th>Factura</th><th>Items</th><th>Total</th><th>Soporte</th></tr> : <tr><th>Fecha</th><th>Ingrediente</th><th>Tipo</th><th>Salida</th><th>Motivo</th></tr>}</thead>
       <tbody>{registrosFiltrados.map((registro: any) => {
