@@ -168,9 +168,10 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         const tienePrecioCompra = datos.preciocompraref !== undefined && datos.preciocompraref !== ''
         // costo_unitario siempre se guarda por unidad de consumo. El archivo de
         // mercado entrega precio_compra_ref por unidad de compra, por eso se convierte.
+        const precioCompraRef = numero(datos.preciocompraref)
         const costoUnitario = tieneCostoUnitario
           ? Math.max(0, numero(datos.costounitario))
-          : tienePrecioCompra ? Math.max(0, numero(datos.preciocompraref) / factorConversion) : undefined
+          : tienePrecioCompra && precioCompraRef > 0 ? precioCompraRef / factorConversion : undefined
         return {
           nombre,
           codigo: String(datos.codigo || '').trim() || undefined,
