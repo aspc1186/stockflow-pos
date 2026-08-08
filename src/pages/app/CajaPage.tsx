@@ -22,7 +22,7 @@ export default function CajaPage() {
   const [correccion, setCorreccion] = useState({tipo:'ingreso',monto:'',descripcion:'',metodo_pago:'efectivo',motivo:''})
   const { data, isLoading } = useQuery({
     queryKey: ['caja'],
-    queryFn: async () => { const { data } = await api.get<any>('/caja'); return (data.data||data) as {caja:Caja;movimientos:CajaMovimiento[];ultimo_cierre:Caja|null} },
+    queryFn: async () => { const { data } = await api.get<any>('/caja'); return (data.data||data) as {caja:Caja;movimientos:CajaMovimiento[];ultimo_cierre:Caja|null;movimientos_ultimo_cierre?:CajaMovimiento[];jornadas_mes?:Caja[];movimientos_cierres_mes?:CajaMovimiento[]} },
     refetchInterval: 15_000,
   })
   const op = useMutation({

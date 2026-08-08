@@ -6,7 +6,14 @@ import { authenticate, authSuperAdmin, cors, signToken } from '../_auth.js'
 let empresaSchemaReady: Promise<void> | null = null
 const TEMAS_VALIDOS = new Set(['noche','discoteca','restaurante','claro','oceano','bosque','vino','ambar','grafito'])
 function ensureEmpresaSchema() {
-  if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ`).then(() => undefined)
+  if (!empresaSchemaReady) empresaSchemaReady = query(`
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ;
+    CREATE TABLE IF NOT EXISTS empresa_modulos_extra (
+      empresa_id UUID NOT NULL, modulo_id VARCHAR(80) NOT NULL, activo BOOLEAN NOT NULL DEFAULT true,
+      creado_por UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (empresa_id, modulo_id)
+    )
+  `).then(() => undefined)
   return empresaSchemaReady
 }
 
@@ -48,6 +55,26 @@ export default async function handler(req: any, res: any) {
   const auth = await authSuperAdmin(req, res)
   if (!auth) return
   await ensureEmpresaSchema()
+
+  // Configuracion ROOT: extras por empresa. Las rutas siguen protegidas por
+  // autenticacion; ROOT solo expone modulos con pantalla disponible.
+  if (parts[3] === 'root') {
+    if (req.method === 'GET') {
+      const extras = await query(`SELECT empresa_id,modulo_id,activo FROM empresa_modulos_extra ORDER BY empresa_id,modulo_id`)
+      return res.status(200).json({ ok:true, data:{ extras } })
+    }
+    if (req.method === 'PATCH') {
+      const empresaId = String(req.body?.empresa_id || '')
+      const moduloId = String(req.body?.modulo_id || '').trim().toLowerCase()
+      const activo = Boolean(req.body?.activo)
+      if (!empresaId || !moduloId) return res.status(400).json({ ok:false, msg:'Empresa y modulo son requeridos' })
+      const empresa = await queryOne(`SELECT id FROM empresas WHERE id=$1`, [empresaId])
+      if (!empresa) return res.status(404).json({ ok:false, msg:'Empresa no encontrada' })
+      await query(`INSERT INTO empresa_modulos_extra (empresa_id,modulo_id,activo,creado_por,updated_at) VALUES ($1,$2,$3,$4,NOW()) ON CONFLICT (empresa_id,modulo_id) DO UPDATE SET activo=EXCLUDED.activo,updated_at=NOW()`, [empresaId,moduloId,activo,auth.id])
+      return res.status(200).json({ ok:true })
+    }
+    return res.status(405).end()
+  }
 
   // parts: ['api','superadmin','empresas'] o ['api','superadmin','empresas','ID']
   const empresaId = parts[3] || null

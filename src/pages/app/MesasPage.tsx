@@ -50,7 +50,7 @@ function MesaImagen({ mesa, cfg }: { mesa: Mesa; cfg: typeof CFG[EstadoMesa] }) 
 
 function CodigoMesa({url}:{url:string}) {
   const [src,setSrc]=useState('')
-  useEffect(()=>{ QRCode.toDataURL([{ data:url, mode:'byte' }],{width:512,margin:4,errorCorrectionLevel:'H'}).then(setSrc) },[url])
+  useEffect(()=>{ QRCode.toDataURL(url,{width:512,margin:4,errorCorrectionLevel:'H'}).then(setSrc) },[url])
   return src?<img src={src} alt="Código QR público de la mesa" className="mx-auto h-64 w-64 max-w-full rounded-lg bg-white p-2"/>:null
 }
 

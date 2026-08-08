@@ -10,6 +10,7 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import SuperDashboardPage from './pages/superadmin/SuperDashboardPage'
 import EmpresasPage from './pages/superadmin/EmpresasPage'
 import EmpresaDetailPage from './pages/superadmin/EmpresaDetailPage'
+import RootPage from './pages/superadmin/RootPage'
 import DashboardPage from './pages/app/DashboardPage'
 import MesasPage from './pages/app/MesasPage'
 import PedidosPage from './pages/app/PedidosPage'
@@ -27,6 +28,7 @@ import MesaPedidoPage from './pages/mesero/MesaPedidoPage'
 import RestauranteOperacionPage from './pages/app/RestauranteOperacionPage'
 import MenuDigitalPage from './pages/public/MenuDigitalPage'
 import ReservasEventosPage from './pages/app/ReservasEventosPage'
+import ScannerPage from './pages/app/ScannerPage'
 
 function RequireAuth({children}:{children:React.ReactNode}){
   const {user,loading}=useAuth()
@@ -68,6 +70,7 @@ export default function App(){
     <Route path="/c/:token" element={<MenuDigitalPage/>}/>
     <Route path="/superadmin" element={<RequireSuperAdmin><SuperAdminLayout/></RequireSuperAdmin>}>
       <Route index element={<SuperDashboardPage/>}/>
+      <Route path="root" element={<RootPage/>}/>
       <Route path="empresas" element={<EmpresasPage/>}/>
       <Route path="empresas/:id" element={<EmpresaDetailPage/>}/>
     </Route>
@@ -94,6 +97,8 @@ export default function App(){
       <Route path="usuarios" element={<UsuariosPage/>}/>
       <Route path="reportes" element={<ReportesPage/>}/>
       <Route path="configuracion" element={<ConfiguracionPage/>}/>
+      <Route path="escanear/qr" element={<ScannerPage modo="qr"/>}/>
+      <Route path="escanear/barras" element={<ScannerPage modo="barras"/>}/>
     </Route>
     <Route path="/" element={<Navigate to={def} replace/>}/>
     <Route path="*" element={<Navigate to="/" replace/>}/>

@@ -372,8 +372,8 @@ export default function RestauranteOperacionPage({ modo }: { modo: Modo }) {
         const nombreProducto = datos.productonombre || datos.productonom || datos.nombreproducto || datos.plato
         const codigoIngrediente = datos.ingredientecodigo || datos.ingredientecod || datos.codigoingrediente || datos.codingrediente
         const nombreIngrediente = datos.ingredientenombre || datos.ingredientenom || datos.nombreingrediente || datos.ingrediente
-        const producto = productosPorCodigo.get(normalizar(codigoProducto)) || productosPorNombre.get(normalizar(nombreProducto))
-        const ingrediente = ingredientesPorCodigo.get(normalizar(codigoIngrediente)) || ingredientesPorNombre.get(normalizar(nombreIngrediente))
+        const producto = (productosPorCodigo.get(normalizar(codigoProducto)) || productosPorNombre.get(normalizar(nombreProducto))) as any
+        const ingrediente = (ingredientesPorCodigo.get(normalizar(codigoIngrediente)) || ingredientesPorNombre.get(normalizar(nombreIngrediente))) as any
         if (!producto) throw new Error(`Fila ${indice + 2}: no se encontro el plato "${codigoProducto || nombreProducto || 'sin dato'}"`)
         if (!ingrediente) throw new Error(`Fila ${indice + 2}: no se encontro el ingrediente "${codigoIngrediente || nombreIngrediente || 'sin dato'}"`)
         const cantidad = numero(datos.cantidadneta)
