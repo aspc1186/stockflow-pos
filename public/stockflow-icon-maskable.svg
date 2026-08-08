@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="StockFlow">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#061B2A"/>
+      <stop offset="1" stop-color="#03131F"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="150" y1="116" x2="355" y2="268" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#23C4FF"/>
+      <stop offset="1" stop-color="#087CFF"/>
+    </linearGradient>
+    <linearGradient id="green" x1="150" y1="290" x2="370" y2="410" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B8FF21"/>
+      <stop offset="1" stop-color="#6EEB11"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <path d="M256 96 388 172v82l-46-27v-28l-86-50-86 50v54l-46 27V172L256 96Z" fill="url(#blue)"/>
+  <path d="m170 253 86 50 86-50v-54l46-27v108l-132 76-132-76v-54l46 27Z" fill="url(#blue)" opacity=".97"/>
+  <path d="M124 298v80l132 76 132-76v-80l-46 27v27l-86 50-86-50v-80l-46 26Z" fill="url(#green)"/>
+  <path d="m346 242 56-27-22 49 39 4-40 27 6 35-55-8 19-41-31-5 28-34Z" fill="#9BFF18"/>
+  <path d="m256 188 63 36v72l-63 36-63-36v-72l63-36Z" fill="#041B2B"/>
+</svg>
