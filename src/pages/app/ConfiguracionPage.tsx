@@ -58,15 +58,18 @@ export default function ConfiguracionPage() {
         <div>
           <label className="label">Tema visual</label>
           <select className="input" value={form.tema} onChange={e=>setForm(p=>({...p,tema:e.target.value}))}>
+            <option value="blanco" className="bg-surface-800">Blanco accesible</option>
+            <option value="rosado" className="bg-surface-800">Rosado</option>
+            <option value="crema" className="bg-surface-800">Crema</option>
+            <option value="lila" className="bg-surface-800">Lila</option>
+            <option value="azul_cielo" className="bg-surface-800">Azul cielo</option>
+            <option value="gris_claro" className="bg-surface-800">Gris claro</option>
             <option value="noche" className="bg-surface-800">Noche profesional</option>
-            <option value="discoteca" className="bg-surface-800">Discoteca neón</option>
-            <option value="restaurante" className="bg-surface-800">Restaurante</option>
-            <option value="claro" className="bg-surface-800">Claro</option>
             <option value="oceano" className="bg-surface-800">Oceano ejecutivo</option>
-            <option value="bosque" className="bg-surface-800">Bosque elegante</option>
             <option value="vino" className="bg-surface-800">Vino nocturno</option>
             <option value="ambar" className="bg-surface-800">Ambar lounge</option>
             <option value="grafito" className="bg-surface-800">Grafito moderno</option>
+            <option value="neon" className="bg-surface-800">Neon</option>
           </select>
         </div>
         <div className="space-y-3">

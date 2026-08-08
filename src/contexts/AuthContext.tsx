@@ -13,7 +13,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
-const TEMAS_VALIDOS = new Set(['noche','discoteca','restaurante','claro','oceano','bosque','vino','ambar','grafito'])
+const TEMAS_VALIDOS = new Set(['blanco','rosado','crema','lila','azul_cielo','gris_claro','noche','oceano','ambar','vino','grafito','neon','discoteca','restaurante','claro','bosque'])
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)

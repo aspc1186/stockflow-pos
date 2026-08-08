@@ -4,7 +4,7 @@ import { query, queryOne } from '../_db.js'
 import { authenticate, authSuperAdmin, cors, signToken } from '../_auth.js'
 
 let empresaSchemaReady: Promise<void> | null = null
-const TEMAS_VALIDOS = new Set(['noche','discoteca','restaurante','claro','oceano','bosque','vino','ambar','grafito'])
+const TEMAS_VALIDOS = new Set(['blanco','rosado','crema','lila','azul_cielo','gris_claro','noche','oceano','ambar','vino','grafito','neon','discoteca','restaurante','claro','bosque'])
 function ensureEmpresaSchema() {
   if (!empresaSchemaReady) empresaSchemaReady = query(`
     ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ;
