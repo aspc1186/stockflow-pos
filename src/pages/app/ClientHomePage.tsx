@@ -37,9 +37,9 @@ const estilos: Record<Accento, string> = {
 }
 
 function TarjetaModulo({ tarjeta, onClick, secundaria = false }: { tarjeta: Tarjeta; onClick: () => void; secundaria?: boolean }) {
-  return <button type="button" aria-label={`${tarjeta.titulo}: ${tarjeta.detalle}`} onClick={onClick} className={`group flex w-full flex-col rounded-xl border p-5 text-left shadow-lg shadow-black/10 transition duration-200 hover:-translate-y-1 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-brand-400 ${secundaria ? 'min-h-[142px]' : 'min-h-[188px]'} ${estilos[tarjeta.acento]}`}>
-    <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-current/35 bg-surface-950/25 text-current">{tarjeta.icono}</span>
-    <div className="mt-auto"><h2 className="text-2xl font-bold leading-tight text-surface-50">{tarjeta.titulo}</h2><p className="mt-2 max-w-[24ch] text-sm leading-5 text-surface-100/85">{tarjeta.detalle}</p><ArrowRight className="mt-3 h-6 w-6 transition-transform group-hover:translate-x-1" /></div>
+  return <button type="button" aria-label={`${tarjeta.titulo}: ${tarjeta.detalle}`} onClick={onClick} className={`group flex w-full flex-col rounded-lg border p-3 text-left shadow-md shadow-black/10 transition duration-200 hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-brand-400 ${secundaria ? 'min-h-[104px]' : 'min-h-[146px]'} ${estilos[tarjeta.acento]}`}>
+    <span className={`flex items-center justify-center rounded-full border border-current/35 bg-surface-950/25 text-current ${secundaria ? 'h-8 w-8' : 'h-10 w-10'}`}>{tarjeta.icono}</span>
+    <div className="mt-auto"><h2 className={`${secundaria ? 'text-base' : 'text-lg'} font-bold leading-tight text-surface-50`}>{tarjeta.titulo}</h2><p className={`mt-1 text-xs leading-4 text-surface-100/85 ${secundaria ? 'line-clamp-1' : 'line-clamp-2'}`}>{tarjeta.detalle}</p>{!secundaria && <ArrowRight className="mt-2 h-5 w-5 transition-transform group-hover:translate-x-1" />}</div>
   </button>
 }
 
@@ -98,21 +98,21 @@ export default function ClientHomePage() {
   }
   const fecha = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date())
 
-  return <div className="mx-auto w-full max-w-[1700px] space-y-5 pb-4">
-    <header className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
+  return <div className="mx-auto w-full max-w-[1700px] space-y-4 pb-3">
+    <header className="flex flex-col gap-3 border-b border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 items-center gap-3"><img src="/images/stockflow-login.png" alt="StockFlow POS" className="h-14 w-14 rounded-xl object-cover object-left shadow-lg shadow-brand-500/10" /><div><p className="text-2xl font-bold text-surface-50">StockFlow <span className="text-emerald-400">POS</span></p><p className="mt-0.5 text-sm text-surface-200/70">Sistema de Punto de Venta</p></div></div>
       <div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-surface-800/75 px-4 py-2.5"><span className="rounded-lg bg-brand-500/15 p-2 text-brand-300"><Store className="h-5 w-5" /></span><div className="min-w-0"><p className="truncate text-base font-semibold text-surface-50">{empresa?.nombre || 'Tu negocio'}</p><p className="truncate text-xs text-surface-200/70">{user?.rol || 'Usuario'} · Caja {formatCurrency(stats?.caja_actual || 0)}</p></div></div>
     </header>
 
-    <div className="flex flex-col items-center text-center"><div><h1 className="text-3xl font-bold text-surface-50 sm:text-4xl">Bienvenido, {empresa?.nombre || 'tu negocio'}</h1><p className="mt-1 text-lg text-surface-200/75">Que deseas hacer hoy?</p></div></div>
+    <div className="flex flex-col items-center text-center"><div><h1 className="text-2xl font-bold text-surface-50 sm:text-3xl">Bienvenido, {empresa?.nombre || 'tu negocio'}</h1><p className="mt-0.5 text-base text-surface-200/75">Que deseas hacer hoy?</p></div></div>
 
     {nivel === 'productos' && <div className="flex items-center justify-between"><button type="button" onClick={() => setNivel('inicio')} className="btn-secondary min-h-11"><ArrowLeft className="h-4 w-4" />Volver</button><p className="text-sm text-surface-200/70">Productos e inventario</p></div>}
-    <section className={`grid gap-4 sm:grid-cols-2 ${visibles.length >= 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
+    <section className={`grid gap-3 sm:grid-cols-2 ${visibles.length >= 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
       {visibles.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} />)}
     </section>
     {visibles.length === 0 && <div className="card p-8 text-center text-surface-200/70">No hay actividades disponibles que coincidan con la busqueda.</div>}
 
-    {nivel === 'inicio' && <section className="mx-auto grid max-w-[1320px] gap-4 sm:grid-cols-2 lg:grid-cols-4">{secundarias.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} secundaria />)}</section>}
+    {nivel === 'inicio' && <section className="mx-auto grid max-w-[1320px] gap-3 sm:grid-cols-2 lg:grid-cols-4">{secundarias.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} secundaria />)}</section>}
 
     {nivel === 'inicio' && <footer className="card grid divide-y divide-white/10 overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
       <ResumenRapido icono={<CalendarDays className="h-6 w-6 text-sky-300" />} etiqueta="Jornada" valor={fecha} acento="bg-sky-500/15" />
