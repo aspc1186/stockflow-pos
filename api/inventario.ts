@@ -1,4 +1,4 @@
-import { query, queryOne } from '../_db.js'
+import { query, queryOne, transaction } from '../_db.js'
 import { authenticate, cors } from '../_auth.js'
 
 let cajaSchemaReady: Promise<void> | null = null
@@ -58,6 +58,36 @@ export default async function handler(req: any, res: any) {
 
   if (req.method==='POST') {
     const { producto_id,tipo: tipoRecibido,cantidad,notas,costo_unit,pagar_desde_caja,metodo_pago } = req.body||{}
+    const lote = Array.isArray(req.body?.items) ? req.body.items : null
+    if (lote) {
+      const tipoLote = req.body?.tipo === 'salida' ? 'salida' : 'entrada'
+      if (!lote.length) return res.status(400).json({ ok:false, msg:'No hay productos en la sesión de escaneo' })
+      try {
+        const resultado = await transaction(async client => {
+          const aplicados: any[] = []
+          for (const item of lote) {
+            const producto = (await client.query(`SELECT id,nombre,precio_costo FROM productos WHERE id=$1 AND empresa_id=$2 FOR UPDATE`, [item.producto_id,eid])).rows[0]
+            const q = Number(item.cantidad)
+            if (!producto || !Number.isFinite(q) || q <= 0) throw new Error('La sesión contiene un producto o cantidad inválida')
+            let inv = (await client.query(`SELECT stock_actual FROM inventario WHERE producto_id=$1 AND empresa_id=$2 FOR UPDATE`, [producto.id,eid])).rows[0]
+            if (!inv) { await client.query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,0,0)`, [eid,producto.id]); inv={stock_actual:0} }
+            const antes=Number(inv.stock_actual||0)
+            if (tipoLote==='salida' && q>antes) throw new Error(`Stock insuficiente para ${producto.nombre}. Disponible: ${antes}`)
+            const despues=tipoLote==='entrada' ? antes+q : antes-q
+            const costoNuevo = item.costo_unit === undefined || item.costo_unit === '' ? null : Number(item.costo_unit)
+            const costoAnterior=Number(producto.precio_costo||0)
+            const costoFinal=Number.isFinite(costoNuevo as number) ? Number(costoNuevo) : costoAnterior
+            const costoPromedio=tipoLote==='entrada'&&costoNuevo!==null&&antes+q>0 ? ((antes*costoAnterior)+(q*costoFinal))/(antes+q) : costoAnterior
+            if (tipoLote==='entrada'&&costoNuevo!==null) await client.query(`UPDATE productos SET precio_costo=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`,[costoPromedio,producto.id,eid])
+            await client.query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE producto_id=$2 AND empresa_id=$3`,[despues,producto.id,eid])
+            await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9)`,[eid,producto.id,auth.id,tipoLote,q,antes,despues,costoFinal,req.body?.notas||'Lote por lector de código de barras'])
+            aplicados.push({producto_id:producto.id,cantidad:q,stock_antes:antes,stock_despues:despues})
+          }
+          return aplicados
+        })
+        return res.status(201).json({ ok:true,data:{aplicados:resultado} })
+      } catch (error:any) { return res.status(400).json({ ok:false,msg:error.message||'No se pudo aplicar el lote' }) }
+    }
     const tipo = tipoRecibido === 'compra' ? 'entrada' : tipoRecibido
     if (!producto_id||!tipo||cantidad===undefined) return res.status(400).json({ ok:false, msg:'Datos requeridos' })
     const producto = await queryOne(`SELECT nombre,precio_costo FROM productos WHERE id=$1 AND empresa_id=$2`, [producto_id,eid]) as any

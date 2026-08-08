@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera, Keyboard, ScanLine } from 'lucide-react'
 
-type ScannerProps = { modo:'qr'|'barras'; onDetectar:(codigo:string)=>void }
+type ScannerProps = { modo:'qr'|'barras'; onDetectar:(codigo:string)=>void; continuo?:boolean }
 
-export default function Scanner({ modo, onDetectar }:ScannerProps) {
+export default function Scanner({ modo, onDetectar, continuo=false }:ScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<number | null>(null)
+  const ultimoCodigoRef = useRef<{codigo:string;at:number}>({codigo:'',at:0})
   const [manual, setManual] = useState('')
   const [camaraActiva, setCamaraActiva] = useState(false)
   const [mensaje, setMensaje] = useState('Usa la camara o un lector USB/Bluetooth configurado como teclado.')
-  const confirmar = (valor:string) => { const codigo=valor.trim(); if(!codigo) return; onDetectar(codigo); setManual('') }
+  const confirmar = (valor:string) => { const codigo=valor.trim(); if(!codigo) return; const ahora=Date.now(); if(continuo&&ultimoCodigoRef.current.codigo===codigo&&ahora-ultimoCodigoRef.current.at<1400)return; ultimoCodigoRef.current={codigo,at:ahora}; onDetectar(codigo); setManual('') }
   const detener = () => { if(timerRef.current) window.clearInterval(timerRef.current); timerRef.current=null; streamRef.current?.getTracks().forEach(track=>track.stop()); streamRef.current=null; setCamaraActiva(false) }
   const iniciar = async () => {
     try {
@@ -24,7 +25,7 @@ export default function Scanner({ modo, onDetectar }:ScannerProps) {
       const formats=modo==='qr'?['qr_code']:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']
       const detector=new Detector({formats})
       setCamaraActiva(true); setMensaje('Enfoca el codigo dentro del recuadro.')
-      timerRef.current=window.setInterval(async()=>{ try { if(!videoRef.current) return; const resultados=await detector.detect(videoRef.current); if(resultados?.[0]?.rawValue){ confirmar(resultados[0].rawValue); detener() } } catch {} },450)
+      timerRef.current=window.setInterval(async()=>{ try { if(!videoRef.current) return; const resultados=await detector.detect(videoRef.current); if(resultados?.[0]?.rawValue){ confirmar(resultados[0].rawValue); if(!continuo) detener() } } catch {} },450)
     } catch(error:any) { detener(); setMensaje(error?.message||'No se pudo iniciar la camara') }
   }
   useEffect(()=>()=>detener(),[])
