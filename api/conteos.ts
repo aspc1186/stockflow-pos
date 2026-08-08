@@ -104,8 +104,7 @@ export default async function handler(req: any, res: any) {
     const tipo = body.tipo === 'ciclico' ? 'ciclico' : 'general'
     const conteo = await transaction(async client => {
       await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`conteo:${empresaId}:${tipo}:${businessDay()}`])
-      const prefix = tipo === 'ciclico' ? 'CC' : 'CG'
-      const base = `${prefix}-${businessDay()}`
+      const base = tipo === 'ciclico' ? 'INV-CC' : 'INV-GEN'
       const next = await client.query(`SELECT COUNT(*)::int AS total FROM conteos_inventario WHERE empresa_id=$1 AND nombre LIKE $2`, [empresaId, `${base}-%`])
       const nombre = `${base}-${String(Number(next.rows[0]?.total || 0) + 1).padStart(3, '0')}`
       const estado = body.iniciar ? 'en_proceso' : (body.programado_para ? 'programado' : 'borrador')

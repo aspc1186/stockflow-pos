@@ -142,8 +142,11 @@ export default async function handler(req: any, res: any) {
     const producto = req.body || {}
     if (!producto.nombre || producto.precio_venta === undefined) return res.status(400).json({ ok: false, msg: 'Nombre y precio requeridos' })
     try {
-      const valores = valoresProducto(producto, tipoNegocio)
-      const codigo = String(producto.codigo || '').trim()
+      const productoId = uuid()
+      // Cada producto necesita un identificador escaneable, incluso si el usuario no aporta un código comercial.
+      const productoConCodigo = { ...producto, codigo: String(producto.codigo || `SKU-${productoId.slice(0, 8).toUpperCase()}`).trim() }
+      const valores = valoresProducto(productoConCodigo, tipoNegocio)
+      const codigo = productoConCodigo.codigo
       if (codigo) {
         const existente = await queryOne(`SELECT id,eliminado_at FROM productos WHERE empresa_id=$1 AND LOWER(codigo)=LOWER($2)`, [empresaId, codigo]) as any
         if (existente?.eliminado_at) {
@@ -154,7 +157,6 @@ export default async function handler(req: any, res: any) {
         }
         if (existente) return res.status(409).json({ ok: false, msg: `Ya existe un producto activo con el codigo ${codigo}` })
       }
-      const productoId = uuid()
       const [creado] = await query(`INSERT INTO productos (id,empresa_id,categoria_id,nombre,descripcion,codigo,precio_venta,precio_costo,impuesto_pct,impuesto_tipo,impuesto_incluido,tipo,unidad_medida,destino,imagen_url,disponible,controla_stock,stock_maximo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`, [productoId, empresaId, ...valores])
       if (producto.controla_stock !== false) await query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,$4)`, [empresaId, productoId, Number(producto.stock_inicial) || 0, Number(producto.stock_minimo) || 0])
       await guardarGaleria(productoId, empresaId, producto)

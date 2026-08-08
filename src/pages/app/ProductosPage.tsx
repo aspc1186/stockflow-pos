@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Camera, Download, FileUp, Plus, Trash2 } from 'lucide-react'
+import { Camera, Download, FileUp, Plus, Printer, QrCode, Trash2 } from 'lucide-react'
+import QRCode from 'qrcode'
 import * as XLSX from 'xlsx'
 import api from '@/lib/axios'
 import type { Producto, Categoria } from '@/types'
@@ -56,6 +57,20 @@ function valorMoneda(valor: string) {
   return cantidad ? formatCurrency(cantidad) : ''
 }
 
+function CodigoProductoQr({ producto }: { producto: any }) {
+  const [src, setSrc] = useState('')
+  const codigo = String(producto.codigo || '').trim()
+  useEffect(() => { if (codigo) QRCode.toDataURL(codigo, { width:480, margin:3, errorCorrectionLevel:'M' }).then(setSrc) }, [codigo])
+  const imprimir = () => {
+    if (!src) return
+    const ventana = window.open('', '_blank', 'width=420,height=560')
+    if (!ventana) return toast.error('Permite las ventanas emergentes para imprimir el codigo')
+    ventana.document.write(`<html><head><title>QR ${codigo}</title><style>body{font-family:Arial;text-align:center;padding:24px}img{width:280px;height:280px}h2{margin-bottom:4px}p{word-break:break-all}</style></head><body><h2>${producto.nombre}</h2><p>${codigo}</p><img src="${src}" alt="QR ${codigo}"/><p>Escanea este QR en Conteos de inventario.</p></body></html>`)
+    ventana.document.close(); ventana.focus(); ventana.print()
+  }
+  return <div className="space-y-4 text-center">{codigo ? <><p className="text-sm text-surface-200/65">Este QR contiene el código <strong className="font-mono text-surface-50">{codigo}</strong> y funciona en Conteos de inventario.</p>{src && <img className="mx-auto w-64 max-w-full rounded-lg bg-white p-2" src={src} alt={`Código QR ${codigo}`}/>}<button className="btn-primary w-full" onClick={imprimir}><Printer className="h-4 w-4"/>Imprimir etiqueta QR</button></> : <p className="text-red-200">Este producto no tiene código. Edítalo o créalo nuevamente para generar su QR.</p>}</div>
+}
+
 export default function ProductosPage() {
   const qc = useQueryClient()
   const { user } = useAuth()
@@ -63,6 +78,7 @@ export default function ProductosPage() {
   const esRestaurante = tipoNegocio === 'restaurante'
   const [modal, setModal] = useState(false)
   const [productoEliminar, setProductoEliminar] = useState<Producto | null>(null)
+  const [productoQr, setProductoQr] = useState<Producto | null>(null)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const archivoRef = useRef<HTMLInputElement>(null)
   const imagenArchivoRef = useRef<HTMLInputElement>(null)
@@ -223,7 +239,7 @@ export default function ProductosPage() {
               <td className={cn(pr.stock_actual===0?'text-red-400':'text-surface-200/70')}>{p.controla_stock?(pr.stock_actual??0):'∞'}</td>
               <td><span className="badge-gray capitalize">{p.destino}</span></td>
               <td><span className={p.disponible?'badge-green':'badge-red'}>{p.disponible?'Disponible':'No disponible'}</span></td>
-              <td><div className="flex items-center justify-end gap-1"><button onClick={() => toggle.mutate({id:p.id,disponible:!p.disponible})} className={`text-xs px-2 py-1 rounded font-medium ${p.disponible?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{p.disponible?'Deshabilitar':'Habilitar'}</button><button onClick={() => setProductoEliminar(p)} className="btn-ghost btn-sm text-red-400 hover:bg-red-500/10" title="Eliminar producto"><Trash2 className="w-4 h-4"/></button></div></td>
+              <td><div className="flex items-center justify-end gap-1"><button onClick={() => setProductoQr(p)} className="btn-ghost btn-sm p-2 text-brand-200" title="Ver e imprimir QR"><QrCode className="w-4 h-4"/></button><button onClick={() => toggle.mutate({id:p.id,disponible:!p.disponible})} className={`text-xs px-2 py-1 rounded font-medium ${p.disponible?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{p.disponible?'Deshabilitar':'Habilitar'}</button><button onClick={() => setProductoEliminar(p)} className="btn-ghost btn-sm text-red-400 hover:bg-red-500/10" title="Eliminar producto"><Trash2 className="w-4 h-4"/></button></div></td>
             </tr>
           )})}
           {productosFiltrados.length===0&&<tr><td colSpan={8} className="text-center py-12 text-surface-200/30">{busqueda?'No se encontraron productos':'Sin productos'}</td></tr>}
@@ -253,6 +269,7 @@ export default function ProductosPage() {
         footer={<div className="flex gap-3"><button onClick={() => setCamaraAbierta(false)} className="btn-secondary flex-1">Terminar</button><button onClick={capturarFoto} disabled={form.imagenes_urls.length >= 5 || !!errorCamara} className="btn-primary flex-1"><Camera className="w-4 h-4"/>Capturar foto</button></div>}>
         <div className="space-y-3"><div className="overflow-hidden rounded-lg bg-black"><video ref={videoRef} className="aspect-video w-full object-cover" autoPlay muted playsInline/></div>{errorCamara && <p className="rounded-md bg-red-500/10 p-3 text-sm text-red-200">{errorCamara}</p>}<p className="text-sm text-surface-200/60">Toma hasta cinco fotos. La primera será la imagen principal del producto.</p>{form.imagenes_urls.length > 0 && <div className="flex gap-2">{form.imagenes_urls.map((imagen, indice)=><img key={imagen.slice(-20)+indice} src={imagen} alt={`Foto ${indice + 1}`} className="h-12 w-12 rounded object-cover"/>)}</div>}</div>
       </Modal>
+      <Modal open={!!productoQr} onClose={() => setProductoQr(null)} title={`QR · ${productoQr?.nombre || ''}`} size="sm">{productoQr && <CodigoProductoQr producto={productoQr}/>}</Modal>
       <Modal open={!!productoEliminar} onClose={() => setProductoEliminar(null)} title="Eliminar producto" size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setProductoEliminar(null)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => eliminar.mutate()} disabled={eliminar.isPending} className="btn-danger flex-1">{eliminar.isPending ? 'Eliminando...' : <><Trash2 className="w-4 h-4"/>Eliminar</>}</button></div>}>
         <p className="text-sm text-surface-200/70">Eliminarás <strong className="text-surface-50">{productoEliminar?.nombre}</strong>. Quedará fuera de nuevas ventas, pero se conservará su historial de pedidos e inventario.</p>
