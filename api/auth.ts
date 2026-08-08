@@ -10,7 +10,22 @@ function fechaColombia() {
   return `${valor('year')}-${valor('month')}-${valor('day')}`
 }
 function ensureEmpresaSchema() {
-  if (!empresaSchemaReady) empresaSchemaReady = query(`ALTER TABLE empresas ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ`).then(() => undefined)
+  if (!empresaSchemaReady) empresaSchemaReady = query(`
+    ALTER TABLE empresas
+      ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico',
+      ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche',
+      ADD COLUMN IF NOT EXISTS fondo_url TEXT,
+      ADD COLUMN IF NOT EXISTS notificacion_pago TEXT,
+      ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ;
+    CREATE TABLE IF NOT EXISTS empresa_modulos_extra (
+      empresa_id UUID NOT NULL,
+      modulo_id VARCHAR(80) NOT NULL,
+      activo BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (empresa_id, modulo_id)
+    )
+  `).then(() => undefined)
   return empresaSchemaReady
 }
 
@@ -49,7 +64,11 @@ export default async function handler(req: any, res: any) {
       let empresa = null
       if (user.empresa_id) {
         await ensureEmpresaSchema()
-        empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,licencia_fin,tema,fondo_url,notificacion_pago,notificacion_pago_at FROM empresas WHERE id=$1`, [user.empresa_id])
+        empresa = await queryOne(`SELECT id,nombre,slug,tipo,plan,activa,logo_url,color_primario,telefono,email,ciudad,licencia_fin,tema,fondo_url,notificacion_pago,notificacion_pago_at FROM empresas WHERE id=$1`, [user.empresa_id]) as any
+        if (empresa) {
+          const extras = await query(`SELECT modulo_id FROM empresa_modulos_extra WHERE empresa_id=$1 AND activo=true`, [user.empresa_id]) as any[]
+          empresa.modulos_extra = extras.map(item => item.modulo_id)
+        }
         if (!empresa?.activa) {
           return res.status(403).json({ ok: false, msg: 'Empresa inactiva' })
         }
@@ -85,7 +104,11 @@ export default async function handler(req: any, res: any) {
     let empresa = null
     if (auth.empresa_id) {
       await ensureEmpresaSchema()
-      empresa = await queryOne(`SELECT id,nombre,slug,tipo,activa,logo_url,color_primario,telefono,email,ciudad,licencia_fin,tema,fondo_url,notificacion_pago,notificacion_pago_at FROM empresas WHERE id=$1`, [auth.empresa_id])
+      empresa = await queryOne(`SELECT id,nombre,slug,tipo,plan,activa,logo_url,color_primario,telefono,email,ciudad,licencia_fin,tema,fondo_url,notificacion_pago,notificacion_pago_at FROM empresas WHERE id=$1`, [auth.empresa_id]) as any
+      if (empresa) {
+        const extras = await query(`SELECT modulo_id FROM empresa_modulos_extra WHERE empresa_id=$1 AND activo=true`, [auth.empresa_id]) as any[]
+        empresa.modulos_extra = extras.map(item => item.modulo_id)
+      }
     }
     return res.status(200).json({ ok: true, data: { ...auth, empresa } })
   }

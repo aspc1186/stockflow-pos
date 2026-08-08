@@ -12,6 +12,7 @@ import EmpresasPage from './pages/superadmin/EmpresasPage'
 import EmpresaDetailPage from './pages/superadmin/EmpresaDetailPage'
 import RootPage from './pages/superadmin/RootPage'
 import DashboardPage from './pages/app/DashboardPage'
+import ClientHomePage from './pages/app/ClientHomePage'
 import MesasPage from './pages/app/MesasPage'
 import PedidosPage from './pages/app/PedidosPage'
 import PedidoDetailPage from './pages/app/PedidoDetailPage'
@@ -59,7 +60,7 @@ function RequireApp({children}:{children:React.ReactNode}){
 
 export default function App(){
   const {user,isSuperAdmin,isMesero}=useAuth()
-  const def=!user?'/login':isSuperAdmin?'/superadmin':isMesero?'/mesero':'/app/dashboard'
+  const def=!user?'/login':isSuperAdmin?'/superadmin':isMesero?'/mesero':'/app/inicio'
   return <Routes>
     <Route element={<AuthLayout/>}>
     <Route path="/login" element={<LoginPage/>}/>
@@ -77,7 +78,8 @@ export default function App(){
     <Route path="/mesero" element={<RequireAuth><MeseroPage/></RequireAuth>}/>
     <Route path="/mesero/mesa/:mesaId" element={<RequireAuth><MesaPedidoPage/></RequireAuth>}/>
     <Route path="/app" element={<RequireApp><DashboardLayout/></RequireApp>}>
-      <Route index element={<Navigate to="dashboard" replace/>}/>
+      <Route index element={<Navigate to="inicio" replace/>}/>
+      <Route path="inicio" element={<ClientHomePage/>}/>
       <Route path="dashboard" element={<DashboardPage/>}/>
       <Route path="mesas" element={<MesasPage/>}/>
       <Route path="pedidos" element={<PedidosPage/>}/>

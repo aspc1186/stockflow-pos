@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 const groups=[
   {label:'Principal',items:[
-    {to:'/app/dashboard',label:'Dashboard',icon:LayoutDashboard,roles:[]},
+    {to:'/app/inicio',label:'Inicio',icon:LayoutDashboard,roles:[]},
+    {to:'/app/dashboard',label:'Dashboard',icon:LayoutDashboard,roles:['admin','supervisor']},
     {to:'/app/mesas',label:'Mesas',icon:UtensilsCrossed,roles:[]},
     {to:'/app/pedidos',label:'Pedidos',icon:ClipboardList,roles:[]},
     {to:'/app/caja',label:'Caja',icon:CreditCard,roles:['admin','cajero','supervisor']},

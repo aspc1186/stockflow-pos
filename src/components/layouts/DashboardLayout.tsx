@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import { CheckCircle, ShieldCheck, X } from 'lucide-react'
 import Sidebar from '@/components/navigation/Sidebar'
 import TopBar from '@/components/navigation/TopBar'
+import PageNavigation from '@/components/navigation/PageNavigation'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function DashboardLayout(){
@@ -36,6 +37,7 @@ export default function DashboardLayout(){
         {supportMode&&<div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-amber-50"><ShieldCheck className="h-5 w-5 shrink-0 text-amber-300"/><div className="min-w-0 flex-1"><p className="text-sm font-semibold">Modo de soporte de superadministrador</p><p className="text-xs text-amber-100/75">Estas corrigiendo los datos de {user?.empresa?.nombre}. Los cambios afectan a esta empresa.</p></div><button type="button" onClick={exitSupport} className="btn-secondary btn-sm">Volver a superadmin</button></div>}
         {licenciaVencida ? <div className="mx-auto mt-12 max-w-xl rounded-lg border border-red-400/40 bg-red-500/15 p-6 text-center text-red-50"><p className="text-lg font-bold">Servicio suspendido por mora</p><p className="mt-2 text-sm text-red-100/80">La licencia vencio. Regulariza el pago para continuar.</p></div> : <>
           {mostrarPago && <div className="mb-4 flex items-start gap-3 rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-emerald-50"><CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300"/><div className="flex-1"><p className="text-sm font-semibold">Pago confirmado</p><p className="text-sm text-emerald-100/80">{avisoPago}</p></div><button type="button" className="text-emerald-100/70 hover:text-white" onClick={()=>setMostrarPago(false)} title="Cerrar notificacion"><X className="h-4 w-4"/></button></div>}
+          <PageNavigation/>
           <Outlet/>
         </>}
       </main>

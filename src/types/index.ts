@@ -1,4 +1,4 @@
-export interface Empresa { id:string; nombre:string; slug:string; tipo:string; ciudad?:string; activa:boolean; plan?:string; logo_url?:string; color_primario?:string; licencia_fin?:string; created_at:string; updated_at:string }
+export interface Empresa { id:string; nombre:string; slug:string; tipo:string; ciudad?:string; activa:boolean; plan?:string; modulos_extra?:string[]; logo_url?:string; color_primario?:string; licencia_fin?:string; created_at:string; updated_at:string }
 export interface Usuario { id:string; empresa_id?:string; nombre:string; email:string; username:string; activo:boolean; ultimo_acceso?:string; created_at:string; updated_at:string }
 export type EstadoMesa = 'libre'|'ocupada'|'reservada'|'limpieza'|'cerrada'
 export interface Mesa { id:string; empresa_id:string; numero:number; nombre?:string; capacidad:number; tipo?:string; estado:EstadoMesa; activa:boolean; qr_token?:string; zona_nombre?:string; pedido_id?:string; pedido_total?:number; apertura_at?:string; mesero_id?:string | null; mesero_asignado_nombre?:string | null; pos_x:number; pos_y:number }
