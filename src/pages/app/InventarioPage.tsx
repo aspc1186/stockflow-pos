@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Download, Pencil, Plus, ScanLine } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, Pencil, Plus, ScanLine } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import api from '@/lib/axios'
 import Modal from '@/components/ui/Modal'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -9,6 +10,9 @@ import { cn, formatCurrency } from '@/lib/utils'
 
 export default function InventarioPage() {
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [conteoConciliacion, setConteoConciliacion] = useState('')
+  const [filtroConciliacion, setFiltroConciliacion] = useState<'todos'|'correcto'|'faltante'|'sobrante'>('todos')
   const [critico, setCritico] = useState(false)
   const [search, setSearch] = useState('')
   const [searchApi, setSearchApi] = useState('')
@@ -29,6 +33,9 @@ export default function InventarioPage() {
     refetchInterval: 20_000,
   })
   const { data: productos = [] } = useQuery({ queryKey: ['prods-inv'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as any[] }, enabled: modal })
+  const { data: conteos = [] } = useQuery({ queryKey:['conteos-inventario'], queryFn:async()=>{ const {data}=await api.get<any>('/conteos'); return (data.data||data) as any[] } })
+  const { data: conciliacionData, isLoading: cargandoConciliacion } = useQuery({ queryKey:['conciliacion-inventario',conteoConciliacion], enabled:!!conteoConciliacion, queryFn:async()=>{ const {data}=await api.get<any>(`/conteos?conteo_id=${conteoConciliacion}`); return data.data || data } })
+  const aprobarConciliacion = useMutation({ mutationFn:(id:string)=>api.post('/conteos',{accion:'aprobar_ajustes',conteo_id:id}), onSuccess:(respuesta:any)=>{ qc.invalidateQueries({queryKey:['conteos-inventario']}); qc.invalidateQueries({queryKey:['conciliacion-inventario']}); qc.invalidateQueries({queryKey:['inventario']}); toast.success(`${respuesta.data?.data?.ajustes || 0} ajustes aprobados y registrados`) }, onError:(e:any)=>toast.error(e?.response?.data?.msg || 'No se pudieron aprobar los ajustes') })
   const ajustar = useMutation({
     mutationFn: () => api.post('/inventario', {...form,cantidad:parseFloat(form.cantidad)||0,costo_unit:form.costo_unit?parseFloat(form.costo_unit):undefined}),
     onSuccess: async () => {
@@ -55,6 +62,14 @@ export default function InventarioPage() {
   if (isLoading) return <PageLoader />
   const inv = inventarioData || []
   const valorTotal = inv.reduce((s:any, item:any) => s + Number(item.valor_costo || 0), 0)
+  const verConciliacion = searchParams.get('tab') === 'conciliacion'
+  const conteosConciliables = (conteos as any[]).filter(item => ['pendiente_conciliacion','reconteo','ajustado'].includes(item.estado))
+  const resumenConciliacion = conciliacionData?.resumen
+  const lineasConciliacion = ((conciliacionData?.items || []) as any[]).filter(item => {
+    if (!item.contado) return false
+    const diferencia=Number(item.diferencia||0)
+    return filtroConciliacion==='todos' || (filtroConciliacion==='correcto'&&diferencia===0) || (filtroConciliacion==='faltante'&&diferencia<0) || (filtroConciliacion==='sobrante'&&diferencia>0)
+  })
   const abrirCorreccion = (item:any) => {
     setForm({ producto_id:item.producto_id, tipo:'ajuste', cantidad:String(Number(item.stock_actual || 0)), costo_unit:String(Number(item.precio_costo || 0)), notas:'Correccion de inventario', pagar_desde_caja:false, metodo_pago:'efectivo' })
     setCodigo(String(item.codigo || ''))
@@ -82,8 +97,18 @@ export default function InventarioPage() {
     <div className="space-y-5">
       <div className="page-header">
         <div><h1 className="page-title">Inventario</h1><p className="page-subtitle">Valor total a costo: {formatCurrency(valorTotal)} - Saldo actual despues de ventas y salidas</p></div>
-        <div className="flex gap-2"><button onClick={descargarMovimientos} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Movimientos</button><button onClick={abrirMovimiento} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Movimiento</button></div>
+        <div className="flex gap-2"><button onClick={()=>setSearchParams(verConciliacion ? {} : {tab:'conciliacion'})} className={verConciliacion?'btn-primary btn-sm':'btn-secondary btn-sm'}>Conciliacion</button><button onClick={descargarMovimientos} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Movimientos</button><button onClick={abrirMovimiento} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Movimiento</button></div>
       </div>
+      {verConciliacion && <div className="space-y-4">
+        <div className="card grid gap-3 p-4 md:grid-cols-[1fr_auto]"><div><label className="label">Conteo para conciliar</label><select className="input" value={conteoConciliacion} onChange={e=>setConteoConciliacion(e.target.value)}><option value="">Selecciona un conteo cerrado</option>{conteosConciliables.map((item:any)=><option key={item.id} value={item.id}>{item.nombre} · {item.estado.replace('_',' ')}</option>)}</select></div>{conteoConciliacion&&<div className="flex items-end"><button className="btn-secondary" onClick={()=>setConteoConciliacion('')}>Limpiar</button></div>}</div>
+        {!conteoConciliacion ? <div className="card p-10 text-center text-surface-200/55">No hay una conciliacion seleccionada. Finaliza primero un conteo de inventario.</div> : cargandoConciliacion ? <div className="card p-10 text-center text-surface-200/55">Cargando conciliacion...</div> : <>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[['Exactitud por referencias',resumenConciliacion?.exactitud == null ? '-' : `${resumenConciliacion.exactitud}%`],['Referencias contadas',resumenConciliacion?.referencias||0],['Correctas',resumenConciliacion?.correctos||0],['Faltantes',resumenConciliacion?.faltantes||0],['Sobrantes',resumenConciliacion?.sobrantes||0]].map(([titulo,valor])=><div className="card p-4" key={String(titulo)}><p className="text-xs text-surface-200/55">{titulo}</p><p className="mt-1 text-xl font-bold">{valor}</p></div>)}</div>
+          <div className="flex flex-wrap gap-2">{([['todos','Todos'],['correcto','Sin diferencia'],['faltante','Faltantes'],['sobrante','Sobrantes']] as const).map(([id,label])=><button key={id} className={filtroConciliacion===id?'btn-primary btn-sm':'btn-secondary btn-sm'} onClick={()=>setFiltroConciliacion(id)}>{label}</button>)}</div>
+          <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base"><thead><tr><th>SKU</th><th>Producto</th><th>Sistema</th><th>Fisico</th><th>Diferencia</th><th>Estado</th><th>Contado por</th></tr></thead><tbody>{lineasConciliacion.map((item:any)=>{const diferencia=Number(item.diferencia||0); const estado=diferencia===0?'Correcto':diferencia<0?'Faltante':'Sobrante'; return <tr key={item.id}><td className="font-mono text-xs">{item.codigo||'-'}</td><td>{item.nombre}</td><td>{Number(item.stock_sistema||0).toFixed(3)}</td><td>{Number(item.cantidad_contada||0).toFixed(3)}</td><td className={diferencia===0?'text-emerald-300':diferencia<0?'text-red-300':'text-amber-300'}>{diferencia>0?'+':''}{diferencia.toFixed(3)}</td><td><span className={diferencia===0?'badge-green':diferencia<0?'badge-red':'badge-yellow'}>{estado}</span></td><td>{item.contado_por||'-'}</td></tr>})}{lineasConciliacion.length===0&&<tr><td colSpan={7} className="py-10 text-center text-surface-200/45">No hay referencias contadas para este filtro.</td></tr>}</tbody></table></div></div>
+          {conciliacionData?.conteo?.estado==='pendiente_conciliacion'&&<div className="flex justify-end"><button className="btn-primary" disabled={aprobarConciliacion.isPending} onClick={()=>{if(window.confirm('Aprobar aplicara solo las diferencias contadas y generara movimientos de ajuste trazables.'))aprobarConciliacion.mutate(conciliacionData.conteo.id)}}><CheckCircle2 className="h-4 w-4"/>{aprobarConciliacion.isPending?'Aprobando...':'Aprobar diferencias y ajustar'}</button></div>}
+        </>}
+      </div>}
+      {!verConciliacion && <>
       <div className="flex gap-3">
         <input className="input max-w-xs" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}/>
         <button onClick={() => setCritico(v => !v)} className={cn('btn btn-sm',critico?'btn-primary':'btn-secondary')}><AlertTriangle className="w-4 h-4"/>Solo criticos</button>
@@ -124,6 +149,7 @@ export default function InventarioPage() {
           <div className="space-y-2 rounded-lg border border-white/10 bg-surface-900/40 p-3 sm:col-span-2"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={productoBloqueado} disabled={!form.producto_id} onChange={e=>{setProductoBloqueado(e.target.checked);if(!e.target.checked)window.setTimeout(()=>lectorRef.current?.focus(),0)}}/><span>Bloquear este producto para registrar varias cantidades consecutivas</span></label><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={registroContinuo} onChange={e=>setRegistroContinuo(e.target.checked)}/><span>Registrar otro producto sin cerrar esta ventana</span></label></div>
         </div>
       </Modal>
+      </>}
     </div>
   )
 }
