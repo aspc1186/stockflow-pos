@@ -1,0 +1,14 @@
+{
+  "name": "StockFlow POS",
+  "short_name": "StockFlow",
+  "description": "Sistema POS StockFlow",
+  "start_url": "/login",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#061B2A",
+  "theme_color": "#061B2A",
+  "icons": [
+    {"src": "/stockflow-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "/stockflow-icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"}
+  ]
+}
