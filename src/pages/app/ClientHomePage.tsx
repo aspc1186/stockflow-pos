@@ -94,7 +94,7 @@ export default function ClientHomePage() {
 
   return <div className="mx-auto w-full max-w-[1700px] space-y-4 pb-3">
     <header className="flex flex-col gap-3 border-b border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 items-center gap-3"><img src="/images/stockflow-login.png" alt="StockFlow POS" className="h-14 w-14 rounded-xl bg-surface-900 object-contain p-1 shadow-lg shadow-brand-500/10 transition-transform duration-300 hover:scale-105 motion-safe:animate-bounce motion-reduce:animate-none" /><div><p className="text-2xl font-bold text-surface-50">StockFlow <span className="text-emerald-400">POS</span></p><p className="mt-0.5 text-sm text-surface-200/70">Sistema de Punto de Venta</p></div></div>
+      <div className="flex min-w-0 items-center gap-3"><img src="/images/stockflow-login.png" alt="StockFlow POS" className="h-14 w-14 rounded-xl object-cover object-left shadow-lg shadow-brand-500/10" /><div><p className="text-2xl font-bold text-surface-50">StockFlow <span className="text-emerald-400">POS</span></p><p className="mt-0.5 text-sm text-surface-200/70">Sistema de Punto de Venta</p></div></div>
       <div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-surface-800/75 px-4 py-2.5"><span className="rounded-lg bg-brand-500/15 p-2 text-brand-300"><Store className="h-5 w-5" /></span><div className="min-w-0"><p className="truncate text-base font-semibold text-surface-50">{empresa?.nombre || 'Tu negocio'}</p><p className="truncate text-xs text-surface-200/70">{user?.rol || 'Usuario'} · Caja {formatCurrency(stats?.caja_actual || 0)}</p></div></div>
     </header>
 
