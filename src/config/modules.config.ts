@@ -23,7 +23,7 @@ export const MODULOS_PLATAFORMA: ModuloPlataforma[] = [
   {id:'eventos',nombre:'Eventos y promociones',grupo:'Puestos y atencion',icono:ShoppingBag,ruta:'/app/eventos',planes:['pro','enterprise'],disponible:true,descripcion:'Puestos'},
   {id:'inventario',nombre:'Inventario',grupo:'Inventario y WMS',icono:Boxes,ruta:'/app/inventario',planes:['free','pro','enterprise'],disponible:true,descripcion:'Inventario'},
   {id:'kardex',nombre:'Kardex y movimientos',grupo:'Inventario y WMS',icono:History,ruta:'/app/inventario',planes:['pro','enterprise'],disponible:true,descripcion:'Inventario'},
-  {id:'conteos',nombre:'Conteos ciclicos',grupo:'Inventario y WMS',icono:ClipboardList,planes:['enterprise'],disponible:false,descripcion:'Proximamente'},
+  {id:'conteos',nombre:'Conteos cíclicos',grupo:'Inventario y WMS',icono:ClipboardList,ruta:'/app/escanear/qr',planes:['pro','enterprise'],disponible:true,descripcion:'Inventario'},
   {id:'conciliacion',nombre:'Conciliacion',grupo:'Inventario y WMS',icono:Settings2,planes:['enterprise'],disponible:false,descripcion:'Proximamente'},
   {id:'bodegas',nombre:'Bodegas y ubicaciones',grupo:'Inventario y WMS',icono:Warehouse,planes:['enterprise'],disponible:false,descripcion:'Proximamente'},
   {id:'traslados',nombre:'Traslados entre bodegas',grupo:'Inventario y WMS',icono:Warehouse,planes:['enterprise'],disponible:false,descripcion:'Proximamente'},
