@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpFromLine, BarChart3, Boxes, CalendarDays, ClipboardList, ContactRound, CreditCard, LogOut, Package, QrCode, ReceiptText, Settings2, ShoppingBag, ShoppingCart, Store, Users, UtensilsCrossed } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpFromLine, BarChart3, Boxes, CalendarDays, ClipboardList, QrCode, ReceiptText, Settings2, Store, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
-import { MODULOS_PLATAFORMA, planNormalizado, type ModuloPlataforma } from '@/config/modules.config'
+import { MODULOS_PLATAFORMA, planNormalizado, type GrupoModulo, type ModuloPlataforma } from '@/config/modules.config'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatCurrency } from '@/lib/utils'
 import type { DashboardStats } from '@/types'
@@ -22,7 +22,7 @@ function permitido(modulo: ModuloPlataforma, rol: string, plan: string, tipo: st
 }
 
 type Accento = 'emerald' | 'sky' | 'violet' | 'orange' | 'cyan' | 'amber' | 'pink' | 'green' | 'blue'
-type Tarjeta = { id: string; titulo: string; detalle: string; icono: React.ReactNode; acento: Accento; ruta?: string; accion?: 'productos' | 'salir' }
+type Tarjeta = { id: string; titulo: string; detalle: string; icono: React.ReactNode; acento: Accento; ruta?: string; accion?: GrupoModulo | 'salir' }
 
 const estilos: Record<Accento, string> = {
   emerald: 'border-emerald-400/70 bg-emerald-500/10 hover:bg-emerald-500/15',
@@ -50,7 +50,7 @@ function ResumenRapido({ icono, etiqueta, valor, acento }: { icono: React.ReactN
 export default function ClientHomePage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const [nivel, setNivel] = useState<'inicio' | 'productos'>('inicio')
+  const [grupoActivo, setGrupoActivo] = useState<GrupoModulo | null>(null)
   const empresa = user?.empresa
   const tipo = String(empresa?.tipo || '').toLowerCase()
   const extras = empresa?.modulos_extra || []
@@ -75,25 +75,19 @@ export default function ClientHomePage() {
     tiene('pedidos') && { id: 'pedidos', titulo: esServicio ? 'Servicios' : 'Pedidos', detalle: esServicio ? 'Atenciones activas y seguimiento' : 'Ventas y seguimiento', icono: <ClipboardList className="h-9 w-9" />, acento: 'amber', ruta: '/app/pedidos' },
   ].filter(Boolean) as Tarjeta[]
 
-  const secundarias: Tarjeta[] = [
-    tiene('reportes') && { id: 'reportes', titulo: 'Reportes', detalle: 'Ventas, productos, inventario y mas', icono: <BarChart3 className="h-8 w-8" />, acento: 'amber', ruta: '/app/reportes' },
-    tiene('clientes') && { id: 'clientes', titulo: 'Clientes', detalle: 'Gestionar clientes y facturacion', icono: <ContactRound className="h-8 w-8" />, acento: 'pink', ruta: '/app/clientes' },
-    tiene('configuracion') && { id: 'configuracion', titulo: 'Configuracion', detalle: 'Ajustes, usuarios y permisos', icono: <Settings2 className="h-8 w-8" />, acento: 'green', ruta: '/app/configuracion' },
-    { id: 'salir', titulo: 'Cerrar sesion', detalle: 'Salir de StockFlow POS', icono: <LogOut className="h-8 w-8" />, acento: 'blue', accion: 'salir' },
+  const grupos: Tarjeta[] = [
+    modulos.some(modulo => modulo.grupo === 'Operacion') && { id: 'operacion', titulo: 'Operacion', detalle: 'Ventas, caja, pedidos y clientes', icono: <ReceiptText className="h-5 w-5" />, acento: 'blue', accion: 'Operacion' },
+    modulos.some(modulo => modulo.grupo === 'Puestos y atencion') && { id: 'puestos', titulo: 'Puestos y atencion', detalle: 'Mesas, reservas y responsables', icono: <Users className="h-5 w-5" />, acento: 'violet', accion: 'Puestos y atencion' },
+    modulos.some(modulo => modulo.grupo === 'Inventario y WMS') && { id: 'inventario-wms', titulo: 'Inventario y WMS', detalle: 'Existencias, escaneo y conteos', icono: <Boxes className="h-5 w-5" />, acento: 'emerald', accion: 'Inventario y WMS' },
+    modulos.some(modulo => modulo.grupo === 'Administracion') && { id: 'administracion', titulo: 'Administracion', detalle: 'Usuarios, reportes y configuracion', icono: <Settings2 className="h-5 w-5" />, acento: 'amber', accion: 'Administracion' },
   ].filter(Boolean) as Tarjeta[]
 
-  const productos: Tarjeta[] = [
-    tiene('productos') && { id: 'maestro', titulo: 'Maestro de productos', detalle: 'Catalogo, precios y codigos', icono: <Package className="h-8 w-8" />, acento: 'orange', ruta: '/app/productos' },
-    tiene('inventario') && { id: 'inventario', titulo: 'Inventario', detalle: 'Existencias y movimientos', icono: <Boxes className="h-8 w-8" />, acento: 'sky', ruta: '/app/inventario' },
-    tiene('barras') && { id: 'entrada', titulo: 'Entrada', detalle: 'Registrar mercancia por codigo', icono: <ArrowDownToLine className="h-8 w-8" />, acento: 'emerald', ruta: '/app/escanear/barras?tipo=entrada' },
-    tiene('barras') && { id: 'salida', titulo: 'Salida', detalle: 'Descontar producto por codigo', icono: <ArrowUpFromLine className="h-8 w-8" />, acento: 'pink', ruta: '/app/escanear/barras?tipo=salida' },
-    tiene('conteos') && { id: 'conteos', titulo: 'Conteos', detalle: 'Conteo general y ciclico con QR', icono: <QrCode className="h-8 w-8" />, acento: 'violet', ruta: '/app/escanear/qr' },
-  ].filter(Boolean) as Tarjeta[]
-
-  const visibles = nivel === 'productos' ? productos : principales
+  const modulosDelGrupo: Tarjeta[] = grupoActivo
+    ? modulos.filter(modulo => modulo.grupo === grupoActivo).map(modulo => ({ id: modulo.id, titulo: modulo.nombre, detalle: modulo.descripcion, icono: <modulo.icono className="h-7 w-7" />, acento: 'sky' as Accento, ruta: modulo.ruta }))
+    : []
   const ejecutar = (tarjeta: Tarjeta) => {
-    if (tarjeta.accion === 'productos') return setNivel('productos')
     if (tarjeta.accion === 'salir') { if (window.confirm('Deseas cerrar la sesion actual?')) logout(); return }
+    if (tarjeta.accion) return setGrupoActivo(tarjeta.accion)
     if (tarjeta.ruta) navigate(tarjeta.ruta)
   }
   const fecha = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date())
@@ -106,15 +100,16 @@ export default function ClientHomePage() {
 
     <div className="flex flex-col items-center text-center"><div><h1 className="text-2xl font-bold text-surface-50 sm:text-3xl">Bienvenido, {empresa?.nombre || 'tu negocio'}</h1><p className="mt-0.5 text-base text-surface-200/75">Que deseas hacer hoy?</p></div></div>
 
-    {nivel === 'productos' && <div className="flex items-center justify-between"><button type="button" onClick={() => setNivel('inicio')} className="btn-secondary min-h-11"><ArrowLeft className="h-4 w-4" />Volver</button><p className="text-sm text-surface-200/70">Productos e inventario</p></div>}
-    <section className={`grid gap-3 sm:grid-cols-2 ${visibles.length >= 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
-      {visibles.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} />)}
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {principales.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} />)}
     </section>
-    {visibles.length === 0 && <div className="card p-8 text-center text-surface-200/70">No hay actividades disponibles que coincidan con la busqueda.</div>}
+    {principales.length === 0 && <div className="card p-8 text-center text-surface-200/70">No hay actividades disponibles para esta empresa.</div>}
 
-    {nivel === 'inicio' && <section className="mx-auto grid max-w-[1320px] gap-3 sm:grid-cols-2 lg:grid-cols-4">{secundarias.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} secundaria />)}</section>}
+    <section className="mx-auto grid max-w-[1320px] gap-3 sm:grid-cols-2 lg:grid-cols-4">{grupos.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} secundaria />)}</section>
 
-    {nivel === 'inicio' && <footer className="card grid divide-y divide-white/10 overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+    {grupoActivo && <section className="card space-y-4 p-4"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-surface-50">{grupoActivo}</h2><p className="text-sm text-surface-200/70">Modulos disponibles para esta empresa</p></div><button type="button" onClick={() => setGrupoActivo(null)} className="btn-secondary min-h-10"><ArrowLeft className="h-4 w-4" />Cerrar</button></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{modulosDelGrupo.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} secundaria />)}</div></section>}
+
+    {!grupoActivo && <footer className="card grid divide-y divide-white/10 overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
       <ResumenRapido icono={<CalendarDays className="h-6 w-6 text-sky-300" />} etiqueta="Jornada" valor={fecha} acento="bg-sky-500/15" />
       <ResumenRapido icono={<BarChart3 className="h-6 w-6 text-emerald-300" />} etiqueta="Ventas del dia" valor={formatCurrency(stats?.ventas_hoy || 0)} acento="bg-emerald-500/15" />
       <ResumenRapido icono={<ClipboardList className="h-6 w-6 text-violet-300" />} etiqueta="Pedidos activos" valor={String(stats?.pedidos_activos || 0)} acento="bg-violet-500/15" />
