@@ -4,7 +4,18 @@ import { authenticate, cors } from '../_auth.js'
 
 let schemaReady: Promise<void> | null = null
 function ensureSchema() {
-  if (!schemaReady) schemaReady = query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS documento VARCHAR(50), ADD COLUMN IF NOT EXISTS notas TEXT, ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true, ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`).then(() => undefined)
+  if (!schemaReady) schemaReady = query(`
+    ALTER TABLE clientes
+      ADD COLUMN IF NOT EXISTS telefono VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS email VARCHAR(180),
+      ADD COLUMN IF NOT EXISTS documento VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS tipo_cliente VARCHAR(30) NOT NULL DEFAULT 'regular',
+      ADD COLUMN IF NOT EXISTS notas TEXT,
+      ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true,
+      ADD COLUMN IF NOT EXISTS total_visitas INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_consumo NUMERIC(14,2) NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `).then(() => undefined)
   return schemaReady
 }
 
