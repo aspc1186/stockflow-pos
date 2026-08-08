@@ -1,38 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, BarChart3, Boxes, ClipboardList, CookingPot, Package, QrCode, ReceiptText, Settings2, ShieldCheck, ShoppingCart, Users } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpFromLine, BarChart3, Boxes, CalendarDays, ClipboardList, ContactRound, CreditCard, LogOut, Package, QrCode, ReceiptText, Settings2, ShoppingBag, ShoppingCart, Store, Users, UtensilsCrossed } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
-import { GRUPOS_MODULOS, MODULOS_PLATAFORMA, planNormalizado, type GrupoModulo, type ModuloPlataforma } from '@/config/modules.config'
+import { MODULOS_PLATAFORMA, planNormalizado, type ModuloPlataforma } from '@/config/modules.config'
 import { useAuth } from '@/contexts/AuthContext'
 import { formatCurrency } from '@/lib/utils'
 import type { DashboardStats } from '@/types'
 
-const iconosGrupo: Record<GrupoModulo, any> = {
-  Operacion: ShoppingCart,
-  'Puestos y atencion': Users,
-  'Inventario y WMS': Boxes,
-  'Restaurante y recetas': CookingPot,
-  Administracion: ShieldCheck,
-  Sistema: Settings2,
-}
-
-const resumen: Record<GrupoModulo, string> = {
-  Operacion: 'Ventas, pedidos, caja, productos y clientes.',
-  'Puestos y atencion': 'Mesas, reservas, responsables y eventos.',
-  'Inventario y WMS': 'Existencias, movimientos y captura con scanner.',
-  'Restaurante y recetas': 'Ingredientes, recetas, costos y mermas.',
-  Administracion: 'Usuarios, reportes, configuracion e integraciones.',
-  Sistema: 'Herramientas tecnicas y soporte de la plataforma.',
-}
-
 const limitesPorRol: Record<string, string[]> = {
-  admin: [],
-  supervisor: [],
-  cajero: ['dashboard', 'caja', 'pedidos', 'mesas'],
-  mesero: ['mesas', 'pedidos'],
-  barra: ['pedidos', 'productos'],
-  cocina: ['pedidos'],
+  admin: [], supervisor: [], cajero: ['dashboard', 'caja', 'pedidos', 'mesas'],
+  mesero: ['mesas', 'pedidos'], barra: ['pedidos', 'productos'], cocina: ['pedidos'],
 }
 
 function permitido(modulo: ModuloPlataforma, rol: string, plan: string, tipo: string, extras: string[]) {
@@ -43,38 +21,42 @@ function permitido(modulo: ModuloPlataforma, rol: string, plan: string, tipo: st
     && (!modulo.negocios || modulo.negocios.includes(tipo))
 }
 
-function indicador(modulo: ModuloPlataforma, stats?: DashboardStats) {
-  if (!stats) return null
-  const valores: Record<string, string> = {
-    dashboard: 'Resumen operativo',
-    productos: `${stats.productos_mas_vendidos?.length || 0} destacados`,
-    caja: formatCurrency(stats.caja_actual || 0),
-    pedidos: `${stats.pedidos_activos || 0} activos`,
-    mesas: `${stats.mesas_ocupadas || 0} ocupadas`,
-    inventario: formatCurrency(stats.valor_inventario || 0),
-    'indicadores-inventario': `${stats.inventario_critico || 0} criticos`,
-    reportes: 'Indicadores y exportacion',
-    recetas: 'Costos por porcion',
-    ingredientes: 'Stock de cocina',
-  }
-  return valores[modulo.id] || null
+type Accento = 'emerald' | 'sky' | 'violet' | 'orange' | 'cyan' | 'amber' | 'pink' | 'green' | 'blue'
+type Tarjeta = { id: string; titulo: string; detalle: string; icono: React.ReactNode; acento: Accento; ruta?: string; accion?: 'productos' | 'salir' }
+
+const estilos: Record<Accento, string> = {
+  emerald: 'border-emerald-400/70 bg-emerald-500/10 hover:bg-emerald-500/15',
+  sky: 'border-sky-400/70 bg-sky-500/10 hover:bg-sky-500/15',
+  violet: 'border-violet-400/70 bg-violet-500/10 hover:bg-violet-500/15',
+  orange: 'border-orange-400/70 bg-orange-500/10 hover:bg-orange-500/15',
+  cyan: 'border-cyan-400/70 bg-cyan-500/10 hover:bg-cyan-500/15',
+  amber: 'border-amber-400/70 bg-amber-500/10 hover:bg-amber-500/15',
+  pink: 'border-pink-400/70 bg-pink-500/10 hover:bg-pink-500/15',
+  green: 'border-green-400/70 bg-green-500/10 hover:bg-green-500/15',
+  blue: 'border-blue-400/70 bg-blue-500/10 hover:bg-blue-500/15',
 }
 
-function AccesoRapido({ onClick, icono, titulo, detalle, color }: { onClick: () => void; icono: React.ReactNode; titulo: string; detalle: string; color: string }) {
-  return <button onClick={onClick} className={`flex min-h-36 items-center gap-5 rounded-xl border p-6 text-left transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-brand-400 ${color}`}>
-    <span className="rounded-xl bg-black/15 p-4">{icono}</span>
-    <span className="min-w-0"><b className="block text-xl text-surface-50">{titulo}</b><span className="mt-1 block text-base text-surface-100/80">{detalle}</span></span>
+function TarjetaModulo({ tarjeta, onClick, secundaria = false }: { tarjeta: Tarjeta; onClick: () => void; secundaria?: boolean }) {
+  return <button type="button" aria-label={`${tarjeta.titulo}: ${tarjeta.detalle}`} onClick={onClick} className={`group flex w-full flex-col rounded-2xl border p-5 text-left shadow-lg shadow-black/10 transition duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-400 ${secundaria ? 'min-h-52' : 'min-h-64'} ${estilos[tarjeta.acento]}`}>
+    <span className="flex h-16 w-16 items-center justify-center rounded-full border border-current/30 bg-surface-950/25 text-current">{tarjeta.icono}</span>
+    <div className="mt-auto"><h2 className="text-2xl font-bold text-surface-50">{tarjeta.titulo}</h2><p className="mt-2 max-w-[20ch] text-base leading-6 text-surface-100/85">{tarjeta.detalle}</p><ArrowRight className="mt-4 h-7 w-7 transition-transform group-hover:translate-x-1" /></div>
   </button>
+}
+
+function ResumenRapido({ icono, etiqueta, valor, acento }: { icono: React.ReactNode; etiqueta: string; valor: string; acento: string }) {
+  return <div className="flex min-w-0 items-center gap-3 px-4 py-3"><span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${acento}`}>{icono}</span><div className="min-w-0"><p className="text-sm text-surface-200/70">{etiqueta}</p><p className="truncate text-lg font-bold text-surface-50">{valor}</p></div></div>
 }
 
 export default function ClientHomePage() {
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const [grupo, setGrupo] = useState<GrupoModulo | null>(null)
+  const { user, logout } = useAuth()
+  const [nivel, setNivel] = useState<'inicio' | 'productos'>('inicio')
   const [busqueda, setBusqueda] = useState('')
   const empresa = user?.empresa
   const tipo = String(empresa?.tipo || '').toLowerCase()
   const extras = empresa?.modulos_extra || []
+  const usaMesas = ['restaurante', 'bar', 'discoteca', 'cafeteria', 'cafe', 'tienda bar', 'comidas rapidas'].some(valor => tipo.includes(valor))
+  const esServicio = ['barberia', 'salon', 'spa', 'estetica', 'manicure'].some(valor => tipo.includes(valor))
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
@@ -83,72 +65,62 @@ export default function ClientHomePage() {
     },
     staleTime: 30_000,
   })
-  const modulos = useMemo(
-    () => MODULOS_PLATAFORMA.filter(modulo => permitido(modulo, user?.rol || '', empresa?.plan || 'basico', tipo, extras)),
-    [user?.rol, empresa?.plan, tipo, extras.join('|')],
-  )
-  const accesos = [
-    { titulo: 'Entrada', detalle: 'Registrar mercancia por codigo', ruta: '/app/escanear/barras?tipo=entrada', color: 'border-emerald-400/35 bg-emerald-500/15', icono: <ArrowDownToLine className="h-7 w-7 text-emerald-200" /> },
-    { titulo: 'Salida', detalle: 'Descontar productos por codigo', ruta: '/app/escanear/barras?tipo=salida', color: 'border-rose-400/35 bg-rose-500/15', icono: <ArrowUpFromLine className="h-7 w-7 text-rose-200" /> },
-    { titulo: 'Conteo de inventario', detalle: 'General y ciclico con QR', ruta: '/app/escanear/qr', color: 'border-violet-400/35 bg-violet-500/15', icono: <QrCode className="h-7 w-7 text-violet-200" /> },
-    { titulo: 'Inventario', detalle: 'Movimientos y existencias', ruta: '/app/inventario', color: 'border-sky-400/35 bg-sky-500/15', icono: <Boxes className="h-7 w-7 text-sky-200" /> },
-    { titulo: 'Pedidos', detalle: 'Ventas y seguimiento', ruta: '/app/pedidos', color: 'border-amber-400/35 bg-amber-500/15', icono: <ClipboardList className="h-7 w-7 text-amber-200" /> },
-  ].filter(acceso => `${acceso.titulo} ${acceso.detalle}`.toLowerCase().includes(busqueda.toLowerCase()))
-  const detalles = grupo ? modulos.filter(modulo => modulo.grupo === grupo) : []
+  const modulos = useMemo(() => MODULOS_PLATAFORMA.filter(modulo => permitido(modulo, user?.rol || '', empresa?.plan || 'basico', tipo, extras)), [user?.rol, empresa?.plan, tipo, extras.join('|')])
+  const tiene = (id: string) => modulos.some(modulo => modulo.id === id)
 
-  return <div className="space-y-5">
-    <header className="flex flex-col gap-4 border-b border-white/10 pb-4 xl:flex-row xl:items-center">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-surface-200/50">Inicio / Panel principal</p>
-        <h1 className="mt-1 text-2xl font-bold text-surface-50">Bienvenido, {user?.nombre || 'usuario'}</h1>
-        <p className="mt-1 text-sm text-surface-200/60">{empresa?.nombre || 'Tu empresa'}: selecciona lo que deseas gestionar.</p>
-      </div>
-      <input value={busqueda} onChange={e => setBusqueda(e.target.value)} className="input h-11 w-full xl:w-72" placeholder="Buscar actividad" />
+  const principales: Tarjeta[] = [
+    tiene('pedidos') && { id: 'venta', titulo: esServicio ? 'Nueva atencion' : 'Nueva venta', detalle: esServicio ? 'Registrar un servicio o atencion' : 'Crear una venta rapida o para llevar', icono: <ShoppingCart className="h-9 w-9" />, acento: 'emerald', ruta: '/app/pedidos' },
+    usaMesas && tiene('mesas') && { id: 'mesas', titulo: esServicio ? 'Puestos y atencion' : 'Mesas', detalle: esServicio ? 'Gestionar sillas, cabinas y atenciones' : 'Gestionar mesas y comandas', icono: esServicio ? <Users className="h-9 w-9" /> : <UtensilsCrossed className="h-9 w-9" />, acento: 'sky', ruta: '/app/mesas' },
+    tiene('pedidos') && { id: 'pedidos', titulo: esServicio ? 'Servicios' : 'Pedidos', detalle: esServicio ? 'Ver atenciones activas y seguimiento' : 'Ver pedidos activos y comandas', icono: <ClipboardList className="h-9 w-9" />, acento: 'violet', ruta: '/app/pedidos' },
+    tiene('productos') && { id: 'productos', titulo: 'Productos', detalle: 'Gestionar productos, precios e inventario', icono: <Package className="h-9 w-9" />, acento: 'orange', accion: 'productos' },
+    tiene('caja') && { id: 'caja', titulo: 'Caja', detalle: 'Apertura, cierre y movimientos de caja', icono: <CreditCard className="h-9 w-9" />, acento: 'cyan', ruta: '/app/caja' },
+  ].filter(Boolean) as Tarjeta[]
+
+  const secundarias: Tarjeta[] = [
+    tiene('reportes') && { id: 'reportes', titulo: 'Reportes', detalle: 'Ventas, productos, inventario y mas', icono: <BarChart3 className="h-8 w-8" />, acento: 'amber', ruta: '/app/reportes' },
+    tiene('clientes') && { id: 'clientes', titulo: 'Clientes', detalle: 'Gestionar clientes y facturacion', icono: <ContactRound className="h-8 w-8" />, acento: 'pink', ruta: '/app/clientes' },
+    tiene('configuracion') && { id: 'configuracion', titulo: 'Configuracion', detalle: 'Ajustes, usuarios y permisos', icono: <Settings2 className="h-8 w-8" />, acento: 'green', ruta: '/app/configuracion' },
+    { id: 'salir', titulo: 'Cerrar sesion', detalle: 'Salir de StockFlow POS', icono: <LogOut className="h-8 w-8" />, acento: 'blue', accion: 'salir' },
+  ].filter(Boolean) as Tarjeta[]
+
+  const productos: Tarjeta[] = [
+    tiene('productos') && { id: 'maestro', titulo: 'Maestro de productos', detalle: 'Catalogo, precios y codigos', icono: <Package className="h-8 w-8" />, acento: 'orange', ruta: '/app/productos' },
+    tiene('inventario') && { id: 'inventario', titulo: 'Inventario', detalle: 'Existencias y movimientos', icono: <Boxes className="h-8 w-8" />, acento: 'sky', ruta: '/app/inventario' },
+    tiene('barras') && { id: 'entrada', titulo: 'Entrada', detalle: 'Registrar mercancia por codigo', icono: <ArrowDownToLine className="h-8 w-8" />, acento: 'emerald', ruta: '/app/escanear/barras?tipo=entrada' },
+    tiene('barras') && { id: 'salida', titulo: 'Salida', detalle: 'Descontar producto por codigo', icono: <ArrowUpFromLine className="h-8 w-8" />, acento: 'pink', ruta: '/app/escanear/barras?tipo=salida' },
+    tiene('conteos') && { id: 'conteos', titulo: 'Conteos', detalle: 'Conteo general y ciclico con QR', icono: <QrCode className="h-8 w-8" />, acento: 'violet', ruta: '/app/escanear/qr' },
+  ].filter(Boolean) as Tarjeta[]
+
+  const filtro = (tarjeta: Tarjeta) => `${tarjeta.titulo} ${tarjeta.detalle}`.toLowerCase().includes(busqueda.toLowerCase())
+  const visibles = nivel === 'productos' ? productos.filter(filtro) : principales.filter(filtro)
+  const ejecutar = (tarjeta: Tarjeta) => {
+    if (tarjeta.accion === 'productos') return setNivel('productos')
+    if (tarjeta.accion === 'salir') { if (window.confirm('Deseas cerrar la sesion actual?')) logout(); return }
+    if (tarjeta.ruta) navigate(tarjeta.ruta)
+  }
+  const fecha = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date())
+
+  return <div className="mx-auto max-w-[1560px] space-y-6 pb-4">
+    <header className="flex flex-col gap-5 border-b border-white/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 items-center gap-3"><img src="/images/stockflow-login.png" alt="StockFlow POS" className="h-14 w-14 rounded-xl object-cover object-left" /><div><p className="text-2xl font-bold text-surface-50">StockFlow <span className="text-emerald-400">POS</span></p><p className="text-sm text-surface-200/70">Sistema de Punto de Venta</p></div></div>
+      <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-surface-800/75 px-4 py-3"><span className="rounded-xl bg-brand-500/15 p-2.5 text-brand-300"><Store className="h-6 w-6" /></span><div className="min-w-0"><p className="truncate text-lg font-semibold text-surface-50">{empresa?.nombre || 'Tu negocio'}</p><p className="truncate text-sm text-surface-200/70">{user?.rol || 'Usuario'} · Caja {formatCurrency(stats?.caja_actual || 0)}</p></div></div>
     </header>
 
-    <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {accesos.map(acceso => <AccesoRapido key={acceso.ruta} onClick={() => navigate(acceso.ruta)} {...acceso} />)}
-      </div>
-      {accesos.length === 0 && <p className="card p-5 text-sm text-surface-200/70">No hay una actividad rapida que coincida con la busqueda.</p>}
+    <div className="flex flex-col items-center gap-4 text-center"><div><h1 className="text-4xl font-bold text-surface-50 sm:text-5xl">Bienvenido, {user?.nombre?.split(' ')[0] || 'usuario'}</h1><p className="mt-2 text-xl text-surface-200/75">Que deseas hacer hoy?</p></div><input value={busqueda} onChange={event => setBusqueda(event.target.value)} className="input h-12 w-full max-w-md" placeholder="Buscar una actividad" /></div>
 
-      <div className="flex flex-wrap gap-2">
-        {GRUPOS_MODULOS.map(nombre => {
-          const activos = modulos.filter(m => m.grupo === nombre).length
-          if (!activos) return null
-          const Icon = iconosGrupo[nombre]
-          return <button key={nombre} onClick={() => setGrupo(grupo === nombre ? null : nombre)} className={`flex min-h-14 items-center gap-3 rounded-xl border px-5 text-base font-semibold ${grupo === nombre ? 'border-brand-400 bg-brand-500 text-white' : 'border-white/10 bg-surface-800/75 text-surface-200/70 hover:bg-white/5'}`}><Icon className="h-5 w-5" />{nombre}</button>
-        })}
-        <span className="ml-auto self-center text-xs text-surface-200/50">Plan {empresa?.plan || 'Basico'} · {modulos.length} modulos</span>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Resumen icon={<ReceiptText className="h-5 w-5 text-emerald-300" />} titulo="Ventas del dia" valor={formatCurrency(stats?.ventas_hoy || 0)} />
-        <Resumen icon={<ClipboardList className="h-5 w-5 text-amber-300" />} titulo="Pedidos activos" valor={String(stats?.pedidos_activos || 0)} />
-        <Resumen icon={<Package className="h-5 w-5 text-violet-300" />} titulo="Valor inventario" valor={formatCurrency(stats?.valor_inventario || 0)} />
-        <Resumen icon={<BarChart3 className="h-5 w-5 text-sky-300" />} titulo="Stock critico" valor={String(stats?.inventario_critico || 0)} />
-      </div>
-
-      {grupo && <section className="card p-5 sm:p-6">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div><h2 className="text-2xl font-bold text-surface-50">{grupo}</h2><p className="mt-1 text-base text-surface-200/70">{resumen[grupo]}</p></div>
-          <span className="badge-blue px-3 py-1.5">{detalles.length} accesos</span>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {detalles.map(modulo => {
-            const Icon = modulo.icono
-            const dato = indicador(modulo, stats)
-            return <article key={modulo.id} className="flex min-h-52 flex-col rounded-xl border border-white/10 bg-surface-900/35 p-5">
-              <div className="flex items-start gap-4"><span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-brand-500/15"><Icon className="h-7 w-7 text-brand-300" /></span><div className="min-w-0"><h3 className="text-lg font-semibold text-surface-50">{modulo.nombre}</h3><p className="mt-1 text-sm leading-6 text-surface-200/70">{modulo.descripcion}</p></div></div>
-              <div className="mt-auto flex items-center justify-between gap-3 pt-5">{dato ? <span className="text-sm font-medium text-emerald-300">{dato}</span> : <span className="text-sm text-surface-200/60">Disponible</span>}<button onClick={() => modulo.ruta && navigate(modulo.ruta)} className="btn-secondary min-h-12 px-5" disabled={!modulo.ruta}>Entrar <ArrowRight className="h-4 w-4" /></button></div>
-            </article>
-          })}
-        </div>
-      </section>}
+    {nivel === 'productos' && <div className="flex items-center justify-between"><button type="button" onClick={() => setNivel('inicio')} className="btn-secondary min-h-11"><ArrowLeft className="h-4 w-4" />Volver</button><p className="text-sm text-surface-200/70">Productos e inventario</p></div>}
+    <section className={`grid gap-5 ${nivel === 'productos' ? 'sm:grid-cols-2 xl:grid-cols-5' : 'sm:grid-cols-2 xl:grid-cols-5'}`}>
+      {visibles.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} />)}
     </section>
-  </div>
-}
+    {visibles.length === 0 && <div className="card p-8 text-center text-surface-200/70">No hay actividades disponibles que coincidan con la busqueda.</div>}
 
-function Resumen({ icon, titulo, valor }: { icon: React.ReactNode; titulo: string; valor: string }) {
-  return <div className="card flex min-h-24 items-center gap-3 p-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/5">{icon}</span><div className="min-w-0"><p className="text-xs text-surface-200/55">{titulo}</p><p className="mt-1 truncate text-lg font-bold text-surface-50">{valor}</p></div></div>
+    {nivel === 'inicio' && <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"><>{secundarias.filter(filtro).map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} secundaria />)}</></section>}
+
+    {nivel === 'inicio' && <footer className="card grid divide-y divide-white/10 overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+      <ResumenRapido icono={<CalendarDays className="h-6 w-6 text-sky-300" />} etiqueta="Jornada" valor={fecha} acento="bg-sky-500/15" />
+      <ResumenRapido icono={<BarChart3 className="h-6 w-6 text-emerald-300" />} etiqueta="Ventas del dia" valor={formatCurrency(stats?.ventas_hoy || 0)} acento="bg-emerald-500/15" />
+      <ResumenRapido icono={<ClipboardList className="h-6 w-6 text-violet-300" />} etiqueta="Pedidos activos" valor={String(stats?.pedidos_activos || 0)} acento="bg-violet-500/15" />
+      <ResumenRapido icono={usaMesas ? <Users className="h-6 w-6 text-orange-300" /> : <Boxes className="h-6 w-6 text-orange-300" />} etiqueta={usaMesas ? 'Mesas ocupadas' : 'Stock critico'} valor={usaMesas ? `${stats?.mesas_ocupadas || 0} / ${(stats?.mesas_ocupadas || 0) + (stats?.mesas_libres || 0)}` : String(stats?.inventario_critico || 0)} acento="bg-orange-500/15" />
+    </footer>}
+  </div>
 }
