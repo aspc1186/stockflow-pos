@@ -68,11 +68,11 @@ export default function ClientHomePage() {
   const tiene = (id: string) => modulos.some(modulo => modulo.id === id)
 
   const principales: Tarjeta[] = [
-    tiene('pedidos') && { id: 'venta', titulo: esServicio ? 'Nueva atencion' : 'Nueva venta', detalle: esServicio ? 'Registrar un servicio o atencion' : 'Crear una venta rapida o para llevar', icono: <ShoppingCart className="h-9 w-9" />, acento: 'emerald', ruta: '/app/pedidos' },
-    usaMesas && tiene('mesas') && { id: 'mesas', titulo: esServicio ? 'Puestos y atencion' : 'Mesas', detalle: esServicio ? 'Gestionar sillas, cabinas y atenciones' : 'Gestionar mesas y comandas', icono: esServicio ? <Users className="h-9 w-9" /> : <UtensilsCrossed className="h-9 w-9" />, acento: 'sky', ruta: '/app/mesas' },
-    tiene('pedidos') && { id: 'pedidos', titulo: esServicio ? 'Servicios' : 'Pedidos', detalle: esServicio ? 'Ver atenciones activas y seguimiento' : 'Ver pedidos activos y comandas', icono: <ClipboardList className="h-9 w-9" />, acento: 'violet', ruta: '/app/pedidos' },
-    tiene('productos') && { id: 'productos', titulo: 'Productos', detalle: 'Gestionar productos, precios e inventario', icono: <Package className="h-9 w-9" />, acento: 'orange', accion: 'productos' },
-    tiene('caja') && { id: 'caja', titulo: 'Caja', detalle: 'Apertura, cierre y movimientos de caja', icono: <CreditCard className="h-9 w-9" />, acento: 'cyan', ruta: '/app/caja' },
+    tiene('barras') && { id: 'entrada', titulo: 'Entrada', detalle: 'Registrar mercancia por codigo', icono: <ArrowDownToLine className="h-9 w-9" />, acento: 'emerald', ruta: '/app/escanear/barras?tipo=entrada' },
+    tiene('barras') && { id: 'salida', titulo: 'Salida', detalle: 'Descontar productos por codigo', icono: <ArrowUpFromLine className="h-9 w-9" />, acento: 'pink', ruta: '/app/escanear/barras?tipo=salida' },
+    tiene('conteos') && { id: 'conteos', titulo: 'Conteo de inventario', detalle: 'General y ciclico con QR', icono: <QrCode className="h-9 w-9" />, acento: 'violet', ruta: '/app/escanear/qr' },
+    tiene('inventario') && { id: 'inventario', titulo: 'Inventario', detalle: 'Movimientos y existencias', icono: <Boxes className="h-9 w-9" />, acento: 'sky', ruta: '/app/inventario' },
+    tiene('pedidos') && { id: 'pedidos', titulo: esServicio ? 'Servicios' : 'Pedidos', detalle: esServicio ? 'Atenciones activas y seguimiento' : 'Ventas y seguimiento', icono: <ClipboardList className="h-9 w-9" />, acento: 'amber', ruta: '/app/pedidos' },
   ].filter(Boolean) as Tarjeta[]
 
   const secundarias: Tarjeta[] = [
