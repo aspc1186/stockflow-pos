@@ -3,7 +3,7 @@ import { Building2, ChevronDown, ImageUp, Menu } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import api from '@/lib/axios'
 import toast from 'react-hot-toast'
-export default function TopBar({onMenuClick}:{onMenuClick:()=>void}){
+export default function TopBar({onMenuClick}:{onMenuClick?:()=>void}){
   const {user,isAdmin,refreshUser}=useAuth()
   const inputRef=useRef<HTMLInputElement>(null)
   const [uploading,setUploading]=useState(false)
@@ -27,7 +27,7 @@ export default function TopBar({onMenuClick}:{onMenuClick:()=>void}){
   }
   const empresa=user?.empresa
   const logo=empresa?.logo_url
-  return <header className="relative flex h-14 flex-shrink-0 items-center justify-between border-b border-white/5 bg-surface-800 px-4"><button onClick={onMenuClick} className="rounded-lg p-2 text-surface-200/60 hover:bg-white/5 lg:hidden"><Menu className="w-5 h-5"/></button><div className="flex-1"/><div className="flex items-center gap-2.5">
+  return <header className="relative flex h-14 flex-shrink-0 items-center justify-between border-b border-white/5 bg-surface-800 px-4">{onMenuClick?<button onClick={onMenuClick} className="rounded-lg p-2 text-surface-200/60 hover:bg-white/5 lg:hidden"><Menu className="w-5 h-5"/></button>:null}<div className="flex-1"/><div className="flex items-center gap-2.5">
     <span className="hidden text-sm text-surface-200/60 sm:block">{user?.nombre}</span>
     <button type="button" onClick={()=>setClientOpen(!clientOpen)} aria-expanded={clientOpen} className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-white/5" title="Informacion del negocio">
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-600/30">{logo?<img src={logo} alt="Logo del negocio" className="h-full w-full object-cover"/>:<span className="text-[11px] font-bold text-brand-300">{empresa?.nombre?.[0]??'E'}</span>}</div>

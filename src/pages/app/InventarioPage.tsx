@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Download, Pencil, Plus, ScanLine } from 'lucide-react'
 import api from '@/lib/axios'
@@ -15,6 +15,9 @@ export default function InventarioPage() {
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
   const [codigo, setCodigo] = useState('')
+  const [registroContinuo, setRegistroContinuo] = useState(true)
+  const [productoBloqueado, setProductoBloqueado] = useState(false)
+  const lectorRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const espera = window.setTimeout(() => setSearchApi(search.trim()), 300)
     return () => window.clearTimeout(espera)
@@ -28,7 +31,16 @@ export default function InventarioPage() {
   const { data: productos = [] } = useQuery({ queryKey: ['prods-inv'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as any[] }, enabled: modal })
   const ajustar = useMutation({
     mutationFn: () => api.post('/inventario', {...form,cantidad:parseFloat(form.cantidad)||0,costo_unit:form.costo_unit?parseFloat(form.costo_unit):undefined}),
-    onSuccess: async () => { await Promise.all([qc.invalidateQueries({queryKey:['inventario']}), qc.invalidateQueries({queryKey:['caja']}), qc.invalidateQueries({queryKey:['dashboard-stats']})]); setModal(false); setCodigo(''); setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'}); toast.success('Movimiento registrado y saldo actualizado') },
+    onSuccess: async () => {
+      await Promise.all([qc.invalidateQueries({queryKey:['inventario']}), qc.invalidateQueries({queryKey:['caja']}), qc.invalidateQueries({queryKey:['dashboard-stats']})])
+      setCodigo('')
+      if (registroContinuo) {
+        setProductoBloqueado(false)
+        setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+        window.setTimeout(() => lectorRef.current?.focus(), 0)
+      } else setModal(false)
+      toast.success('Movimiento registrado y saldo actualizado')
+    },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
   const descargarMovimientos = async () => {
@@ -45,21 +57,32 @@ export default function InventarioPage() {
   const valorTotal = inv.reduce((s:any, item:any) => s + Number(item.valor_costo || 0), 0)
   const abrirCorreccion = (item:any) => {
     setForm({ producto_id:item.producto_id, tipo:'ajuste', cantidad:String(Number(item.stock_actual || 0)), costo_unit:String(Number(item.precio_costo || 0)), notas:'Correccion de inventario', pagar_desde_caja:false, metodo_pago:'efectivo' })
+    setCodigo(String(item.codigo || ''))
+    setProductoBloqueado(true)
     setModal(true)
+  }
+  const abrirMovimiento = () => {
+    setCodigo('')
+    setProductoBloqueado(false)
+    setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+    setModal(true)
+    window.setTimeout(() => lectorRef.current?.focus(), 0)
   }
   const seleccionarPorCodigo = () => {
     const valor = codigo.trim().toLowerCase()
     if (!valor) return toast.error('Lee o escribe un codigo de barras')
     const producto = productos.find((item:any) => String(item.codigo || '').trim().toLowerCase() === valor)
     if (!producto) return toast.error('No existe un producto activo con este codigo')
-    setForm(actual => ({ ...actual, producto_id: producto.id, costo_unit: actual.costo_unit || String(Number(producto.precio_costo || 0)) }))
+    if (productoBloqueado && form.producto_id && form.producto_id !== producto.id) return toast.error('Desbloquea el producto actual para escanear otro')
+    setForm(actual => ({ ...actual, producto_id: producto.id, costo_unit: String(Number(producto.precio_costo || 0)) }))
     toast.success(`${producto.nombre} seleccionado`)
   }
+  const productoSeleccionado = productos.find((producto:any) => producto.id === form.producto_id) as any
   return (
     <div className="space-y-5">
       <div className="page-header">
         <div><h1 className="page-title">Inventario</h1><p className="page-subtitle">Valor total a costo: {formatCurrency(valorTotal)} - Saldo actual despues de ventas y salidas</p></div>
-        <div className="flex gap-2"><button onClick={descargarMovimientos} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Movimientos</button><button onClick={() => setModal(true)} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Movimiento</button></div>
+        <div className="flex gap-2"><button onClick={descargarMovimientos} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Movimientos</button><button onClick={abrirMovimiento} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Movimiento</button></div>
       </div>
       <div className="flex gap-3">
         <input className="input max-w-xs" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}/>
@@ -90,13 +113,15 @@ export default function InventarioPage() {
       <Modal open={modal} onClose={() => setModal(false)} title={form.tipo === 'ajuste' ? 'Correccion de inventario' : 'Movimiento de inventario'} size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => ajustar.mutate()} disabled={ajustar.isPending||!form.producto_id||!form.cantidad} className="btn-primary flex-1">{ajustar.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Guardar'}</button></div>}>
         <div className="space-y-4">
-          <div><label className="label">Escanear codigo de barras</label><div className="flex gap-2"><input autoFocus className="input font-mono" inputMode="numeric" value={codigo} onChange={e=>setCodigo(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();seleccionarPorCodigo()}}} placeholder="Lee con la pistola o escribe el codigo"/><button type="button" onClick={seleccionarPorCodigo} className="btn-secondary min-h-11 shrink-0" title="Buscar producto por codigo"><ScanLine className="h-4 w-4"/>Buscar</button></div><p className="mt-1 text-xs text-surface-200/45">Cada lectura selecciona el producto creado con ese codigo.</p></div>
-          <div><label className="label">Producto *</label><select className="input" value={form.producto_id} onChange={e=>setForm(p=>({...p,producto_id:e.target.value}))}><option value="" className="bg-surface-800">Selecciona un producto</option>{productos.map((p:any)=><option key={p.id} value={p.id} className="bg-surface-800">{p.codigo ? `[${p.codigo}] ` : ''}{p.nombre}</option>)}</select></div>
+          <div><label className="label">Escanear codigo de barras</label><div className="flex gap-2"><input ref={lectorRef} autoFocus disabled={productoBloqueado} className="input font-mono" inputMode="numeric" value={codigo} onChange={e=>setCodigo(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();seleccionarPorCodigo()}}} placeholder="Lee con la pistola o escribe el codigo"/><button type="button" disabled={productoBloqueado} onClick={seleccionarPorCodigo} className="btn-secondary min-h-11 shrink-0" title="Buscar producto por codigo"><ScanLine className="h-4 w-4"/>Buscar</button></div><p className="mt-1 text-xs text-surface-200/45">Cada lectura selecciona el producto creado con ese codigo.</p></div>
+          <div><label className="label">Producto *</label><select disabled={productoBloqueado} className="input" value={form.producto_id} onChange={e=>{const producto=productos.find((item:any)=>item.id===e.target.value) as any;setForm(p=>({...p,producto_id:e.target.value,costo_unit:String(Number(producto?.precio_costo||0))}))}}><option value="" className="bg-surface-800">Selecciona un producto</option>{productos.map((p:any)=><option key={p.id} value={p.id} className="bg-surface-800">{p.codigo ? `[${p.codigo}] ` : ''}{p.nombre}</option>)}</select></div>
+          {productoSeleccionado&&<div className="rounded-lg border border-brand-400/20 bg-brand-500/5 p-3 text-sm sm:col-span-2"><p className="font-semibold text-surface-50">{productoSeleccionado.nombre}</p><div className="mt-2 grid grid-cols-3 gap-2 text-xs text-surface-200/60"><span>Codigo: <b className="font-mono text-surface-100">{productoSeleccionado.codigo||'-'}</b></span><span>Saldo: <b className="text-surface-100">{Number(productoSeleccionado.stock_actual||0).toFixed(2)}</b></span><span>Costo: <b className="text-surface-100">{formatCurrency(productoSeleccionado.precio_costo||0)}</b></span></div></div>}
           <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value,pagar_desde_caja:e.target.value==='entrada'?p.pagar_desde_caja:false}))}><option value="entrada" className="bg-surface-800">Entrada de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
           <div><label className="label">{form.tipo === 'ajuste' ? 'Saldo final contado *' : 'Cantidad *'}</label><input type="number" min="0" className="input" value={form.cantidad} onChange={e=>setForm(p=>({...p,cantidad:e.target.value}))}/>{form.tipo === 'ajuste' && <p className="mt-1 text-xs text-surface-200/50">La correccion queda registrada como movimiento de ajuste.</p>}</div>
           <div><label className="label">Costo unitario</label><input type="number" min="0" className="input" placeholder="Solo si cambia el costo" value={form.costo_unit} onChange={e=>setForm(p=>({...p,costo_unit:e.target.value}))}/></div>
           {form.tipo==='entrada' && <div className="space-y-3 rounded-lg border border-white/10 bg-surface-900/40 p-3"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={form.pagar_desde_caja} onChange={e=>setForm(p=>({...p,pagar_desde_caja:e.target.checked}))}/><span>Pagado desde caja</span></label>{form.pagar_desde_caja && <div><label className="label">Metodo de pago</label><select className="input" value={form.metodo_pago} onChange={e=>setForm(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>}</div>}
           <div><label className="label">Notas</label><input className="input" value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))}/></div>
+          <div className="space-y-2 rounded-lg border border-white/10 bg-surface-900/40 p-3 sm:col-span-2"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={productoBloqueado} disabled={!form.producto_id} onChange={e=>{setProductoBloqueado(e.target.checked);if(!e.target.checked)window.setTimeout(()=>lectorRef.current?.focus(),0)}}/><span>Bloquear este producto para registrar varias cantidades consecutivas</span></label><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={registroContinuo} onChange={e=>setRegistroContinuo(e.target.checked)}/><span>Registrar otro producto sin cerrar esta ventana</span></label></div>
         </div>
       </Modal>
     </div>
