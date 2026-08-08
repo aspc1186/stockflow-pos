@@ -37,9 +37,9 @@ const estilos: Record<Accento, string> = {
 }
 
 function TarjetaModulo({ tarjeta, onClick, secundaria = false }: { tarjeta: Tarjeta; onClick: () => void; secundaria?: boolean }) {
-  return <button type="button" aria-label={`${tarjeta.titulo}: ${tarjeta.detalle}`} onClick={onClick} className={`group flex w-full flex-col rounded-2xl border p-5 text-left shadow-lg shadow-black/10 transition duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-400 ${secundaria ? 'min-h-52' : 'min-h-64'} ${estilos[tarjeta.acento]}`}>
-    <span className="flex h-16 w-16 items-center justify-center rounded-full border border-current/30 bg-surface-950/25 text-current">{tarjeta.icono}</span>
-    <div className="mt-auto"><h2 className="text-2xl font-bold text-surface-50">{tarjeta.titulo}</h2><p className="mt-2 max-w-[20ch] text-base leading-6 text-surface-100/85">{tarjeta.detalle}</p><ArrowRight className="mt-4 h-7 w-7 transition-transform group-hover:translate-x-1" /></div>
+  return <button type="button" aria-label={`${tarjeta.titulo}: ${tarjeta.detalle}`} onClick={onClick} className={`group flex w-full flex-col rounded-2xl border p-7 text-left shadow-xl shadow-black/15 transition duration-200 hover:-translate-y-1 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-brand-400 ${secundaria ? 'min-h-[280px]' : 'min-h-[300px]'} ${estilos[tarjeta.acento]}`}>
+    <span className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-current/35 bg-surface-950/25 text-current">{tarjeta.icono}</span>
+    <div className="mt-auto"><h2 className="text-3xl font-bold text-surface-50">{tarjeta.titulo}</h2><p className="mt-3 max-w-[20ch] text-lg leading-7 text-surface-100/85">{tarjeta.detalle}</p><ArrowRight className="mt-5 h-8 w-8 transition-transform group-hover:translate-x-1" /></div>
   </button>
 }
 
@@ -51,7 +51,6 @@ export default function ClientHomePage() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [nivel, setNivel] = useState<'inicio' | 'productos'>('inicio')
-  const [busqueda, setBusqueda] = useState('')
   const empresa = user?.empresa
   const tipo = String(empresa?.tipo || '').toLowerCase()
   const extras = empresa?.modulos_extra || []
@@ -91,8 +90,7 @@ export default function ClientHomePage() {
     tiene('conteos') && { id: 'conteos', titulo: 'Conteos', detalle: 'Conteo general y ciclico con QR', icono: <QrCode className="h-8 w-8" />, acento: 'violet', ruta: '/app/escanear/qr' },
   ].filter(Boolean) as Tarjeta[]
 
-  const filtro = (tarjeta: Tarjeta) => `${tarjeta.titulo} ${tarjeta.detalle}`.toLowerCase().includes(busqueda.toLowerCase())
-  const visibles = nivel === 'productos' ? productos.filter(filtro) : principales.filter(filtro)
+  const visibles = nivel === 'productos' ? productos : principales
   const ejecutar = (tarjeta: Tarjeta) => {
     if (tarjeta.accion === 'productos') return setNivel('productos')
     if (tarjeta.accion === 'salir') { if (window.confirm('Deseas cerrar la sesion actual?')) logout(); return }
@@ -100,21 +98,21 @@ export default function ClientHomePage() {
   }
   const fecha = new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Bogota' }).format(new Date())
 
-  return <div className="mx-auto max-w-[1560px] space-y-6 pb-4">
-    <header className="flex flex-col gap-5 border-b border-white/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 items-center gap-3"><img src="/images/stockflow-login.png" alt="StockFlow POS" className="h-14 w-14 rounded-xl object-cover object-left" /><div><p className="text-2xl font-bold text-surface-50">StockFlow <span className="text-emerald-400">POS</span></p><p className="text-sm text-surface-200/70">Sistema de Punto de Venta</p></div></div>
+  return <div className="mx-auto w-full max-w-[1700px] space-y-8 pb-5">
+    <header className="flex flex-col gap-6 border-b border-white/10 pb-7 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 items-center gap-4"><img src="/images/stockflow-login.png" alt="StockFlow POS" className="h-20 w-20 rounded-2xl object-cover object-left shadow-lg shadow-brand-500/10" /><div><p className="text-4xl font-bold text-surface-50">StockFlow <span className="text-emerald-400">POS</span></p><p className="mt-1 text-lg text-surface-200/70">Sistema de Punto de Venta</p></div></div>
       <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-surface-800/75 px-4 py-3"><span className="rounded-xl bg-brand-500/15 p-2.5 text-brand-300"><Store className="h-6 w-6" /></span><div className="min-w-0"><p className="truncate text-lg font-semibold text-surface-50">{empresa?.nombre || 'Tu negocio'}</p><p className="truncate text-sm text-surface-200/70">{user?.rol || 'Usuario'} · Caja {formatCurrency(stats?.caja_actual || 0)}</p></div></div>
     </header>
 
-    <div className="flex flex-col items-center gap-4 text-center"><div><h1 className="text-4xl font-bold text-surface-50 sm:text-5xl">Bienvenido, {user?.nombre?.split(' ')[0] || 'usuario'}</h1><p className="mt-2 text-xl text-surface-200/75">Que deseas hacer hoy?</p></div><input value={busqueda} onChange={event => setBusqueda(event.target.value)} className="input h-12 w-full max-w-md" placeholder="Buscar una actividad" /></div>
+    <div className="flex flex-col items-center text-center"><div><h1 className="text-5xl font-bold text-surface-50 sm:text-6xl">Bienvenido, {user?.nombre?.split(' ')[0] || 'usuario'}</h1><p className="mt-3 text-2xl text-surface-200/75">Que deseas hacer hoy?</p></div></div>
 
     {nivel === 'productos' && <div className="flex items-center justify-between"><button type="button" onClick={() => setNivel('inicio')} className="btn-secondary min-h-11"><ArrowLeft className="h-4 w-4" />Volver</button><p className="text-sm text-surface-200/70">Productos e inventario</p></div>}
-    <section className={`grid gap-5 ${nivel === 'productos' ? 'sm:grid-cols-2 xl:grid-cols-5' : 'sm:grid-cols-2 xl:grid-cols-5'}`}>
+    <section className={`grid gap-6 sm:grid-cols-2 ${visibles.length >= 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
       {visibles.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} />)}
     </section>
     {visibles.length === 0 && <div className="card p-8 text-center text-surface-200/70">No hay actividades disponibles que coincidan con la busqueda.</div>}
 
-    {nivel === 'inicio' && <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"><>{secundarias.filter(filtro).map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} secundaria />)}</></section>}
+    {nivel === 'inicio' && <section className="mx-auto grid max-w-[1320px] gap-6 sm:grid-cols-2 lg:grid-cols-4">{secundarias.map(tarjeta => <TarjetaModulo key={tarjeta.id} tarjeta={tarjeta} onClick={() => ejecutar(tarjeta)} secundaria />)}</section>}
 
     {nivel === 'inicio' && <footer className="card grid divide-y divide-white/10 overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
       <ResumenRapido icono={<CalendarDays className="h-6 w-6 text-sky-300" />} etiqueta="Jornada" valor={fecha} acento="bg-sky-500/15" />

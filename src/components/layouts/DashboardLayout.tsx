@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { CheckCircle, ShieldCheck, X } from 'lucide-react'
 import TopBar from '@/components/navigation/TopBar'
 import PageNavigation from '@/components/navigation/PageNavigation'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function DashboardLayout(){
+  const location = useLocation()
   const { user, supportMode, exitSupport } = useAuth()
   const fondo = user?.empresa?.fondo_url
   const avisoPago = user?.empresa?.notificacion_pago
@@ -28,7 +29,7 @@ export default function DashboardLayout(){
   return <div className="app-shell relative flex h-screen overflow-hidden" style={fondo ? { backgroundImage:`linear-gradient(rgba(10,18,35,.82),rgba(10,18,35,.92)), url(${fondo})`, backgroundSize:'cover', backgroundPosition:'center', backgroundAttachment:'fixed' } : undefined}>
     <div className="brand-watermark" aria-hidden="true">{user?.empresa?.nombre}</div>
     <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
-      <TopBar/>
+      {location.pathname !== '/app/inicio' && <TopBar/>}
       <main className="flex-1 min-w-0 overflow-y-auto p-4 lg:p-6 xl:p-8">
         {supportMode&&<div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-amber-50"><ShieldCheck className="h-5 w-5 shrink-0 text-amber-300"/><div className="min-w-0 flex-1"><p className="text-sm font-semibold">Modo de soporte de superadministrador</p><p className="text-xs text-amber-100/75">Estas corrigiendo los datos de {user?.empresa?.nombre}. Los cambios afectan a esta empresa.</p></div><button type="button" onClick={exitSupport} className="btn-secondary btn-sm">Volver a superadmin</button></div>}
         {licenciaVencida ? <div className="mx-auto mt-12 max-w-xl rounded-lg border border-red-400/40 bg-red-500/15 p-6 text-center text-red-50"><p className="text-lg font-bold">Servicio suspendido por mora</p><p className="mt-2 text-sm text-red-100/80">La licencia vencio. Regulariza el pago para continuar.</p></div> : <>
