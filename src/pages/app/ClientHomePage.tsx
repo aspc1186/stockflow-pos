@@ -37,7 +37,7 @@ const estilos: Record<Accento, string> = {
 }
 
 function TarjetaModulo({ tarjeta, onClick, secundaria = false }: { tarjeta: Tarjeta; onClick: () => void; secundaria?: boolean }) {
-  return <button type="button" aria-label={`${tarjeta.titulo}: ${tarjeta.detalle}`} onClick={onClick} className={`group flex w-full flex-col rounded-lg border p-3 text-left shadow-md shadow-black/10 transition duration-200 hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-brand-400 ${secundaria ? 'min-h-[104px]' : 'min-h-[146px]'} ${estilos[tarjeta.acento]}`}>
+  return <button type="button" aria-label={`${tarjeta.titulo}: ${tarjeta.detalle}`} data-accent={tarjeta.acento} onClick={onClick} className={`home-module-card group flex w-full flex-col rounded-lg border p-3 text-left shadow-md shadow-black/10 transition duration-200 hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-brand-400 ${secundaria ? 'min-h-[104px]' : 'min-h-[146px]'} ${estilos[tarjeta.acento]}`}>
     <span className={`flex items-center justify-center rounded-full border border-current/35 bg-surface-950/25 text-current ${secundaria ? 'h-8 w-8' : 'h-10 w-10'}`}>{tarjeta.icono}</span>
     <div className="mt-auto"><h2 className={`${secundaria ? 'text-base' : 'text-lg'} font-bold leading-tight text-surface-50`}>{tarjeta.titulo}</h2><p className={`mt-1 text-xs leading-4 text-surface-100/85 ${secundaria ? 'line-clamp-1' : 'line-clamp-2'}`}>{tarjeta.detalle}</p>{!secundaria && <ArrowRight className="mt-2 h-5 w-5 transition-transform group-hover:translate-x-1" />}</div>
   </button>
