@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Plus, Minus, CreditCard, Check, X, ShoppingBag, Printer } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, CreditCard, Check, X, ShoppingBag, Printer, ScanLine } from 'lucide-react'
 import api from '@/lib/axios'
 import type { Pedido, Producto, Cliente } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -121,7 +121,7 @@ export default function PedidoDetailPage() {
 }
 
 function ProductoSelector({productos,onAgregar,loading}:{productos:Producto[];onAgregar:(items:{producto_id:string;cantidad:number}[])=>void;loading:boolean}) {
-  const [carrito, setCarrito] = useState<Record<string,number>>({}); const [search, setSearch] = useState('')
+  const [carrito, setCarrito] = useState<Record<string,number>>({}); const [search, setSearch] = useState(''); const [codigo, setCodigo] = useState('')
   const filtrados = productos.filter(p => p.nombre.toLowerCase().includes(search.toLowerCase()))
   const add = (id: string) => setCarrito(c => ({...c,[id]:(c[id]||0)+1}))
   const rem = (id: string) => setCarrito(c => { const n=(c[id]||0)-1; if(n<=0){const{[id]:_,...r}=c;return r}; return{...c,[id]:n} })
@@ -131,8 +131,16 @@ function ProductoSelector({productos,onAgregar,loading}:{productos:Producto[];on
     return { ...c, [id]: cantidad }
   })
   const total = Object.values(carrito).reduce((a,b) => a+b, 0)
+  const agregarPorCodigo = () => {
+    const valor = codigo.trim().toLowerCase()
+    if (!valor) return
+    const producto = productos.find(item => String(item.codigo || '').trim().toLowerCase() === valor)
+    if (!producto) { toast.error('No existe un producto disponible con este codigo'); return }
+    add(producto.id); setCodigo(''); toast.success(`${producto.nombre} agregado`)
+  }
   return (
     <div className="space-y-4">
+      <div><label className="label">Escanear codigo de barras</label><div className="flex gap-2"><div className="relative min-w-0 flex-1"><ScanLine className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-300"/><input autoFocus className="input h-11 pl-10 font-mono" inputMode="numeric" value={codigo} onChange={e=>setCodigo(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();agregarPorCodigo()}}} placeholder="Lee con la pistola o escribe el codigo"/></div><button type="button" onClick={agregarPorCodigo} className="btn-secondary min-h-11">Agregar</button></div></div>
       <input className="input" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}/>
       <div className="space-y-1 max-h-80 overflow-y-auto">
         {filtrados.map(p => { const q = carrito[p.id]||0; return (

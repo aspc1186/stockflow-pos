@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Download, Pencil, Plus } from 'lucide-react'
+import { AlertTriangle, Download, Pencil, Plus, ScanLine } from 'lucide-react'
 import api from '@/lib/axios'
 import Modal from '@/components/ui/Modal'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -14,6 +14,7 @@ export default function InventarioPage() {
   const [searchApi, setSearchApi] = useState('')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+  const [codigo, setCodigo] = useState('')
   useEffect(() => {
     const espera = window.setTimeout(() => setSearchApi(search.trim()), 300)
     return () => window.clearTimeout(espera)
@@ -27,7 +28,7 @@ export default function InventarioPage() {
   const { data: productos = [] } = useQuery({ queryKey: ['prods-inv'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as any[] }, enabled: modal })
   const ajustar = useMutation({
     mutationFn: () => api.post('/inventario', {...form,cantidad:parseFloat(form.cantidad)||0,costo_unit:form.costo_unit?parseFloat(form.costo_unit):undefined}),
-    onSuccess: async () => { await Promise.all([qc.invalidateQueries({queryKey:['inventario']}), qc.invalidateQueries({queryKey:['caja']}), qc.invalidateQueries({queryKey:['dashboard-stats']})]); setModal(false); setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'}); toast.success('Movimiento registrado y saldo actualizado') },
+    onSuccess: async () => { await Promise.all([qc.invalidateQueries({queryKey:['inventario']}), qc.invalidateQueries({queryKey:['caja']}), qc.invalidateQueries({queryKey:['dashboard-stats']})]); setModal(false); setCodigo(''); setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'}); toast.success('Movimiento registrado y saldo actualizado') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'Error'),
   })
   const descargarMovimientos = async () => {
@@ -45,6 +46,14 @@ export default function InventarioPage() {
   const abrirCorreccion = (item:any) => {
     setForm({ producto_id:item.producto_id, tipo:'ajuste', cantidad:String(Number(item.stock_actual || 0)), costo_unit:String(Number(item.precio_costo || 0)), notas:'Correccion de inventario', pagar_desde_caja:false, metodo_pago:'efectivo' })
     setModal(true)
+  }
+  const seleccionarPorCodigo = () => {
+    const valor = codigo.trim().toLowerCase()
+    if (!valor) return toast.error('Lee o escribe un codigo de barras')
+    const producto = productos.find((item:any) => String(item.codigo || '').trim().toLowerCase() === valor)
+    if (!producto) return toast.error('No existe un producto activo con este codigo')
+    setForm(actual => ({ ...actual, producto_id: producto.id, costo_unit: actual.costo_unit || String(Number(producto.precio_costo || 0)) }))
+    toast.success(`${producto.nombre} seleccionado`)
   }
   return (
     <div className="space-y-5">
@@ -81,7 +90,8 @@ export default function InventarioPage() {
       <Modal open={modal} onClose={() => setModal(false)} title={form.tipo === 'ajuste' ? 'Correccion de inventario' : 'Movimiento de inventario'} size="sm"
         footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => ajustar.mutate()} disabled={ajustar.isPending||!form.producto_id||!form.cantidad} className="btn-primary flex-1">{ajustar.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Guardar'}</button></div>}>
         <div className="space-y-4">
-          <div><label className="label">Producto *</label><select className="input" value={form.producto_id} onChange={e=>setForm(p=>({...p,producto_id:e.target.value}))}><option value="" className="bg-surface-800">Selecciona un producto</option>{productos.map((p:any)=><option key={p.id} value={p.id} className="bg-surface-800">{p.nombre}</option>)}</select></div>
+          <div><label className="label">Escanear codigo de barras</label><div className="flex gap-2"><input autoFocus className="input font-mono" inputMode="numeric" value={codigo} onChange={e=>setCodigo(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();seleccionarPorCodigo()}}} placeholder="Lee con la pistola o escribe el codigo"/><button type="button" onClick={seleccionarPorCodigo} className="btn-secondary min-h-11 shrink-0" title="Buscar producto por codigo"><ScanLine className="h-4 w-4"/>Buscar</button></div><p className="mt-1 text-xs text-surface-200/45">Cada lectura selecciona el producto creado con ese codigo.</p></div>
+          <div><label className="label">Producto *</label><select className="input" value={form.producto_id} onChange={e=>setForm(p=>({...p,producto_id:e.target.value}))}><option value="" className="bg-surface-800">Selecciona un producto</option>{productos.map((p:any)=><option key={p.id} value={p.id} className="bg-surface-800">{p.codigo ? `[${p.codigo}] ` : ''}{p.nombre}</option>)}</select></div>
           <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value,pagar_desde_caja:e.target.value==='entrada'?p.pagar_desde_caja:false}))}><option value="entrada" className="bg-surface-800">Entrada de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
           <div><label className="label">{form.tipo === 'ajuste' ? 'Saldo final contado *' : 'Cantidad *'}</label><input type="number" min="0" className="input" value={form.cantidad} onChange={e=>setForm(p=>({...p,cantidad:e.target.value}))}/>{form.tipo === 'ajuste' && <p className="mt-1 text-xs text-surface-200/50">La correccion queda registrada como movimiento de ajuste.</p>}</div>
           <div><label className="label">Costo unitario</label><input type="number" min="0" className="input" placeholder="Solo si cambia el costo" value={form.costo_unit} onChange={e=>setForm(p=>({...p,costo_unit:e.target.value}))}/></div>

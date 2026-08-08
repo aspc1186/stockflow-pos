@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Plus, Minus, Send, CreditCard, Clock, ShoppingBag, ChevronDown, ChevronUp, LayoutDashboard } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, Send, CreditCard, Clock, ShoppingBag, ChevronDown, ChevronUp, LayoutDashboard, ScanLine } from 'lucide-react'
 import api from '@/lib/axios'
 import type { Mesa, Producto, Pedido, Categoria } from '@/types'
 import { formatCurrency } from '@/lib/utils'
@@ -28,6 +28,7 @@ export default function MesaPedidoPage() {
   const [verResumen, setVerResumen] = useState(true)
   const [modalCobro, setModalCobro] = useState(false)
   const [metodoPago, setMetodoPago] = useState('efectivo')
+  const [codigo, setCodigo] = useState('')
 
   const { data: mesa } = useQuery({
     queryKey: ['mesa', mesaId],
@@ -89,6 +90,15 @@ export default function MesaPedidoPage() {
     if (!cantidad) { const { [id]: _, ...resto } = c; return resto }
     return { ...c, [id]: cantidad }
   })
+  const agregarPorCodigo = () => {
+    const valor = codigo.trim().toLowerCase()
+    if (!valor) return
+    const producto = productos.find(item => String(item.codigo || '').trim().toLowerCase() === valor)
+    if (!producto) { toast.error('No existe un producto disponible con este codigo'); return }
+    add(producto.id)
+    setCodigo('')
+    toast.success(`${producto.nombre} agregado al pedido`)
+  }
 
   const enviar = async () => {
     if ((pedidoActivo as any)?.estado === 'precierre') { toast.error('Este pedido esta pendiente de confirmacion del administrador'); return }
@@ -216,6 +226,7 @@ export default function MesaPedidoPage() {
       )}
 
       {/* Filtros categoria */}
+      <div className="border-b border-white/5 bg-surface-800/75 px-4 py-3"><div className="mx-auto flex max-w-3xl gap-2"><div className="relative min-w-0 flex-1"><ScanLine className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-300"/><input className="input h-11 pl-10 font-mono" inputMode="numeric" value={codigo} onChange={e=>setCodigo(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();agregarPorCodigo()}}} placeholder="Escanea con pistola o escribe codigo"/></div><button type="button" onClick={agregarPorCodigo} className="btn-secondary min-h-11 shrink-0">Agregar</button></div><p className="mx-auto mt-1 max-w-3xl text-xs text-surface-200/45">Cada lectura agrega una unidad. El stock se descuenta al enviar el pedido.</p></div>
       <div className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-none border-b border-white/5 bg-surface-900 sticky top-[65px] z-10">
         <button
           onClick={() => setCatActiva(null)}
