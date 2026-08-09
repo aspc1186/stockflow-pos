@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpFromLine, BarChart3, Boxes, CalendarDays, ClipboardList, QrCode, ReceiptText, Settings2, Store, Users } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpFromLine, Barcode, BarChart3, Boxes, CalendarDays, ClipboardList, QrCode, ReceiptText, Settings2, Store, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
 import { MODULOS_PLATAFORMA, planNormalizado, type GrupoModulo, type ModuloPlataforma } from '@/config/modules.config'
@@ -68,8 +68,8 @@ export default function ClientHomePage() {
   const tiene = (id: string) => modulos.some(modulo => modulo.id === id)
 
   const principales: Tarjeta[] = [
-    tiene('barras') && { id: 'entrada', titulo: 'Entrada', detalle: 'Registrar mercancia por codigo', icono: <ArrowDownToLine className="h-9 w-9" />, acento: 'emerald', ruta: '/app/escanear/barras?tipo=entrada' },
-    tiene('barras') && { id: 'salida', titulo: 'Salida', detalle: 'Descontar productos por codigo', icono: <ArrowUpFromLine className="h-9 w-9" />, acento: 'pink', ruta: '/app/escanear/barras?tipo=salida' },
+    tiene('barras') && { id: 'entrada', titulo: 'Entrada', detalle: 'Registrar mercancia por codigo', icono: <span className="relative"><Barcode className="h-9 w-9"/><ArrowDownToLine className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-600 p-0.5"/></span>, acento: 'emerald', ruta: '/app/escanear/barras?tipo=entrada' },
+    tiene('barras') && { id: 'salida', titulo: 'Salida', detalle: 'Descontar productos por codigo', icono: <span className="relative"><Barcode className="h-9 w-9"/><ArrowUpFromLine className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-pink-600 p-0.5"/></span>, acento: 'pink', ruta: '/app/escanear/barras?tipo=salida' },
     tiene('conteos') && { id: 'conteos', titulo: 'Conteo de inventario', detalle: 'General y ciclico con QR', icono: <QrCode className="h-9 w-9" />, acento: 'violet', ruta: '/app/escanear/qr' },
     tiene('inventario') && { id: 'inventario', titulo: 'Inventario', detalle: 'Movimientos y existencias', icono: <Boxes className="h-9 w-9" />, acento: 'sky', ruta: '/app/inventario' },
     tiene('pedidos') && { id: 'pedidos', titulo: esServicio ? 'Servicios' : 'Pedidos', detalle: esServicio ? 'Atenciones activas y seguimiento' : 'Ventas y seguimiento', icono: <ClipboardList className="h-9 w-9" />, acento: 'amber', ruta: '/app/pedidos' },

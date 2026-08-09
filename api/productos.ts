@@ -48,9 +48,9 @@ async function guardarIdentidad(productoId: string, empresaId: string, datos: an
   await query(`UPDATE productos SET id_producto=COALESCE(NULLIF($1,''),id_producto),marca=COALESCE(NULLIF($2,''),marca),updated_at=NOW() WHERE id=$3 AND empresa_id=$4`, [String(datos?.id_producto || '').trim(), String(datos?.marca || '').trim(), productoId, empresaId])
 }
 
-async function generarCodigoAutomatico(empresaId: string) {
-  const siguiente = await queryOne(`SELECT COALESCE(MAX(CAST(SUBSTRING(codigo FROM 4) AS INTEGER)),0)+1 AS consecutivo FROM productos WHERE empresa_id=$1 AND codigo ~ '^SF-[0-9]+$'`, [empresaId]) as any
-  return `SF-${String(Number(siguiente?.consecutivo || 1)).padStart(6, '0')}`
+async function generarIdProducto(empresaId: string) {
+  const siguiente = await queryOne(`SELECT COALESCE(MAX(CAST(SUBSTRING(id_producto FROM 6) AS INTEGER)),0)+1 AS consecutivo FROM productos WHERE empresa_id=$1 AND id_producto ~ '^PROD-[0-9]+$'`, [empresaId]) as any
+  return `PROD-${String(Number(siguiente?.consecutivo || 1)).padStart(6, '0')}`
 }
 
 function categoriasPorTipo(tipo: string) {
@@ -123,13 +123,14 @@ export default async function handler(req: any, res: any) {
     let creados = 0
     let actualizados = 0
     for (const producto of productos) {
+      const identidad = { ...producto, id_producto: String(producto.id_producto || await generarIdProducto(empresaId)).trim() }
       const existente = porCodigo.get(String(producto.codigo).trim().toLowerCase())
       const valores = valoresProducto(producto, tipoNegocio)
       if (existente) {
         await query(`UPDATE productos SET categoria_id=$1,nombre=$2,descripcion=$3,codigo=$4,precio_venta=$5,precio_costo=$6,impuesto_pct=$7,impuesto_tipo=$8,impuesto_incluido=$9,tipo=$10,unidad_medida=$11,destino=$12,imagen_url=$13,disponible=$14,controla_stock=$15,stock_maximo=$16,eliminado_at=NULL,updated_at=NOW() WHERE id=$17 AND empresa_id=$18`, [...valores, existente.id, empresaId])
         await guardarGaleria(existente.id, empresaId, producto)
         await guardarTrazabilidad(existente.id, empresaId, producto)
-        await guardarIdentidad(existente.id, empresaId, producto)
+        await guardarIdentidad(existente.id, empresaId, identidad)
         conservados.push(existente.id)
         actualizados += 1
       } else {
@@ -138,7 +139,7 @@ export default async function handler(req: any, res: any) {
         if (producto.controla_stock !== false) await query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,$4)`, [empresaId, productoId, Number(producto.stock_inicial) || 0, Number(producto.stock_minimo) || 0])
         await guardarGaleria(productoId, empresaId, producto)
         await guardarTrazabilidad(productoId, empresaId, producto)
-        await guardarIdentidad(productoId, empresaId, producto)
+        await guardarIdentidad(productoId, empresaId, identidad)
         conservados.push(productoId)
         creados += 1
       }
@@ -154,10 +155,11 @@ export default async function handler(req: any, res: any) {
   if (!id && req.method === 'POST') {
     const producto = req.body || {}
     if (!producto.nombre || producto.precio_venta === undefined) return res.status(400).json({ ok: false, msg: 'Nombre y precio requeridos' })
+    if (!String(producto.codigo || '').trim()) return res.status(400).json({ ok: false, msg: 'Ingresa el codigo de barras o SKU del producto' })
     try {
       const productoId = uuid()
       // Cada producto necesita un identificador escaneable, incluso si el usuario no aporta un código comercial.
-      const productoConCodigo = { ...producto, codigo: String(producto.codigo || await generarCodigoAutomatico(empresaId)).trim() }
+      const productoConCodigo = { ...producto, id_producto: String(producto.id_producto || await generarIdProducto(empresaId)).trim(), codigo: String(producto.codigo || '').trim() || null }
       const valores = valoresProducto(productoConCodigo, tipoNegocio)
       const codigo = productoConCodigo.codigo
       if (codigo) {
@@ -166,7 +168,7 @@ export default async function handler(req: any, res: any) {
           const [reactivado] = await query(`UPDATE productos SET categoria_id=$1,nombre=$2,descripcion=$3,codigo=$4,precio_venta=$5,precio_costo=$6,impuesto_pct=$7,impuesto_tipo=$8,impuesto_incluido=$9,tipo=$10,unidad_medida=$11,destino=$12,imagen_url=$13,disponible=$14,controla_stock=$15,stock_maximo=$16,eliminado_at=NULL,updated_at=NOW() WHERE id=$17 AND empresa_id=$18 RETURNING *`, [...valores, existente.id, empresaId])
           await guardarGaleria(existente.id, empresaId, producto)
           await guardarTrazabilidad(existente.id, empresaId, producto)
-          await guardarIdentidad(existente.id, empresaId, producto)
+          await guardarIdentidad(existente.id, empresaId, productoConCodigo)
           return res.status(200).json({ ok: true, data: reactivado, reactivado: true })
         }
         if (existente) return res.status(409).json({ ok: false, msg: `Ya existe un producto activo con el codigo ${codigo}` })
@@ -175,7 +177,7 @@ export default async function handler(req: any, res: any) {
       if (producto.controla_stock !== false) await query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,$4)`, [empresaId, productoId, Number(producto.stock_inicial) || 0, Number(producto.stock_minimo) || 0])
       await guardarGaleria(productoId, empresaId, producto)
       await guardarTrazabilidad(productoId, empresaId, producto)
-      await guardarIdentidad(productoId, empresaId, producto)
+      await guardarIdentidad(productoId, empresaId, productoConCodigo)
       return res.status(201).json({ ok: true, data: creado })
     } catch (error: any) {
       return res.status(500).json({ ok: false, msg: error.message })
