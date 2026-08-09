@@ -210,12 +210,12 @@ export default function ProductosPage() {
   }
   const sugerirCategoria = (nombre: string) => {
     const palabras = esRestaurante
-      ? [['pizza','Platos fuertes'], ['hamburg','Platos fuertes'], ['sopa','Entradas'], ['empan','Entradas'], ['postre','Postres'], ['jugo','Bebidas'], ['gaseosa','Bebidas'], ['cafe','Bebidas']]
-      : [['cerveza','Cervezas'], ['aguardiente','Licores'], ['ron','Licores'], ['whisky','Licores'], ['vodka','Licores'], ['coctel','Cocteles'], ['snack','Snacks'], ['papa','Snacks'], ['gaseosa','Bebidas'], ['cola','Bebidas']]
+      ? [['pizza','Platos fuertes'], ['hamburg','Platos fuertes'], ['arroz','Platos fuertes'], ['sopa','Entradas'], ['empan','Entradas'], ['postre','Postres'], ['jugo','Bebidas'], ['gaseosa','Bebidas'], ['cafe','Bebidas']]
+      : [['cerveza','Cervezas'], ['aguardiente','Licores'], ['ron','Licores'], ['whisky','Licores'], ['vodka','Licores'], ['coctel','Cocteles'], ['snack','Snacks'], ['papa','Snacks'], ['gaseosa','Bebidas'], ['cola','Bebidas'], ['azucar','Abarrotes'], ['arroz','Abarrotes'], ['aceite','Abarrotes'], ['cuaderno','Papeleria'], ['lapiz','Papeleria']]
     const texto = clave(nombre)
     const categoria = palabras.map(([palabra, categoria]) => texto.includes(clave(palabra)) ? categoria : '').find(Boolean)
     const encontrada = categoria ? cats.find(item => clave(item.nombre) === clave(categoria)) : undefined
-    setForm(actual => ({ ...actual, nombre, categoria_id: encontrada?.id || actual.categoria_id || cats[0]?.id || '' }))
+    setForm(actual => ({ ...actual, nombre, categoria_id: encontrada?.id || actual.categoria_id || cats.find(item => clave(item.nombre) === 'general')?.id || cats[0]?.id || '' }))
   }
   if (isLoading) return <PageLoader />
   return (

@@ -56,7 +56,41 @@ async function generarIdProducto(empresaId: string) {
 function categoriasPorTipo(tipo: string) {
   if (tipo === 'restaurante') return ['Entradas', 'Platos fuertes', 'Acompanamientos', 'Postres', 'Bebidas', 'Ingredientes']
   if (tipo === 'restaurante_bar') return ['Entradas', 'Platos fuertes', 'Postres', 'Cervezas', 'Licores', 'Cocteles', 'Bebidas', 'Ingredientes']
+  if (['tienda','tienda_bar','tienda_de_ropa','tienda_de_calzado','tienda_de_ropa_y_calzado','legumbreria','carniceria','panaderia','reposteria'].includes(String(tipo || '').toLowerCase().replaceAll(' ', '_'))) return ['Abarrotes', 'Bebidas', 'Snacks', 'Limpieza', 'Hogar', 'Papeleria', 'Otros']
   return ['Cervezas', 'Licores', 'Cocteles', 'Bebidas', 'Snacks', 'Combos']
+}
+
+const normalizar = (valor: string) => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+function nombreCategoriaAutomatica(nombre: string, tipo: string) {
+  const texto = normalizar(nombre)
+  const reglas = String(tipo || '').toLowerCase().includes('restaurante')
+    ? [['pizza','Platos fuertes'],['hamburg','Platos fuertes'],['arroz','Platos fuertes'],['sopa','Entradas'],['empan','Entradas'],['postre','Postres'],['jugo','Bebidas'],['gaseosa','Bebidas'],['cafe','Bebidas']]
+    : [['cerveza','Cervezas'],['aguardiente','Licores'],['ron','Licores'],['whisky','Licores'],['vodka','Licores'],['coctel','Cocteles'],['gaseosa','Bebidas'],['cola','Bebidas'],['azucar','Abarrotes'],['arroz','Abarrotes'],['aceite','Abarrotes'],['cuaderno','Papeleria'],['lapiz','Papeleria'],['papas','Snacks'],['snack','Snacks']]
+  return reglas.find(([palabra]) => texto.includes(palabra))?.[1] || 'General'
+}
+async function resolverCategoria(empresaId: string, tipo: string, nombreProducto: string, categoriaId?: string) {
+  if (categoriaId) return categoriaId
+  const nombre = nombreCategoriaAutomatica(nombreProducto, tipo)
+  const existente = await queryOne(`SELECT id FROM categorias WHERE empresa_id=$1 AND LOWER(nombre)=LOWER($2) LIMIT 1`, [empresaId, nombre]) as any
+  if (existente?.id) return existente.id
+  const [creada] = await query(`INSERT INTO categorias (id,empresa_id,nombre,orden,activa) VALUES ($1,$2,$3,$4,true) RETURNING id`, [uuid(), empresaId, nombre, 999]) as any[]
+  return creada.id
+}
+async function completarDatosAutomaticos(empresaId: string, tipo: string) {
+  await query(`WITH maximo AS (
+    SELECT COALESCE(MAX(CASE WHEN id_producto ~ '^PROD-[0-9]+$' THEN CAST(SUBSTRING(id_producto FROM 6) AS INTEGER) ELSE 0 END),0) AS valor
+    FROM productos WHERE empresa_id=$1
+  ), pendientes AS (
+    SELECT id,ROW_NUMBER() OVER (ORDER BY created_at,id) AS consecutivo
+    FROM productos WHERE empresa_id=$1 AND NULLIF(TRIM(COALESCE(id_producto,'')),'') IS NULL
+  )
+  UPDATE productos p SET id_producto='PROD-' || LPAD((maximo.valor + pendientes.consecutivo)::text,6,'0')
+  FROM pendientes CROSS JOIN maximo WHERE p.id=pendientes.id`, [empresaId])
+  const sinCategoria = await query(`SELECT id,nombre FROM productos WHERE empresa_id=$1 AND categoria_id IS NULL`, [empresaId]) as any[]
+  for (const producto of sinCategoria) {
+    const categoriaId = await resolverCategoria(empresaId, tipo, producto.nombre)
+    await query(`UPDATE productos SET categoria_id=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`, [categoriaId, producto.id, empresaId])
+  }
 }
 
 async function asegurarCategorias(empresaId: string) {
@@ -87,6 +121,7 @@ export default async function handler(req: any, res: any) {
   await ensureProductosSchema()
   const empresaId = auth.empresa_id
   const tipoNegocio = await asegurarCategorias(empresaId)
+  await completarDatosAutomaticos(empresaId, tipoNegocio)
   const parts = (req.url || '').split('?')[0].split('/').filter(Boolean)
   const id = parts[2] || null
 
@@ -125,7 +160,7 @@ export default async function handler(req: any, res: any) {
     for (const producto of productos) {
       const identidad = { ...producto, id_producto: String(producto.id_producto || await generarIdProducto(empresaId)).trim() }
       const existente = porCodigo.get(String(producto.codigo).trim().toLowerCase())
-      const valores = valoresProducto(producto, tipoNegocio)
+        const valores = valoresProducto({ ...producto, categoria_id: await resolverCategoria(empresaId, tipoNegocio, producto.nombre, producto.categoria_id) }, tipoNegocio)
       if (existente) {
         await query(`UPDATE productos SET categoria_id=$1,nombre=$2,descripcion=$3,codigo=$4,precio_venta=$5,precio_costo=$6,impuesto_pct=$7,impuesto_tipo=$8,impuesto_incluido=$9,tipo=$10,unidad_medida=$11,destino=$12,imagen_url=$13,disponible=$14,controla_stock=$15,stock_maximo=$16,eliminado_at=NULL,updated_at=NOW() WHERE id=$17 AND empresa_id=$18`, [...valores, existente.id, empresaId])
         await guardarGaleria(existente.id, empresaId, producto)
@@ -160,6 +195,7 @@ export default async function handler(req: any, res: any) {
       const productoId = uuid()
       // Cada producto necesita un identificador escaneable, incluso si el usuario no aporta un código comercial.
       const productoConCodigo = { ...producto, id_producto: String(producto.id_producto || await generarIdProducto(empresaId)).trim(), codigo: String(producto.codigo || '').trim() || null }
+      productoConCodigo.categoria_id = await resolverCategoria(empresaId, tipoNegocio, productoConCodigo.nombre, productoConCodigo.categoria_id)
       const valores = valoresProducto(productoConCodigo, tipoNegocio)
       const codigo = productoConCodigo.codigo
       if (codigo) {

@@ -45,6 +45,9 @@ export default async function handler(req: any, res: any) {
          p.id as producto_id,
          p.nombre as producto_nombre,
          p.codigo,
+         p.id_producto,
+         p.marca,
+         c.nombre as categoria_nombre,
          p.tipo,
          p.precio_costo,
          p.precio_venta,
@@ -58,6 +61,7 @@ export default async function handler(req: any, res: any) {
          (SELECT mi.created_at FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') ORDER BY mi.created_at DESC LIMIT 1) as ultima_salida_at
        FROM productos p
        LEFT JOIN inventario i ON i.producto_id=p.id AND i.empresa_id=p.empresa_id
+       LEFT JOIN categorias c ON c.id=p.categoria_id
        WHERE ${where}
        ORDER BY p.nombre`,params)
     return res.status(200).json({ ok:true, data:rows })

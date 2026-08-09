@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, Download, FileUp, Pencil, Plus, ScanLine } from 'lucide-react'
+import { AlertTriangle, Camera, CheckCircle2, Download, FileUp, Pencil, Plus, ScanLine } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '@/lib/axios'
 import Modal from '@/components/ui/Modal'
@@ -23,8 +23,16 @@ export default function InventarioPage() {
   const [productoBloqueado, setProductoBloqueado] = useState(false)
   const lectorRef = useRef<HTMLInputElement>(null)
   const soporteRef = useRef<HTMLInputElement>(null)
-  const soporteCamaraRef = useRef<HTMLInputElement>(null)
+  const videoSoporteRef = useRef<HTMLVideoElement>(null)
+  const streamSoporteRef = useRef<MediaStream | null>(null)
+  const [camaraSoporteActiva, setCamaraSoporteActiva] = useState(false)
   const [cargandoSoporte, setCargandoSoporte] = useState(false)
+  const detenerCamaraSoporte = () => {
+    streamSoporteRef.current?.getTracks().forEach(track => track.stop())
+    streamSoporteRef.current = null
+    setCamaraSoporteActiva(false)
+  }
+  useEffect(() => () => detenerCamaraSoporte(), [])
   useEffect(() => {
     const espera = window.setTimeout(() => setSearchApi(search.trim()), 300)
     return () => window.clearTimeout(espera)
@@ -106,6 +114,33 @@ export default function InventarioPage() {
       toast.success('Factura o soporte adjunto')
     } catch { toast.error('No se pudo adjuntar el archivo') } finally { setCargandoSoporte(false) }
   }
+  const abrirCamaraSoporte = async () => {
+    try {
+      detenerCamaraSoporte()
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      streamSoporteRef.current = stream
+      setCamaraSoporteActiva(true)
+      window.setTimeout(async () => {
+        if (videoSoporteRef.current) {
+          videoSoporteRef.current.srcObject = stream
+          await videoSoporteRef.current.play()
+        }
+      }, 0)
+    } catch { toast.error('No fue posible abrir la camara. Revisa el permiso de camara.') }
+  }
+  const capturarSoporte = () => {
+    const video = videoSoporteRef.current
+    if (!video?.videoWidth) return toast.error('La camara aun no esta lista')
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d')?.drawImage(video, 0, 0)
+    const soporte_url = canvas.toDataURL('image/jpeg', 0.82)
+    if (soporte_url.length > 1_500_000 * 1.37) return toast.error('La foto es demasiado pesada; acercate al documento e intenta de nuevo')
+    setForm(actual => ({ ...actual, soporte_url }))
+    detenerCamaraSoporte()
+    toast.success('Foto de soporte capturada')
+  }
   return (
     <div className="space-y-5">
       <div className="page-header">
@@ -131,7 +166,7 @@ export default function InventarioPage() {
         <tbody>
           {inv.map((item:any) => { const c = Number(item.stock_actual)<=Number(item.stock_minimo)&&Number(item.stock_minimo)>0; return (
             <tr key={item.producto_id}>
-              <td><p className="font-medium text-surface-50">{item.producto_nombre}</p><p className="text-xs text-surface-200/40">{item.codigo}</p></td>
+              <td><p className="font-medium text-surface-50">{item.producto_nombre}</p><p className="text-xs text-surface-200/55">ID: {item.id_producto || 'Pendiente'} · Código: {item.codigo || 'Sin código'}</p><p className="text-xs text-surface-200/40">Categoría: {item.categoria_nombre || 'General'}</p></td>
               <td className={cn('font-bold',c?'text-red-400':'text-surface-50')}>{Number(item.stock_actual).toFixed(1)}</td>
               <td className="font-semibold text-emerald-400">+{Number(item.entradas_hoy || 0).toFixed(1)}</td>
               <td className="font-semibold text-red-400">-{Number(item.salidas_hoy || 0).toFixed(1)}</td>
@@ -157,7 +192,7 @@ export default function InventarioPage() {
           <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value,pagar_desde_caja:e.target.value==='entrada'?p.pagar_desde_caja:false}))}><option value="entrada" className="bg-surface-800">Entrada de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
           <div><label className="label">{form.tipo === 'ajuste' ? 'Saldo final contado *' : 'Cantidad *'}</label><input type="number" min="0" className="input" value={form.cantidad} onChange={e=>setForm(p=>({...p,cantidad:e.target.value}))}/>{form.tipo === 'ajuste' && <p className="mt-1 text-xs text-surface-200/50">La correccion queda registrada como movimiento de ajuste.</p>}</div>
           <div><label className="label">Costo unitario</label><input type="number" min="0" className="input" placeholder="Solo si cambia el costo" value={form.costo_unit} onChange={e=>setForm(p=>({...p,costo_unit:e.target.value}))}/></div>
-          {form.tipo==='entrada' && <div className="space-y-3 rounded-lg border border-white/10 bg-surface-900/40 p-3"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={form.pagar_desde_caja} onChange={e=>setForm(p=>({...p,pagar_desde_caja:e.target.checked}))}/><span>Pagado desde caja</span></label>{form.pagar_desde_caja && <div><label className="label">Metodo de pago</label><select className="input" value={form.metodo_pago} onChange={e=>setForm(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>}<div><label className="label">Factura o soporte de compra</label><input ref={soporteCamaraRef} className="hidden" type="file" accept="image/*" capture="environment" onChange={event=>adjuntarSoporte(event.target.files?.[0])}/><input ref={soporteRef} className="hidden" type="file" accept="image/*,application/pdf" onChange={event=>adjuntarSoporte(event.target.files?.[0])}/><div className="flex flex-wrap items-center gap-2"><button type="button" className="btn-secondary min-h-10" onClick={()=>soporteCamaraRef.current?.click()} disabled={cargandoSoporte}><FileUp className="h-4 w-4"/>Tomar foto</button><button type="button" className="btn-secondary min-h-10" onClick={()=>soporteRef.current?.click()} disabled={cargandoSoporte}><FileUp className="h-4 w-4"/>{cargandoSoporte?'Cargando...':'Adjuntar documento'}</button>{form.soporte_url&&<span className="text-xs text-emerald-300">Documento adjunto</span>}</div><p className="mt-1 text-xs text-surface-200/45">Foto, imagen o PDF, maximo 1.5 MB.</p></div></div>}
+          {form.tipo==='entrada' && <div className="space-y-3 rounded-lg border border-white/10 bg-surface-900/40 p-3"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={form.pagar_desde_caja} onChange={e=>setForm(p=>({...p,pagar_desde_caja:e.target.checked}))}/><span>Pagado desde caja</span></label>{form.pagar_desde_caja && <div><label className="label">Metodo de pago</label><select className="input" value={form.metodo_pago} onChange={e=>setForm(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>}<div><label className="label">Factura o soporte de compra</label><input ref={soporteRef} className="hidden" type="file" accept="image/*,application/pdf" onChange={event=>adjuntarSoporte(event.target.files?.[0])}/>{camaraSoporteActiva&&<div className="mb-3 overflow-hidden rounded-lg border border-brand-400/30 bg-black"><video ref={videoSoporteRef} autoPlay playsInline muted className="h-52 w-full object-cover"/></div>}<div className="flex flex-wrap items-center gap-2"><button type="button" className="btn-secondary min-h-10" onClick={camaraSoporteActiva?capturarSoporte:abrirCamaraSoporte}><Camera className="h-4 w-4"/>{camaraSoporteActiva?'Capturar foto':'Tomar foto'}</button>{camaraSoporteActiva&&<button type="button" className="btn-secondary min-h-10" onClick={detenerCamaraSoporte}>Cancelar camara</button>}<button type="button" className="btn-secondary min-h-10" onClick={()=>soporteRef.current?.click()} disabled={cargandoSoporte}><FileUp className="h-4 w-4"/>{cargandoSoporte?'Cargando...':'Adjuntar documento'}</button>{form.soporte_url&&<span className="text-xs text-emerald-300">Documento adjunto</span>}</div><p className="mt-1 text-xs text-surface-200/45">Foto, imagen o PDF, maximo 1.5 MB.</p></div></div>}
           <div><label className="label">Notas</label><input className="input" value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))}/></div>
           <div className="space-y-2 rounded-lg border border-white/10 bg-surface-900/40 p-3 sm:col-span-2"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={productoBloqueado} disabled={!form.producto_id} onChange={e=>{setProductoBloqueado(e.target.checked);if(!e.target.checked)window.setTimeout(()=>lectorRef.current?.focus(),0)}}/><span>Bloquear este producto para registrar varias cantidades consecutivas</span></label><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={registroContinuo} onChange={e=>setRegistroContinuo(e.target.checked)}/><span>Registrar otro producto sin cerrar esta ventana</span></label></div>
         </div>
