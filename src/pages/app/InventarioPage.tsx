@@ -43,7 +43,10 @@ export default function InventarioPage() {
     placeholderData: keepPreviousData,
     refetchInterval: 20_000,
   })
-  const { data: productos = [] } = useQuery({ queryKey: ['prods-inv'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as any[] }, enabled: modal })
+  const { data: productos = [] } = useQuery({ queryKey: ['prods-inv'], queryFn: async () => { const { data } = await api.get<any>('/productos'); return (data.data||data) as any[] } })
+  useEffect(() => {
+    if (productos.length) qc.invalidateQueries({ queryKey: ['inventario'] })
+  }, [productos.length, qc])
   const { data: conteos = [] } = useQuery({ queryKey:['conteos-inventario'], queryFn:async()=>{ const {data}=await api.get<any>('/conteos'); return (data.data||data) as any[] } })
   const { data: conciliacionData, isLoading: cargandoConciliacion } = useQuery({ queryKey:['conciliacion-inventario',conteoConciliacion], enabled:!!conteoConciliacion, queryFn:async()=>{ const {data}=await api.get<any>(`/conteos?conteo_id=${conteoConciliacion}`); return data.data || data } })
   const aprobarConciliacion = useMutation({ mutationFn:(id:string)=>api.post('/conteos',{accion:'aprobar_ajustes',conteo_id:id}), onSuccess:(respuesta:any)=>{ qc.invalidateQueries({queryKey:['conteos-inventario']}); qc.invalidateQueries({queryKey:['conciliacion-inventario']}); qc.invalidateQueries({queryKey:['inventario']}); toast.success(`${respuesta.data?.data?.ajustes || 0} ajustes aprobados y registrados`) }, onError:(e:any)=>toast.error(e?.response?.data?.msg || 'No se pudieron aprobar los ajustes') })
