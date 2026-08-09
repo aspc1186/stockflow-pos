@@ -8,7 +8,8 @@ function ensureCajaSchema() {
     ALTER TABLE movimientos_inventario
       ADD COLUMN IF NOT EXISTS lote VARCHAR(100),
       ADD COLUMN IF NOT EXISTS vencimiento DATE,
-      ADD COLUMN IF NOT EXISTS serial VARCHAR(160)
+      ADD COLUMN IF NOT EXISTS serial VARCHAR(160),
+      ADD COLUMN IF NOT EXISTS soporte_url TEXT
   `).then(() => undefined)
   return cajaSchemaReady
 }
@@ -25,7 +26,7 @@ export default async function handler(req: any, res: any) {
     const { critico,search,movimientos } = req.query||{}
     if (movimientos === 'true') {
       const rows = await query(
-        `SELECT mi.created_at,p.nombre as producto,CASE WHEN mi.tipo='compra' THEN 'entrada' ELSE mi.tipo END as tipo,mi.cantidad,mi.stock_antes,mi.stock_despues,mi.notas,u.nombre as usuario
+        `SELECT mi.created_at,p.nombre as producto,CASE WHEN mi.tipo='compra' THEN 'entrada' ELSE mi.tipo END as tipo,mi.cantidad,mi.stock_antes,mi.stock_despues,mi.notas,mi.soporte_url,u.nombre as usuario
          FROM movimientos_inventario mi
          JOIN productos p ON p.id=mi.producto_id
          LEFT JOIN usuarios u ON u.id=mi.usuario_id
@@ -63,7 +64,7 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method==='POST') {
-    const { producto_id,tipo: tipoRecibido,cantidad,notas,costo_unit,pagar_desde_caja,metodo_pago } = req.body||{}
+    const { producto_id,tipo: tipoRecibido,cantidad,notas,costo_unit,pagar_desde_caja,metodo_pago,soporte_url } = req.body||{}
     const lote = Array.isArray(req.body?.items) ? req.body.items : null
     if (lote) {
       const tipoLote = req.body?.tipo === 'salida' ? 'salida' : 'entrada'
@@ -89,7 +90,7 @@ export default async function handler(req: any, res: any) {
             const costoPromedio=tipoLote==='entrada'&&costoNuevo!==null&&antes+q>0 ? ((antes*costoAnterior)+(q*costoFinal))/(antes+q) : costoAnterior
             if (tipoLote==='entrada'&&costoNuevo!==null) await client.query(`UPDATE productos SET precio_costo=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`,[costoPromedio,producto.id,eid])
             await client.query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE producto_id=$2 AND empresa_id=$3`,[despues,producto.id,eid])
-            await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,lote,vencimiento,serial) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,[eid,producto.id,auth.id,tipoLote,q,antes,despues,costoFinal,req.body?.notas||'Lote por lector de código de barras',item.lote || null,item.vencimiento || null,item.serial || null])
+            await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,lote,vencimiento,serial,soporte_url) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,[eid,producto.id,auth.id,tipoLote,q,antes,despues,costoFinal,req.body?.notas||'Lote por lector de código de barras',item.lote || null,item.vencimiento || null,item.serial || null, soporte_url || null])
             aplicados.push({producto_id:producto.id,cantidad:q,stock_antes:antes,stock_despues:despues})
           }
           return aplicados
@@ -136,7 +137,7 @@ export default async function handler(req: any, res: any) {
 
     await query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE producto_id=$2 AND empresa_id=$3`,[despues,producto_id,eid])
     const notasFinal = pagar_desde_caja && tipo === 'entrada' ? `${notas ? `${notas} - ` : ''}Pagado desde caja` : notas || null
-    await query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9)`,[eid,producto_id,auth.id,tipo,Math.abs(q),antes,despues,costoFinal||null,notasFinal])
+    await query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,soporte_url) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[eid,producto_id,auth.id,tipo,Math.abs(q),antes,despues,costoFinal||null,notasFinal,soporte_url || null])
 
     if (cajaPago) {
       await query(`INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,tipo,metodo_pago,monto,descripcion) VALUES (gen_random_uuid(),$1,$2,$3,'compra_inventario',$4,$5,$6)`, [eid,cajaPago.id,auth.id,metodo_pago || 'efectivo',compraTotal,`Compra inventario: ${producto.nombre}`])

@@ -9,6 +9,8 @@ function ensureProductosSchema() {
     ALTER TABLE productos
       ADD COLUMN IF NOT EXISTS descripcion TEXT,
       ADD COLUMN IF NOT EXISTS codigo VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS id_producto VARCHAR(80),
+      ADD COLUMN IF NOT EXISTS marca VARCHAR(100),
       ADD COLUMN IF NOT EXISTS precio_costo NUMERIC(12,2) DEFAULT 0,
       ADD COLUMN IF NOT EXISTS impuesto_pct NUMERIC(5,2) DEFAULT 0,
       ADD COLUMN IF NOT EXISTS impuesto_tipo VARCHAR(10) DEFAULT 'iva',
@@ -40,6 +42,15 @@ async function guardarTrazabilidad(productoId: string, empresaId: string, datos:
   const campos = ['controla_lote', 'controla_vencimiento', 'controla_serial']
   if (!campos.some(campo => datos?.[campo] !== undefined)) return
   await query(`UPDATE productos SET controla_lote=COALESCE($1,controla_lote),controla_vencimiento=COALESCE($2,controla_vencimiento),controla_serial=COALESCE($3,controla_serial),updated_at=NOW() WHERE id=$4 AND empresa_id=$5`, [datos.controla_lote, datos.controla_vencimiento, datos.controla_serial, productoId, empresaId])
+}
+
+async function guardarIdentidad(productoId: string, empresaId: string, datos: any) {
+  await query(`UPDATE productos SET id_producto=COALESCE(NULLIF($1,''),id_producto),marca=COALESCE(NULLIF($2,''),marca),updated_at=NOW() WHERE id=$3 AND empresa_id=$4`, [String(datos?.id_producto || '').trim(), String(datos?.marca || '').trim(), productoId, empresaId])
+}
+
+async function generarCodigoAutomatico(empresaId: string) {
+  const siguiente = await queryOne(`SELECT COALESCE(MAX(CAST(SUBSTRING(codigo FROM 4) AS INTEGER)),0)+1 AS consecutivo FROM productos WHERE empresa_id=$1 AND codigo ~ '^SF-[0-9]+$'`, [empresaId]) as any
+  return `SF-${String(Number(siguiente?.consecutivo || 1)).padStart(6, '0')}`
 }
 
 function categoriasPorTipo(tipo: string) {
@@ -118,6 +129,7 @@ export default async function handler(req: any, res: any) {
         await query(`UPDATE productos SET categoria_id=$1,nombre=$2,descripcion=$3,codigo=$4,precio_venta=$5,precio_costo=$6,impuesto_pct=$7,impuesto_tipo=$8,impuesto_incluido=$9,tipo=$10,unidad_medida=$11,destino=$12,imagen_url=$13,disponible=$14,controla_stock=$15,stock_maximo=$16,eliminado_at=NULL,updated_at=NOW() WHERE id=$17 AND empresa_id=$18`, [...valores, existente.id, empresaId])
         await guardarGaleria(existente.id, empresaId, producto)
         await guardarTrazabilidad(existente.id, empresaId, producto)
+        await guardarIdentidad(existente.id, empresaId, producto)
         conservados.push(existente.id)
         actualizados += 1
       } else {
@@ -126,6 +138,7 @@ export default async function handler(req: any, res: any) {
         if (producto.controla_stock !== false) await query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,$4)`, [empresaId, productoId, Number(producto.stock_inicial) || 0, Number(producto.stock_minimo) || 0])
         await guardarGaleria(productoId, empresaId, producto)
         await guardarTrazabilidad(productoId, empresaId, producto)
+        await guardarIdentidad(productoId, empresaId, producto)
         conservados.push(productoId)
         creados += 1
       }
@@ -144,7 +157,7 @@ export default async function handler(req: any, res: any) {
     try {
       const productoId = uuid()
       // Cada producto necesita un identificador escaneable, incluso si el usuario no aporta un código comercial.
-      const productoConCodigo = { ...producto, codigo: String(producto.codigo || `SKU-${productoId.slice(0, 8).toUpperCase()}`).trim() }
+      const productoConCodigo = { ...producto, codigo: String(producto.codigo || await generarCodigoAutomatico(empresaId)).trim() }
       const valores = valoresProducto(productoConCodigo, tipoNegocio)
       const codigo = productoConCodigo.codigo
       if (codigo) {
@@ -153,6 +166,7 @@ export default async function handler(req: any, res: any) {
           const [reactivado] = await query(`UPDATE productos SET categoria_id=$1,nombre=$2,descripcion=$3,codigo=$4,precio_venta=$5,precio_costo=$6,impuesto_pct=$7,impuesto_tipo=$8,impuesto_incluido=$9,tipo=$10,unidad_medida=$11,destino=$12,imagen_url=$13,disponible=$14,controla_stock=$15,stock_maximo=$16,eliminado_at=NULL,updated_at=NOW() WHERE id=$17 AND empresa_id=$18 RETURNING *`, [...valores, existente.id, empresaId])
           await guardarGaleria(existente.id, empresaId, producto)
           await guardarTrazabilidad(existente.id, empresaId, producto)
+          await guardarIdentidad(existente.id, empresaId, producto)
           return res.status(200).json({ ok: true, data: reactivado, reactivado: true })
         }
         if (existente) return res.status(409).json({ ok: false, msg: `Ya existe un producto activo con el codigo ${codigo}` })
@@ -161,6 +175,7 @@ export default async function handler(req: any, res: any) {
       if (producto.controla_stock !== false) await query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,$4)`, [empresaId, productoId, Number(producto.stock_inicial) || 0, Number(producto.stock_minimo) || 0])
       await guardarGaleria(productoId, empresaId, producto)
       await guardarTrazabilidad(productoId, empresaId, producto)
+      await guardarIdentidad(productoId, empresaId, producto)
       return res.status(201).json({ ok: true, data: creado })
     } catch (error: any) {
       return res.status(500).json({ ok: false, msg: error.message })
@@ -176,6 +191,7 @@ export default async function handler(req: any, res: any) {
     const [actualizado] = await query(`UPDATE productos SET nombre=COALESCE($1,nombre),precio_venta=COALESCE($2,precio_venta),precio_costo=COALESCE($3,precio_costo),disponible=COALESCE($4,disponible),categoria_id=COALESCE($5,categoria_id),descripcion=COALESCE($6,descripcion),impuesto_pct=COALESCE($7,impuesto_pct),impuesto_tipo=COALESCE($8,impuesto_tipo),impuesto_incluido=COALESCE($9,impuesto_incluido),imagen_url=COALESCE($10,imagen_url),destino=COALESCE($11,destino),tipo=COALESCE($12,tipo),unidad_medida=COALESCE($13,unidad_medida),controla_stock=COALESCE($14,controla_stock),stock_maximo=COALESCE($15,stock_maximo),codigo=COALESCE($16,codigo),updated_at=NOW() WHERE id=$17 AND empresa_id=$18 RETURNING *`, [datos.nombre,datos.precio_venta,datos.precio_costo,datos.disponible,datos.categoria_id,datos.descripcion,datos.impuesto_pct,datos.impuesto_tipo,datos.impuesto_incluido,datos.imagen_url,datos.destino,datos.tipo,datos.unidad_medida,datos.controla_stock,datos.stock_maximo,datos.codigo,id,empresaId])
     await guardarGaleria(id, empresaId, datos)
     await guardarTrazabilidad(id, empresaId, datos)
+    await guardarIdentidad(id, empresaId, datos)
     return res.status(200).json({ ok: true, data: actualizado })
   }
   if (req.method === 'DELETE') {

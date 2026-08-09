@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, Download, Pencil, Plus, ScanLine } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, FileUp, Pencil, Plus, ScanLine } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '@/lib/axios'
 import Modal from '@/components/ui/Modal'
@@ -17,11 +17,13 @@ export default function InventarioPage() {
   const [search, setSearch] = useState('')
   const [searchApi, setSearchApi] = useState('')
   const [modal, setModal] = useState(false)
-  const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+  const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
   const [codigo, setCodigo] = useState('')
   const [registroContinuo, setRegistroContinuo] = useState(true)
   const [productoBloqueado, setProductoBloqueado] = useState(false)
   const lectorRef = useRef<HTMLInputElement>(null)
+  const soporteRef = useRef<HTMLInputElement>(null)
+  const [cargandoSoporte, setCargandoSoporte] = useState(false)
   useEffect(() => {
     const espera = window.setTimeout(() => setSearchApi(search.trim()), 300)
     return () => window.clearTimeout(espera)
@@ -43,7 +45,7 @@ export default function InventarioPage() {
       setCodigo('')
       if (registroContinuo) {
         setProductoBloqueado(false)
-        setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+        setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
         window.setTimeout(() => lectorRef.current?.focus(), 0)
       } else setModal(false)
       toast.success('Movimiento registrado y saldo actualizado')
@@ -55,7 +57,7 @@ export default function InventarioPage() {
       const { data } = await api.get<any>('/inventario?movimientos=true')
       const filas = (data.data || data) as any[]
       const escapar = (valor: unknown) => `"${String(valor ?? '').replace(/"/g, '""')}"`
-      const contenido = [['Fecha','Producto','Tipo','Cantidad','Stock antes','Stock despues','Usuario','Notas'], ...filas.map(fila => [new Date(fila.created_at).toLocaleString('es-CO'),fila.producto,fila.tipo,fila.cantidad,fila.stock_antes,fila.stock_despues,fila.usuario,fila.notas])].map(fila => fila.map(escapar).join(';')).join('\n')
+      const contenido = [['Fecha','Producto','Tipo','Cantidad','Stock antes','Stock despues','Usuario','Notas','Soporte'], ...filas.map(fila => [new Date(fila.created_at).toLocaleString('es-CO'),fila.producto,fila.tipo,fila.cantidad,fila.stock_antes,fila.stock_despues,fila.usuario,fila.notas,fila.soporte_url ? 'Adjunto' : ''])].map(fila => fila.map(escapar).join(';')).join('\n')
       const url = URL.createObjectURL(new Blob([`\uFEFF${contenido}`], {type:'text/csv;charset=utf-8'})); const enlace=document.createElement('a'); enlace.href=url; enlace.download='movimientos_inventario.csv'; enlace.click(); URL.revokeObjectURL(url)
     } catch { toast.error('No se pudieron descargar los movimientos') }
   }
@@ -71,7 +73,7 @@ export default function InventarioPage() {
     return filtroConciliacion==='todos' || (filtroConciliacion==='correcto'&&diferencia===0) || (filtroConciliacion==='faltante'&&diferencia<0) || (filtroConciliacion==='sobrante'&&diferencia>0)
   })
   const abrirCorreccion = (item:any) => {
-    setForm({ producto_id:item.producto_id, tipo:'ajuste', cantidad:String(Number(item.stock_actual || 0)), costo_unit:String(Number(item.precio_costo || 0)), notas:'Correccion de inventario', pagar_desde_caja:false, metodo_pago:'efectivo' })
+    setForm({ producto_id:item.producto_id, tipo:'ajuste', cantidad:String(Number(item.stock_actual || 0)), costo_unit:String(Number(item.precio_costo || 0)), notas:'Correccion de inventario', soporte_url:'', pagar_desde_caja:false, metodo_pago:'efectivo' })
     setCodigo(String(item.codigo || ''))
     setProductoBloqueado(true)
     setModal(true)
@@ -79,7 +81,7 @@ export default function InventarioPage() {
   const abrirMovimiento = () => {
     setCodigo('')
     setProductoBloqueado(false)
-    setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+    setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
     setModal(true)
     window.setTimeout(() => lectorRef.current?.focus(), 0)
   }
@@ -93,6 +95,16 @@ export default function InventarioPage() {
     toast.success(`${producto.nombre} seleccionado`)
   }
   const productoSeleccionado = productos.find((producto:any) => producto.id === form.producto_id) as any
+  const adjuntarSoporte = async (archivo?: File) => {
+    if (!archivo) return
+    if (archivo.size > 1_500_000) return toast.error('El archivo debe pesar maximo 1.5 MB')
+    setCargandoSoporte(true)
+    try {
+      const soporte_url = await new Promise<string>((resolve, reject) => { const lector = new FileReader(); lector.onload=()=>resolve(String(lector.result)); lector.onerror=()=>reject(new Error('No se pudo leer el archivo')); lector.readAsDataURL(archivo) })
+      setForm(actual => ({ ...actual, soporte_url }))
+      toast.success('Factura o soporte adjunto')
+    } catch { toast.error('No se pudo adjuntar el archivo') } finally { setCargandoSoporte(false) }
+  }
   return (
     <div className="space-y-5">
       <div className="page-header">
@@ -144,7 +156,7 @@ export default function InventarioPage() {
           <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value,pagar_desde_caja:e.target.value==='entrada'?p.pagar_desde_caja:false}))}><option value="entrada" className="bg-surface-800">Entrada de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
           <div><label className="label">{form.tipo === 'ajuste' ? 'Saldo final contado *' : 'Cantidad *'}</label><input type="number" min="0" className="input" value={form.cantidad} onChange={e=>setForm(p=>({...p,cantidad:e.target.value}))}/>{form.tipo === 'ajuste' && <p className="mt-1 text-xs text-surface-200/50">La correccion queda registrada como movimiento de ajuste.</p>}</div>
           <div><label className="label">Costo unitario</label><input type="number" min="0" className="input" placeholder="Solo si cambia el costo" value={form.costo_unit} onChange={e=>setForm(p=>({...p,costo_unit:e.target.value}))}/></div>
-          {form.tipo==='entrada' && <div className="space-y-3 rounded-lg border border-white/10 bg-surface-900/40 p-3"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={form.pagar_desde_caja} onChange={e=>setForm(p=>({...p,pagar_desde_caja:e.target.checked}))}/><span>Pagado desde caja</span></label>{form.pagar_desde_caja && <div><label className="label">Metodo de pago</label><select className="input" value={form.metodo_pago} onChange={e=>setForm(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>}</div>}
+          {form.tipo==='entrada' && <div className="space-y-3 rounded-lg border border-white/10 bg-surface-900/40 p-3"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={form.pagar_desde_caja} onChange={e=>setForm(p=>({...p,pagar_desde_caja:e.target.checked}))}/><span>Pagado desde caja</span></label>{form.pagar_desde_caja && <div><label className="label">Metodo de pago</label><select className="input" value={form.metodo_pago} onChange={e=>setForm(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>}<div><label className="label">Factura o soporte de compra</label><input ref={soporteRef} className="hidden" type="file" accept="image/*,application/pdf" onChange={event=>adjuntarSoporte(event.target.files?.[0])}/><div className="flex items-center gap-2"><button type="button" className="btn-secondary min-h-10" onClick={()=>soporteRef.current?.click()} disabled={cargandoSoporte}><FileUp className="h-4 w-4"/>{cargandoSoporte?'Cargando...':'Subir archivo'}</button>{form.soporte_url&&<span className="text-xs text-emerald-300">Documento adjunto</span>}</div><p className="mt-1 text-xs text-surface-200/45">Imagen o PDF, maximo 1.5 MB.</p></div></div>}
           <div><label className="label">Notas</label><input className="input" value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))}/></div>
           <div className="space-y-2 rounded-lg border border-white/10 bg-surface-900/40 p-3 sm:col-span-2"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={productoBloqueado} disabled={!form.producto_id} onChange={e=>{setProductoBloqueado(e.target.checked);if(!e.target.checked)window.setTimeout(()=>lectorRef.current?.focus(),0)}}/><span>Bloquear este producto para registrar varias cantidades consecutivas</span></label><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={registroContinuo} onChange={e=>setRegistroContinuo(e.target.checked)}/><span>Registrar otro producto sin cerrar esta ventana</span></label></div>
         </div>

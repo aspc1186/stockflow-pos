@@ -87,7 +87,7 @@ export default function ProductosPage() {
   const [camaraAbierta, setCamaraAbierta] = useState(false)
   const [errorCamara, setErrorCamara] = useState('')
   const [busqueda, setBusqueda] = useState('')
-  const [form, setForm] = useState({nombre:'',codigo:'',descripcion:'',imagen_url:'',imagenes_urls:[] as string[],precio_venta:'',precio_costo:'',categoria_id:'',impuesto_pct:'0',impuesto_tipo:'iva',impuesto_incluido:false,unidad_medida:'unidad',disponible:true,controla_stock:true,controla_lote:false,controla_vencimiento:false,controla_serial:false,destino:esRestaurante?'cocina':'barra',stock_inicial:'0',stock_minimo:'0',stock_maximo:''})
+  const [form, setForm] = useState({nombre:'',id_producto:'',marca:'',codigo:'',descripcion:'',imagen_url:'',imagenes_urls:[] as string[],precio_venta:'',precio_costo:'',categoria_id:'',impuesto_pct:'0',impuesto_tipo:'iva',impuesto_incluido:false,unidad_medida:'unidad',disponible:true,controla_stock:true,controla_lote:false,controla_vencimiento:false,controla_serial:false,destino:esRestaurante?'cocina':'barra',stock_inicial:'0',stock_minimo:'0',stock_maximo:''})
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [receta, setReceta] = useState<{ingrediente_id:string;cantidad:string;unidad:string}[]>([])
@@ -146,7 +146,7 @@ export default function ProductosPage() {
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudieron eliminar los productos'),
   })
   const descargarPlantilla = () => {
-    const hoja = XLSX.utils.json_to_sheet([{ nombre:'Cerveza ejemplo', codigo:'CER-001', precio_venta:8000, precio_costo:6000, categoria:'Cervezas', destino:'barra', impuesto_pct:0, stock_inicial:24, stock_minimo:6, controla_stock:'si' }])
+    const hoja = XLSX.utils.json_to_sheet([{ id_producto:'PROD-001', nombre:'Cerveza ejemplo', marca:'Marca ejemplo', codigo:'CER-001', precio_venta:8000, precio_costo:6000, categoria:'Cervezas', destino:'barra', impuesto_pct:0, stock_inicial:24, stock_minimo:6, estado:'activo', controla_stock:'si' }])
     const libro = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(libro, hoja, 'Productos')
     XLSX.writeFile(libro, 'plantilla_productos_stockflow.xlsx')
   }
@@ -165,7 +165,7 @@ export default function ProductosPage() {
         const precioVenta = numero(datos.precioventa)
         if (!nombre) return null
         const controla = !['no','false','0'].includes(clave(datos.controlastock || 'si'))
-        return { nombre, codigo:String(datos.codigo || '').trim() || undefined, precio_venta:precioVenta, precio_costo:numero(datos.preciocosto), categoria_id:categorias.get(clave(datos.categoria)) || undefined, destino:['barra','cocina','ambos','directo'].includes(clave(datos.destino)) ? clave(datos.destino) : 'barra', impuesto_pct:numero(datos.impuestopct), stock_inicial:numero(datos.stockinicial), stock_minimo:numero(datos.stockminimo), controla_stock:controla, disponible:true }
+        return { id_producto:String(datos.idproducto || '').trim() || undefined, nombre, marca:String(datos.marca || '').trim() || undefined, codigo:String(datos.codigo || '').trim() || undefined, precio_venta:precioVenta, precio_costo:numero(datos.preciocosto), categoria_id:categorias.get(clave(datos.categoria)) || undefined, destino:['barra','cocina','ambos','directo'].includes(clave(datos.destino)) ? clave(datos.destino) : 'barra', impuesto_pct:numero(datos.impuestopct), stock_inicial:numero(datos.stockinicial), stock_minimo:numero(datos.stockminimo), controla_stock:controla, disponible:!['inactivo','no','false','0'].includes(clave(datos.estado || 'activo')) }
       }).filter(Boolean) as any[]
       if (!validas.length) throw new Error('No hay filas validas. Cada fila debe tener al menos el nombre del producto.')
       if (validas.some(producto => !producto.codigo)) throw new Error('Cada fila debe tener codigo para actualizar la lista sin duplicados.')
@@ -215,7 +215,7 @@ export default function ProductosPage() {
     const texto = clave(nombre)
     const categoria = palabras.map(([palabra, categoria]) => texto.includes(clave(palabra)) ? categoria : '').find(Boolean)
     const encontrada = categoria ? cats.find(item => clave(item.nombre) === clave(categoria)) : undefined
-    setForm(actual => ({ ...actual, nombre, categoria_id: actual.categoria_id || encontrada?.id || '' }))
+    setForm(actual => ({ ...actual, nombre, categoria_id: encontrada?.id || actual.categoria_id || cats[0]?.id || '' }))
   }
   if (isLoading) return <PageLoader />
   return (
@@ -228,12 +228,13 @@ export default function ProductosPage() {
       <input ref={imagenArchivoRef} className="hidden" type="file" accept="image/*" multiple onChange={e => agregarImagenes(e.target.files)}/>
       <input className="input max-w-md" value={busqueda} onChange={event => setBusqueda(event.target.value)} placeholder="Buscar por nombre, codigo, categoria o destino..." />
       <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="table-base">
-        <thead><tr><th className="w-10"><input aria-label="Seleccionar todos los productos" type="checkbox" checked={productos.length>0&&seleccionados.size===productos.length} onChange={e=>setSeleccionados(e.target.checked?new Set(productos.map(producto=>producto.id)):new Set())}/></th><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Destino</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th className="w-10"><input aria-label="Seleccionar todos los productos" type="checkbox" checked={productos.length>0&&seleccionados.size===productos.length} onChange={e=>setSeleccionados(e.target.checked?new Set(productos.map(producto=>producto.id)):new Set())}/></th><th>Producto</th><th>Marca</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Destino</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           {productosFiltrados.map(p => { const pr = p as any; return (
             <tr key={p.id}>
               <td><input aria-label={`Seleccionar ${p.nombre}`} type="checkbox" checked={seleccionados.has(p.id)} onChange={e=>setSeleccionados(actual=>{const siguiente=new Set(actual);if(e.target.checked)siguiente.add(p.id);else siguiente.delete(p.id);return siguiente})}/></td>
-              <td><div><p className="font-medium text-surface-50">{p.nombre}</p>{p.codigo&&<p className="text-xs text-surface-200/40">{p.codigo}</p>}</div></td>
+              <td><div><p className="font-medium text-surface-50">{p.nombre}</p><p className="text-xs text-surface-200/55">{(pr as any).id_producto ? `${(pr as any).id_producto} · ` : ''}{p.codigo || 'Código pendiente'}</p></div></td>
+              <td className="text-surface-200/60">{(pr as any).marca || '—'}</td>
               <td className="text-surface-200/60">{pr.categoria_nombre ?? '—'}</td>
               <td className="font-semibold text-brand-400">{formatCurrency(p.precio_venta)}</td>
               <td className={cn(pr.stock_actual===0?'text-red-400':'text-surface-200/70')}>{p.controla_stock?(pr.stock_actual??0):'∞'}</td>
@@ -242,14 +243,16 @@ export default function ProductosPage() {
               <td><div className="flex items-center justify-end gap-1"><button onClick={() => setProductoQr(p)} className="btn-ghost btn-sm p-2 text-brand-200" title="Ver e imprimir QR"><QrCode className="w-4 h-4"/></button><button onClick={() => toggle.mutate({id:p.id,disponible:!p.disponible})} className={`text-xs px-2 py-1 rounded font-medium ${p.disponible?'text-red-400 hover:bg-red-500/10':'text-emerald-400 hover:bg-emerald-500/10'}`}>{p.disponible?'Deshabilitar':'Habilitar'}</button><button onClick={() => setProductoEliminar(p)} className="btn-ghost btn-sm text-red-400 hover:bg-red-500/10" title="Eliminar producto"><Trash2 className="w-4 h-4"/></button></div></td>
             </tr>
           )})}
-          {productosFiltrados.length===0&&<tr><td colSpan={8} className="text-center py-12 text-surface-200/30">{busqueda?'No se encontraron productos':'Sin productos'}</td></tr>}
+          {productosFiltrados.length===0&&<tr><td colSpan={9} className="text-center py-12 text-surface-200/30">{busqueda?'No se encontraron productos':'Sin productos'}</td></tr>}
         </tbody>
       </table></div></div>
       <Modal open={modal} onClose={() => setModal(false)} title={esRestaurante ? 'Nuevo producto de restaurante' : 'Nuevo producto'} size="lg"
         footer={<div className="flex gap-3"><button onClick={() => setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={() => crear.mutate()} disabled={crear.isPending||!form.nombre||!form.precio_venta} className="btn-primary flex-1">{crear.isPending?<span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>:'Crear'}</button></div>}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="col-span-2"><label className="label">Nombre *</label><input className="input" value={form.nombre} onChange={e=>sugerirCategoria(e.target.value)}/><p className="mt-1 text-xs text-surface-200/45">La categoría se sugiere automáticamente según el nombre y siempre puedes cambiarla.</p></div>
-          <div className="col-span-2"><label className="label">Codigo de barras o SKU</label><input className="input font-mono" inputMode="numeric" placeholder="Ej: 7707654321570 o CER-001" value={form.codigo} onChange={e=>setForm(p=>({...p,codigo:e.target.value.trim()}))}/><p className="mt-1 text-xs text-surface-200/45">Puedes escribirlo o leerlo con la pistola de codigo de barras.</p></div>
+          <div className="col-span-2"><label className="label">Nombre *</label><input className="input" value={form.nombre} onChange={e=>sugerirCategoria(e.target.value)}/><p className="mt-1 text-xs text-surface-200/45">La categoría se asigna automáticamente según el nombre; puedes ajustarla antes de guardar.</p></div>
+          <div><label className="label">ID producto</label><input className="input font-mono" placeholder="Ej: PROD-001" value={form.id_producto} onChange={e=>setForm(p=>({...p,id_producto:e.target.value.trim()}))}/></div>
+          <div><label className="label">Marca</label><input className="input" placeholder="Ej: Postobón" value={form.marca} onChange={e=>setForm(p=>({...p,marca:e.target.value}))}/></div>
+          <div className="col-span-2"><label className="label">Código de barras o SKU</label><input className="input font-mono" inputMode="numeric" placeholder="Se genera automáticamente al guardar" value={form.codigo} onChange={e=>setForm(p=>({...p,codigo:e.target.value.trim()}))}/><p className="mt-1 text-xs text-surface-200/45">Déjalo vacío para crear un código StockFlow automático; puedes reemplazarlo por el código de barras del proveedor.</p></div>
           {esRestaurante && <><div><label className="label">Unidad</label><select className="input" value={form.unidad_medida} onChange={e=>setForm(p=>({...p,unidad_medida:e.target.value}))}>{['unidad','gramo','kilogramo','mililitro','litro','porcion'].map(unidad=><option key={unidad} value={unidad}>{unidad}</option>)}</select></div>
           <div className="col-span-2"><label className="label">Descripcion</label><textarea className="input min-h-20" value={form.descripcion} onChange={e=>setForm(p=>({...p,descripcion:e.target.value}))} placeholder={esRestaurante ? 'Ingredientes, preparacion o alergenos' : 'Presentacion o detalle del producto'}/></div>
           <div className="col-span-2"><label className="label">Imagen del producto</label><div className="flex flex-wrap items-center gap-3"><button type="button" className="btn-secondary btn-sm" onClick={()=>setCamaraAbierta(true)} disabled={cargandoImagen}><Camera className="w-4 h-4"/>{cargandoImagen?'Preparando...':'Tomar foto'}</button><button type="button" className="btn-secondary btn-sm" onClick={()=>imagenArchivoRef.current?.click()} disabled={cargandoImagen}>Subir archivo</button><span className="text-xs text-surface-200/50">{form.imagenes_urls.length}/5 fotos</span></div>{form.imagenes_urls.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{form.imagenes_urls.map((imagen, indice)=><div key={imagen.slice(-20)+indice} className="relative"><img src={imagen} alt={`Foto ${indice + 1}`} className="h-16 w-16 rounded-lg border border-white/10 object-cover"/><button type="button" aria-label="Quitar foto" className="absolute -right-2 -top-2 h-5 w-5 rounded-full bg-red-500 text-xs" onClick={()=>setForm(actual=>{const imagenes_urls=actual.imagenes_urls.filter((_,i)=>i!==indice);return {...actual,imagenes_urls,imagen_url:imagenes_urls[0]||''}})}>x</button></div>)}</div>}<input className="input mt-3" value={form.imagen_url.startsWith('data:') ? 'Fotos cargadas desde dispositivo' : form.imagen_url} onChange={e=>setForm(p=>({...p,imagen_url:e.target.value,imagenes_urls:e.target.value?[e.target.value]:[]}))} placeholder="O pega una URL de imagen"/></div>
@@ -257,6 +260,7 @@ export default function ProductosPage() {
           <div><label className="label">Precio costo</label><input inputMode="numeric" className="input" placeholder="$ 30.000" value={valorMoneda(form.precio_costo)} onChange={e=>setForm(p=>({...p,precio_costo:String(numero(e.target.value))}))}/></div>
           <div><label className="label">Categoría</label><select className="input" value={form.categoria_id} onChange={e=>setForm(p=>({...p,categoria_id:e.target.value}))}><option value="" className="bg-surface-800">Sin categoría</option>{cats.map(c=><option key={c.id} value={c.id} className="bg-surface-800">{c.nombre}</option>)}</select></div>
           <div><label className="label">Destino</label><select className="input" value={form.destino} onChange={e=>setForm(p=>({...p,destino:e.target.value}))}>{destinos.map(destino=><option key={destino.valor} value={destino.valor} className="bg-surface-800">{destino.texto}</option>)}</select></div>
+          <div><label className="label">Estado</label><select className="input" value={form.disponible ? 'activo' : 'inactivo'} onChange={e=>setForm(p=>({...p,disponible:e.target.value==='activo'}))}><option value="activo">Activo / disponible</option><option value="inactivo">Inactivo / no disponible</option></select></div>
           {esRestaurante ? <div><label className="label">Impuesto</label><div className="flex gap-2"><select className="input w-24" value={form.impuesto_tipo} onChange={e=>setForm(p=>({...p,impuesto_tipo:e.target.value}))}><option value="iva">IVA</option><option value="inc">INC</option><option value="ninguno">Ninguno</option></select><input type="number" min="0" max="100" className="input" value={form.impuesto_pct} onChange={e=>setForm(p=>({...p,impuesto_pct:e.target.value}))}/></div></div> : <div><label className="label">Impuesto %</label><input type="number" min="0" max="100" className="input" value={form.impuesto_pct} onChange={e=>setForm(p=>({...p,impuesto_pct:e.target.value}))}/></div>}
           <div><label className="label">Stock inicial</label><input type="number" min="0" className="input" value={form.stock_inicial} onChange={e=>setForm(p=>({...p,stock_inicial:e.target.value}))}/></div>
           <div><label className="label">Stock mínimo</label><input type="number" min="0" className="input" value={form.stock_minimo} onChange={e=>setForm(p=>({...p,stock_minimo:e.target.value}))}/></div>
