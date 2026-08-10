@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpFromLine, Barcode, BarChart3, Boxes, CalendarDays, ClipboardList, QrCode, ReceiptText, Settings2, Store, Users } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeft, ArrowRight, ArrowUpFromLine, Barcode, BarChart3, Boxes, CalendarDays, ClipboardList, LogOut, QrCode, ReceiptText, Settings2, Store, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axios'
 import { MODULOS_PLATAFORMA, planNormalizado, type GrupoModulo, type ModuloPlataforma } from '@/config/modules.config'
@@ -95,7 +95,7 @@ export default function ClientHomePage() {
   return <div className="mx-auto w-full max-w-[1700px] space-y-4 pb-3">
     <header className="flex flex-col gap-3 border-b border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 items-center gap-3"><video aria-label="Logo animado StockFlow POS" autoPlay loop muted playsInline preload="metadata" poster="/images/stockflow-login.png" className="h-14 w-14 rounded-xl bg-surface-900 object-cover shadow-lg shadow-brand-500/10"><source src="/images/stockflow-logo-animated.mp4" type="video/mp4" /></video><div><p className="text-2xl font-bold text-surface-50">StockFlow <span className="text-emerald-400">POS</span></p><p className="mt-0.5 text-sm text-surface-200/70">Sistema de Punto de Venta</p></div></div>
-      <div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-surface-800/75 px-4 py-2.5"><span className="rounded-lg bg-brand-500/15 p-2 text-brand-300"><Store className="h-5 w-5" /></span><div className="min-w-0"><p className="truncate text-base font-semibold text-surface-50">{empresa?.nombre || 'Tu negocio'}</p><p className="truncate text-xs text-surface-200/70">{user?.rol || 'Usuario'} · Caja {formatCurrency(stats?.caja_actual || 0)}</p></div></div>
+      <div className="flex min-w-0 items-center gap-2"><div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-surface-800/75 px-4 py-2.5"><span className="rounded-lg bg-brand-500/15 p-2 text-brand-300"><Store className="h-5 w-5" /></span><div className="min-w-0"><p className="truncate text-base font-semibold text-surface-50">{empresa?.nombre || 'Tu negocio'}</p><p className="truncate text-xs text-surface-200/70">{user?.rol || 'Usuario'} · Caja {formatCurrency(stats?.caja_actual || 0)}</p></div></div><button type="button" className="btn-secondary min-h-11 shrink-0 text-red-300 hover:text-red-200" onClick={() => { if (window.confirm('Deseas cerrar la sesión actual?')) logout() }} title="Cerrar sesión"><LogOut className="h-4 w-4"/><span className="hidden sm:inline">Salir</span></button></div>
     </header>
 
     <div className="flex flex-col items-center text-center"><div><h1 className="text-2xl font-bold text-surface-50 sm:text-3xl">Bienvenido, {empresa?.nombre || 'tu negocio'}</h1><p className="mt-0.5 text-base text-surface-200/75">Que deseas hacer hoy?</p></div></div>
