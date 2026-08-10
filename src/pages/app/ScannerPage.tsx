@@ -11,6 +11,19 @@ type Linea = {
   controla_lote?:boolean; controla_vencimiento?:boolean; controla_serial?:boolean; lote?:string; vencimiento?:string; serial?:string
 }
 
+type LecturaProducto = { codigo:string; productoId?:string }
+
+function interpretarQrProducto(lectura: string): LecturaProducto {
+  const valor = String(lectura || '').trim()
+  if (!valor.startsWith('SF1:')) return { codigo: valor }
+  try {
+    const ficha = JSON.parse(valor.slice(4))
+    return { codigo: String(ficha?.codigo || '').trim(), productoId: String(ficha?.producto_id || '').trim() || undefined }
+  } catch {
+    return { codigo: valor }
+  }
+}
+
 export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -48,8 +61,10 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
   useEffect(() => () => detenerCamaraSoporte(), [])
 
   const agregarAlLote = (codigo:string, destino:'lote'|'conteo') => {
-    const producto = productos.find((p:any) => String(p.codigo || '').trim().toLowerCase() === codigo.trim().toLowerCase())
-    if (!producto) return toast.error(`Producto no registrado: ${codigo}`)
+    const lectura = interpretarQrProducto(codigo)
+    const producto = productos.find((p:any) => lectura.productoId === p.id)
+      || productos.find((p:any) => String(p.codigo || '').trim().toLowerCase() === lectura.codigo.toLowerCase())
+    if (!producto) return toast.error(`Producto no registrado: ${lectura.codigo || codigo}`)
     const setter = destino === 'lote' ? setLote : setConteosFisicos
     let agregado = false
     setter(actual => {
@@ -61,7 +76,7 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
       agregado = true
       return existe
         ? actual.map(item => item.producto_id === producto.id ? { ...item, cantidad:item.cantidad + 1 } : item)
-        : [...actual, { producto_id:producto.id, codigo:String(producto.codigo || codigo), nombre:producto.nombre, cantidad:1, stock:Number(producto.stock_actual || 0), costo_unit:String(Number(producto.precio_costo || 0)), controla_lote:!!producto.controla_lote, controla_vencimiento:!!producto.controla_vencimiento, controla_serial:!!producto.controla_serial }]
+        : [...actual, { producto_id:producto.id, codigo:String(producto.codigo || lectura.codigo), nombre:producto.nombre, cantidad:1, stock:Number(producto.stock_actual || 0), costo_unit:String(Number(producto.precio_costo || 0)), controla_lote:!!producto.controla_lote, controla_vencimiento:!!producto.controla_vencimiento, controla_serial:!!producto.controla_serial }]
     })
     if (destino === 'lote' && agregado) setHistorialLote(actual => [...actual, producto.id])
     setUltimo(producto.nombre)

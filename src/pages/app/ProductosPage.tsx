@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Camera, Download, FileUp, Plus, Printer, QrCode, Trash2 } from 'lucide-react'
 import QRCode from 'qrcode'
@@ -57,18 +57,37 @@ function valorMoneda(valor: string) {
   return cantidad ? formatCurrency(cantidad) : ''
 }
 
-function CodigoProductoQr({ producto }: { producto: any }) {
+function textoSeguro(valor: unknown) {
+  return String(valor ?? '').replace(/[&<>"']/g, caracter => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[caracter] || caracter))
+}
+
+function CodigoProductoQr({ producto }: { producto: Producto }) {
   const [src, setSrc] = useState('')
   const codigo = String(producto.codigo || '').trim()
-  useEffect(() => { if (codigo) QRCode.toDataURL(codigo, { width:480, margin:3, errorCorrectionLevel:'M' }).then(setSrc) }, [codigo])
+  const ficha = useMemo(() => ({
+    version: 1,
+    tipo: 'stockflow_producto',
+    producto_id: producto.id,
+    id_producto: producto.id_producto || null,
+    codigo,
+    nombre: producto.nombre,
+    cantidad: Number(producto.stock_actual || 0),
+    unidad: producto.unidad_medida || 'unidad',
+    ubicacion: producto.ubicacion || null,
+    destino: producto.destino || null,
+    generado_en: new Date().toISOString(),
+  }), [producto.id, producto.id_producto, producto.nombre, producto.stock_actual, producto.unidad_medida, producto.ubicacion, producto.destino, codigo])
+  const contenidoQr = useMemo(() => `SF1:${JSON.stringify(ficha)}`, [ficha])
+  const ubicacion = ficha.ubicacion || ficha.destino
+  useEffect(() => { if (codigo) QRCode.toDataURL(contenidoQr, { width:480, margin:3, errorCorrectionLevel:'M' }).then(setSrc).catch(() => setSrc('')) }, [codigo, contenidoQr])
   const imprimir = () => {
     if (!src) return
     const ventana = window.open('', '_blank', 'width=420,height=560')
     if (!ventana) return toast.error('Permite las ventanas emergentes para imprimir el codigo')
-    ventana.document.write(`<html><head><title>QR ${codigo}</title><style>body{font-family:Arial;text-align:center;padding:24px}img{width:280px;height:280px}h2{margin-bottom:4px}p{word-break:break-all}</style></head><body><h2>${producto.nombre}</h2><p>${codigo}</p><img src="${src}" alt="QR ${codigo}"/><p>Escanea este QR en Conteos de inventario.</p></body></html>`)
+    ventana.document.write(`<html><head><title>QR ${textoSeguro(producto.nombre)}</title><style>body{font-family:Arial,sans-serif;padding:22px;color:#111}h1{font-size:19px;margin:0 0 6px;text-align:center}img{display:block;width:250px;height:250px;margin:16px auto}.meta{border-top:1px dashed #555;border-bottom:1px dashed #555;padding:10px 0;font-size:13px;line-height:1.65}.meta b{display:inline-block;min-width:120px}.note{font-size:11px;color:#444;text-align:center;margin-top:16px}</style></head><body><h1>${textoSeguro(producto.nombre)}</h1><div class="meta"><div><b>ID producto:</b> ${textoSeguro(ficha.id_producto || 'No asignado')}</div><div><b>Código:</b> ${textoSeguro(codigo)}</div><div><b>Stock al imprimir:</b> ${textoSeguro(ficha.cantidad)} ${textoSeguro(ficha.unidad)}</div>${ubicacion ? `<div><b>${ficha.ubicacion ? 'Ubicación' : 'Destino'}:</b> ${textoSeguro(ubicacion)}</div>` : ''}</div><img src="${src}" alt="QR ${textoSeguro(codigo)}"/><p class="note">Escanea este QR en Conteos de inventario. El stock indicado es una referencia al momento de imprimir la etiqueta.</p></body></html>`)
     ventana.document.close(); ventana.focus(); ventana.print()
   }
-  return <div className="space-y-4 text-center">{codigo ? <><p className="text-sm text-surface-200/65">Este QR contiene el código <strong className="font-mono text-surface-50">{codigo}</strong> y funciona en Conteos de inventario.</p>{src && <img className="mx-auto w-64 max-w-full rounded-lg bg-white p-2" src={src} alt={`Código QR ${codigo}`}/>}<button className="btn-primary w-full" onClick={imprimir}><Printer className="h-4 w-4"/>Imprimir etiqueta QR</button></> : <p className="text-red-200">Este producto no tiene código. Edítalo o créalo nuevamente para generar su QR.</p>}</div>
+  return <div className="space-y-4 text-center">{codigo ? <><p className="text-sm text-surface-200/65">Este QR identifica el producto y conserva su ficha para conteos: código, nombre, ID, unidad, cantidad al imprimir y ubicación cuando exista.</p><div className="rounded-lg border border-white/10 bg-black/10 p-3 text-left text-sm"><p><span className="text-surface-200/55">Código:</span> <strong className="font-mono">{codigo}</strong></p><p><span className="text-surface-200/55">ID:</span> {ficha.id_producto || 'No asignado'}</p><p><span className="text-surface-200/55">Stock al imprimir:</span> {ficha.cantidad} {ficha.unidad}</p>{ubicacion && <p><span className="text-surface-200/55">{ficha.ubicacion ? 'Ubicación' : 'Destino'}:</span> {ubicacion}</p>}</div>{src && <img className="mx-auto w-64 max-w-full rounded-lg bg-white p-2" src={src} alt={`Código QR ${codigo}`}/>}<button className="btn-primary w-full" onClick={imprimir}><Printer className="h-4 w-4"/>Imprimir etiqueta QR</button></> : <p className="text-red-200">Este producto no tiene código. Edítalo o créalo nuevamente para generar su QR.</p>}</div>
 }
 
 export default function ProductosPage() {
