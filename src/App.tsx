@@ -30,6 +30,7 @@ import RestauranteOperacionPage from './pages/app/RestauranteOperacionPage'
 import MenuDigitalPage from './pages/public/MenuDigitalPage'
 import ReservasEventosPage from './pages/app/ReservasEventosPage'
 import ScannerPage from './pages/app/ScannerPage'
+import VentaRapidaPage from './pages/app/VentaRapidaPage'
 
 function RequireAuth({children}:{children:React.ReactNode}){
   const {user,loading}=useAuth()
@@ -101,6 +102,7 @@ export default function App(){
       <Route path="configuracion" element={<ConfiguracionPage/>}/>
       <Route path="escanear/qr" element={<ScannerPage modo="qr"/>}/>
       <Route path="escanear/barras" element={<ScannerPage modo="barras"/>}/>
+      <Route path="venta-rapida" element={<VentaRapidaPage/>}/>
     </Route>
     <Route path="/" element={<Navigate to={def} replace/>}/>
     <Route path="*" element={<Navigate to="/" replace/>}/>
