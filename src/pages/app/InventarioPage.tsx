@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Camera, CheckCircle2, Download, FileUp, Pencil, Plus, ScanLine } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '@/lib/axios'
 import Modal from '@/components/ui/Modal'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -10,6 +10,7 @@ import { cn, formatCurrency } from '@/lib/utils'
 
 export default function InventarioPage() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [conteoConciliacion, setConteoConciliacion] = useState('')
   const [filtroConciliacion, setFiltroConciliacion] = useState<'todos'|'correcto'|'faltante'|'sobrante'>('todos')
@@ -148,7 +149,7 @@ export default function InventarioPage() {
     <div className="space-y-5">
       <div className="page-header">
         <div><h1 className="page-title">Inventario</h1><p className="page-subtitle">Valor total a costo: {formatCurrency(valorTotal)} - Saldo actual despues de ventas y salidas</p></div>
-        <div className="flex gap-2"><button onClick={()=>setSearchParams(verConciliacion ? {} : {tab:'conciliacion'})} className={verConciliacion?'btn-primary btn-sm':'btn-secondary btn-sm'}>Conciliacion</button><button onClick={descargarMovimientos} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Movimientos</button><button onClick={abrirMovimiento} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Movimiento</button></div>
+        <div className="flex flex-wrap gap-2"><button onClick={()=>setSearchParams(verConciliacion ? {} : {tab:'conciliacion'})} className={verConciliacion?'btn-primary btn-sm':'btn-secondary btn-sm'}>Conciliacion</button><button onClick={descargarMovimientos} className="btn-secondary btn-sm"><Download className="w-4 h-4"/>Movimientos</button><button onClick={()=>navigate('/app/escanear/barras?tipo=entrada')} className="btn-primary btn-sm"><Plus className="w-4 h-4"/>Registrar entrada</button><button onClick={abrirMovimiento} className="btn-secondary btn-sm">Movimiento manual</button></div>
       </div>
       {verConciliacion && <div className="space-y-4">
         <div className="card grid gap-3 p-4 md:grid-cols-[1fr_auto]"><div><label className="label">Conteo para conciliar</label><select className="input" value={conteoConciliacion} onChange={e=>setConteoConciliacion(e.target.value)}><option value="">Selecciona un conteo cerrado</option>{conteosConciliables.map((item:any)=><option key={item.id} value={item.id}>{item.nombre} · {item.estado.replace('_',' ')}</option>)}</select></div>{conteoConciliacion&&<div className="flex items-end"><button className="btn-secondary" onClick={()=>setConteoConciliacion('')}>Limpiar</button></div>}</div>

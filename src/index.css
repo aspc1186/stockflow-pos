@@ -70,6 +70,14 @@ body:is([data-theme="claro"],[data-theme="blanco"],[data-theme="rosado"],[data-t
 body:is([data-theme="claro"],[data-theme="blanco"],[data-theme="rosado"],[data-theme="crema"],[data-theme="lila"],[data-theme="azul_cielo"],[data-theme="gris_claro"]) .home-module-card[data-accent="green"] { background:#20b68b !important; }
 body:is([data-theme="claro"],[data-theme="blanco"],[data-theme="rosado"],[data-theme="crema"],[data-theme="lila"],[data-theme="azul_cielo"],[data-theme="gris_claro"]) .home-module-card .bg-surface-950 { background:rgba(255,255,255,.18) !important; }
 .brand-watermark { position:absolute; right:5%; bottom:8%; max-width:70%; overflow:hidden; color:rgba(255,255,255,.05); font-size:clamp(2rem,8vw,9rem); font-weight:800; line-height:.9; text-align:right; pointer-events:none; user-select:none; }
+
+/* La sugerencia del lector debe salir por encima de la tarjeta de camara. */
+section.card:has(.stockflow-scanner) { overflow:visible; position:relative; z-index:20; }
+.stockflow-scanner .scanner-suggestions { isolation:isolate; }
+
+/* Identidad del cliente legible y coherente con cualquier tema activo. */
+.business-identity-card { background:color-mix(in srgb, var(--theme-panel, #1e293b) 84%, #6366f1) !important; border:1px solid color-mix(in srgb, var(--theme-border, rgba(255,255,255,.16)) 62%, #818cf8) !important; }
+.business-identity-card:hover { filter:brightness(1.06); }
 @layer components {
   .card { @apply bg-surface-800 border border-white/5 rounded-xl; }
   .input { @apply w-full bg-surface-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-surface-50 placeholder-surface-200/30 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors; }

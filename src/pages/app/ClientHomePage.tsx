@@ -36,6 +36,15 @@ const estilos: Record<Accento, string> = {
   blue: 'border-blue-400/70 bg-blue-500/10 hover:bg-blue-500/15',
 }
 
+const acentoPorGrupo: Record<GrupoModulo, Accento> = {
+  'Operacion': 'blue',
+  'Puestos y atencion': 'violet',
+  'Inventario y WMS': 'emerald',
+  'Administracion': 'amber',
+  'Restaurante y recetas': 'pink',
+  'Sistema': 'cyan',
+}
+
 function TarjetaModulo({ tarjeta, onClick, secundaria = false }: { tarjeta: Tarjeta; onClick: () => void; secundaria?: boolean }) {
   return <button type="button" aria-label={`${tarjeta.titulo}: ${tarjeta.detalle}`} data-accent={tarjeta.acento} onClick={onClick} className={`home-module-card group flex w-full flex-col rounded-lg border p-3 text-left shadow-md shadow-black/10 transition duration-200 hover:-translate-y-0.5 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-brand-400 ${secundaria ? 'min-h-[96px]' : 'min-h-[116px] sm:min-h-[132px]'} ${estilos[tarjeta.acento]}`}>
     <span className={`flex items-center justify-center rounded-full border border-current/35 bg-surface-950/25 text-current ${secundaria ? 'h-8 w-8' : 'h-10 w-10'}`}>{tarjeta.icono}</span>
@@ -85,7 +94,7 @@ export default function ClientHomePage() {
   ].filter(Boolean) as Tarjeta[]
 
   const modulosDelGrupo: Tarjeta[] = grupoActivo
-    ? modulos.filter(modulo => modulo.grupo === grupoActivo).map(modulo => ({ id: modulo.id, titulo: modulo.nombre, detalle: modulo.descripcion, icono: <modulo.icono className="h-7 w-7" />, acento: 'sky' as Accento, ruta: modulo.ruta }))
+    ? modulos.filter(modulo => modulo.grupo === grupoActivo).map(modulo => ({ id: modulo.id, titulo: modulo.nombre, detalle: modulo.descripcion, icono: <modulo.icono className="h-7 w-7" />, acento: acentoPorGrupo[grupoActivo], ruta: modulo.ruta }))
     : []
   const ejecutar = (tarjeta: Tarjeta) => {
     if (tarjeta.accion === 'salir') { if (window.confirm('Deseas cerrar la sesion actual?')) logout(); return }
@@ -97,7 +106,7 @@ export default function ClientHomePage() {
   return <div className="mx-auto w-full max-w-[1700px] space-y-4 pb-3">
     <header className="flex flex-col gap-3 border-b border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 items-center gap-3"><video aria-label="Logo animado StockFlow POS" autoPlay loop muted playsInline preload="metadata" poster="/images/stockflow-login.png" className="h-14 w-14 rounded-xl bg-surface-900 object-cover shadow-lg shadow-brand-500/10"><source src="/images/stockflow-logo-animated.mp4" type="video/mp4" /></video><div><p className="text-2xl font-bold text-surface-50">StockFlow <span className="text-emerald-400">POS</span></p><p className="mt-0.5 text-sm text-surface-200/70">Sistema de Punto de Venta</p></div></div>
-      <div className="flex min-w-0 items-center gap-2"><div className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-surface-800/75 px-4 py-2.5"><span className="rounded-lg bg-brand-500/15 p-2 text-brand-300"><Store className="h-5 w-5" /></span><div className="min-w-0"><p className="truncate text-base font-semibold text-surface-50">{empresa?.nombre || 'Tu negocio'}</p><p className="truncate text-xs text-surface-200/70">{user?.rol || 'Usuario'} · Caja {formatCurrency(stats?.caja_actual || 0)}</p></div></div><button type="button" className="btn-secondary min-h-11 shrink-0 text-red-300 hover:text-red-200" onClick={() => { if (window.confirm('Deseas cerrar la sesión actual?')) logout() }} title="Cerrar sesión"><LogOut className="h-4 w-4"/><span className="hidden sm:inline">Salir</span></button></div>
+      <div className="flex min-w-0 items-center gap-2"><div className="business-identity-card flex min-w-0 items-center gap-3 rounded-xl px-4 py-2.5"><span className="rounded-lg bg-brand-500/15 p-2 text-brand-300"><Store className="h-5 w-5" /></span><div className="min-w-0"><p className="truncate text-base font-semibold text-surface-50">{empresa?.nombre || 'Tu negocio'}</p><p className="truncate text-xs text-surface-200/70">{user?.rol || 'Usuario'} · Caja {formatCurrency(stats?.caja_actual || 0)}</p></div></div><button type="button" className="btn-secondary min-h-11 shrink-0 text-red-300 hover:text-red-200" onClick={() => { if (window.confirm('Deseas cerrar la sesión actual?')) logout() }} title="Cerrar sesión"><LogOut className="h-4 w-4"/><span className="hidden sm:inline">Salir</span></button></div>
     </header>
 
     <div className="flex flex-col items-center text-center"><div><h1 className="text-2xl font-bold text-surface-50 sm:text-3xl">Bienvenido, {empresa?.nombre || 'tu negocio'}</h1><p className="mt-0.5 text-base text-surface-200/75">Que deseas hacer hoy?</p></div></div>

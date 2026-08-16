@@ -29,7 +29,7 @@ export default function TopBar({onMenuClick}:{onMenuClick?:()=>void}){
   const logo=empresa?.logo_url
   return <header className="relative flex h-14 flex-shrink-0 items-center justify-between border-b border-white/5 bg-surface-800 px-4">{onMenuClick?<button onClick={onMenuClick} className="rounded-lg p-2 text-surface-200/60 hover:bg-white/5 lg:hidden"><Menu className="w-5 h-5"/></button>:null}<div className="flex-1"/><div className="flex items-center gap-2.5">
     <span className="hidden text-sm text-surface-200/60 sm:block">{user?.nombre}</span>
-    <button type="button" onClick={()=>setClientOpen(!clientOpen)} aria-expanded={clientOpen} className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-white/5" title="Informacion del negocio">
+    <button type="button" onClick={()=>setClientOpen(!clientOpen)} aria-expanded={clientOpen} className="business-identity-card flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left" title="Informacion del negocio">
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-600/30">{logo?<img src={logo} alt="Logo del negocio" className="h-full w-full object-cover"/>:<span className="text-[11px] font-bold text-brand-300">{empresa?.nombre?.[0]??'E'}</span>}</div>
       <span className="hidden max-w-32 truncate text-xs font-medium text-surface-100 md:block">{empresa?.nombre??'Mi negocio'}</span>
       <ChevronDown className={clientOpen?'h-3.5 w-3.5 rotate-180 text-surface-200/50 transition-transform':'h-3.5 w-3.5 text-surface-200/50 transition-transform'}/>
