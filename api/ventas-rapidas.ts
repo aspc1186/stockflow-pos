@@ -80,8 +80,8 @@ export default async function handler(req: any, res: any) {
           const stockDespues = stockAntes - cantidad
           await client.query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE empresa_id=$2 AND producto_id=$3`, [stockDespues, auth.empresa_id, producto.id])
           await client.query(
-            `INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas)
-             VALUES (gen_random_uuid(),$1,$2,$3,'venta',$4,$5,$6,$7,$8)`,
+            `INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,created_at)
+             VALUES (gen_random_uuid(),$1,$2,$3,'venta',$4,$5,$6,$7,$8,clock_timestamp())`,
             [auth.empresa_id, producto.id, auth.id, cantidad, stockAntes, stockDespues, producto.precio_costo || 0, `Venta rapida ${pedidoId}`]
           )
         }

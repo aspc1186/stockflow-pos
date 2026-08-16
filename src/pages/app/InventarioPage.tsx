@@ -8,6 +8,17 @@ import { PageLoader } from '@/components/ui/Spinner'
 import toast from 'react-hot-toast'
 import { cn, formatCurrency } from '@/lib/utils'
 
+function formatFechaHoraBogota(value?: string | null) {
+  if (!value) return '-'
+  const fecha = new Date(value)
+  if (Number.isNaN(fecha.getTime())) return '-'
+  return new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).format(fecha)
+}
+
 export default function InventarioPage() {
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -70,7 +81,7 @@ export default function InventarioPage() {
       const { data } = await api.get<any>('/inventario?movimientos=true')
       const filas = (data.data || data) as any[]
       const escapar = (valor: unknown) => `"${String(valor ?? '').replace(/"/g, '""')}"`
-      const contenido = [['Fecha','Producto','Tipo','Cantidad','Stock antes','Stock despues','Usuario','Notas','Soporte'], ...filas.map(fila => [new Date(fila.created_at).toLocaleString('es-CO'),fila.producto,fila.tipo,fila.cantidad,fila.stock_antes,fila.stock_despues,fila.usuario,fila.notas,fila.soporte_url ? 'Adjunto' : ''])].map(fila => fila.map(escapar).join(';')).join('\n')
+      const contenido = [['Fecha','Producto','Tipo','Cantidad','Stock antes','Stock despues','Usuario','Notas','Soporte'], ...filas.map(fila => [formatFechaHoraBogota(fila.created_at),fila.producto,fila.tipo,fila.cantidad,fila.stock_antes,fila.stock_despues,fila.usuario,fila.notas,fila.soporte_url ? 'Adjunto' : ''])].map(fila => fila.map(escapar).join(';')).join('\n')
       const url = URL.createObjectURL(new Blob([`\uFEFF${contenido}`], {type:'text/csv;charset=utf-8'})); const enlace=document.createElement('a'); enlace.href=url; enlace.download='movimientos_inventario.csv'; enlace.click(); URL.revokeObjectURL(url)
     } catch { toast.error('No se pudieron descargar los movimientos') }
   }
@@ -179,7 +190,7 @@ export default function InventarioPage() {
               <td className="font-semibold text-surface-50">{formatCurrency(item.valor_costo || 0)}</td>
               <td>{formatCurrency(item.precio_venta || 0)}</td>
               <td className={Number(item.margen_unitario) >= 0 ? 'text-emerald-400' : 'text-red-400'}>{formatCurrency(item.margen_unitario || 0)}</td>
-              <td className="text-xs text-surface-200/60">{item.ultima_salida_at ? new Date(item.ultima_salida_at).toLocaleString('es-CO') : '-'}</td>
+              <td className="text-xs text-surface-200/60">{formatFechaHoraBogota(item.ultima_salida_at)}</td>
               <td>{c?<span className="badge-red">Critico</span>:<span className="badge-green">OK</span>}</td>
               <td><button type="button" className="btn-ghost btn-sm p-2" title="Corregir inventario" onClick={() => abrirCorreccion(item)}><Pencil className="h-4 w-4"/></button></td>
             </tr>

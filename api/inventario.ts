@@ -56,9 +56,9 @@ export default async function handler(req: any, res: any) {
          COALESCE(i.stock_actual,0) * COALESCE(p.precio_costo,0) as valor_costo,
          COALESCE(i.stock_actual,0) * COALESCE(p.precio_venta,0) as valor_venta,
          COALESCE(p.precio_venta,0) - COALESCE(p.precio_costo,0) as margen_unitario,
-         COALESCE((SELECT SUM(mi.cantidad) FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('entrada','compra') AND mi.created_at::date=CURRENT_DATE),0) as entradas_hoy,
-         COALESCE((SELECT SUM(mi.cantidad) FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') AND mi.created_at::date=CURRENT_DATE),0) as salidas_hoy,
-         (SELECT mi.created_at FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') ORDER BY mi.created_at DESC LIMIT 1) as ultima_salida_at
+         COALESCE((SELECT SUM(mi.cantidad) FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('entrada','compra') AND (mi.created_at AT TIME ZONE 'America/Bogota')::date=(NOW() AT TIME ZONE 'America/Bogota')::date),0) as entradas_hoy,
+         COALESCE((SELECT SUM(mi.cantidad) FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') AND (mi.created_at AT TIME ZONE 'America/Bogota')::date=(NOW() AT TIME ZONE 'America/Bogota')::date),0) as salidas_hoy,
+         (SELECT mi.created_at FROM movimientos_inventario mi WHERE mi.empresa_id=p.empresa_id AND mi.producto_id=p.id AND mi.tipo IN ('venta','salida','merma','rotura') ORDER BY mi.created_at DESC, mi.id DESC LIMIT 1) as ultima_salida_at
        FROM productos p
        LEFT JOIN inventario i ON i.producto_id=p.id AND i.empresa_id=p.empresa_id
        LEFT JOIN categorias c ON c.id=p.categoria_id
@@ -103,7 +103,7 @@ export default async function handler(req: any, res: any) {
             if (tipoLote==='entrada'&&costoNuevo!==null) await client.query(`UPDATE productos SET precio_costo=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`,[costoPromedio,producto.id,eid])
             await client.query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE producto_id=$2 AND empresa_id=$3`,[despues,producto.id,eid])
             const notasFinal = pagar_desde_caja && tipoLote === 'entrada' ? `${notas ? `${notas} - ` : ''}Pagado desde caja` : notas || 'Lote por lector de codigo de barras'
-            await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,lote,vencimiento,serial,soporte_url) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,[eid,producto.id,auth.id,tipoLote,q,antes,despues,costoFinal,notasFinal,item.lote || null,item.vencimiento || null,item.serial || null, soporte_url || null])
+            await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,lote,vencimiento,serial,soporte_url,created_at) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,clock_timestamp())`,[eid,producto.id,auth.id,tipoLote,q,antes,despues,costoFinal,notasFinal,item.lote || null,item.vencimiento || null,item.serial || null, soporte_url || null])
             if (pagar_desde_caja) compraTotal += q * costoFinal
             aplicados.push({producto_id:producto.id,cantidad:q,stock_antes:antes,stock_despues:despues})
           }
@@ -155,7 +155,7 @@ export default async function handler(req: any, res: any) {
 
     await query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE producto_id=$2 AND empresa_id=$3`,[despues,producto_id,eid])
     const notasFinal = pagar_desde_caja && tipo === 'entrada' ? `${notas ? `${notas} - ` : ''}Pagado desde caja` : notas || null
-    await query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,soporte_url) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[eid,producto_id,auth.id,tipo,Math.abs(q),antes,despues,costoFinal||null,notasFinal,soporte_url || null])
+    await query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,soporte_url,created_at) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,clock_timestamp())`,[eid,producto_id,auth.id,tipo,Math.abs(q),antes,despues,costoFinal||null,notasFinal,soporte_url || null])
 
     if (cajaPago) {
       await query(`INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,tipo,metodo_pago,monto,descripcion) VALUES (gen_random_uuid(),$1,$2,$3,'compra_inventario',$4,$5,$6)`, [eid,cajaPago.id,auth.id,metodo_pago || 'efectivo',compraTotal,`Compra inventario: ${producto.nombre}`])

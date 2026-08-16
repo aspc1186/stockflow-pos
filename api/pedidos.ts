@@ -84,8 +84,8 @@ async function moverInventarioBase(empresaId: string, productoId: string, usuari
     [despues, productoId, empresaId]
   )
   await query(
-    `INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas)
-     VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    `INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,created_at)
+     VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,clock_timestamp())`,
     [empresaId, productoId, usuarioId, tipo, q, antes, despues, prod.precio_costo || 0, notas]
   )
 }

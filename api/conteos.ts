@@ -171,7 +171,7 @@ export default async function handler(req: any, res: any) {
         const antes = Number(item.stock_sistema || 0)
         const despues = Number(item.cantidad_contada || 0)
         await client.query(`INSERT INTO inventario (id,empresa_id,producto_id,stock_actual,stock_minimo) VALUES (gen_random_uuid(),$1,$2,$3,0) ON CONFLICT (empresa_id,producto_id) DO UPDATE SET stock_actual=EXCLUDED.stock_actual,updated_at=NOW()`, [empresaId, item.producto_id, despues])
-        await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas) VALUES (gen_random_uuid(),$1,$2,$3,'ajuste',$4,$5,$6,$7,$8)`, [empresaId,item.producto_id,auth.id,Math.abs(despues-antes),antes,despues,Number(item.precio_costo||0),`Ajuste aprobado por conciliacion: ${conteo.nombre}`])
+        await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,created_at) VALUES (gen_random_uuid(),$1,$2,$3,'ajuste',$4,$5,$6,$7,$8,clock_timestamp())`, [empresaId,item.producto_id,auth.id,Math.abs(despues-antes),antes,despues,Number(item.precio_costo||0),`Ajuste aprobado por conciliacion: ${conteo.nombre}`])
       }
       const updated = await client.query(`UPDATE conteos_inventario SET estado='ajustado',aprobado_at=NOW(),aprobado_por=$2,actualizado_at=NOW() WHERE id=$1 RETURNING *`, [conteo.id, auth.id])
       return { conteo:updated.rows[0], ajustes:items.rows.length }
