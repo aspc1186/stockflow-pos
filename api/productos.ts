@@ -56,7 +56,7 @@ async function generarIdProducto(empresaId: string) {
 function categoriasPorTipo(tipo: string) {
   if (tipo === 'restaurante') return ['Entradas', 'Platos fuertes', 'Acompanamientos', 'Postres', 'Bebidas', 'Ingredientes']
   if (tipo === 'restaurante_bar') return ['Entradas', 'Platos fuertes', 'Postres', 'Cervezas', 'Licores', 'Cocteles', 'Bebidas', 'Ingredientes']
-  if (['tienda','tienda_bar','tienda_de_ropa','tienda_de_calzado','tienda_de_ropa_y_calzado','legumbreria','carniceria','panaderia','reposteria'].includes(String(tipo || '').toLowerCase().replaceAll(' ', '_'))) return ['Abarrotes', 'Bebidas', 'Snacks', 'Limpieza', 'Hogar', 'Papeleria', 'Otros']
+  if (['tienda','tienda_bar','tienda_de_ropa','tienda_de_calzado','tienda_de_ropa_y_calzado','legumbreria','carniceria','panaderia','reposteria'].includes(String(tipo || '').toLowerCase().replace(/ /g, '_'))) return ['Abarrotes', 'Bebidas', 'Snacks', 'Limpieza', 'Hogar', 'Papeleria', 'Otros']
   return ['Cervezas', 'Licores', 'Cocteles', 'Bebidas', 'Snacks', 'Combos']
 }
 
