@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import { v4 as uuid } from 'uuid'
 import { query, queryOne } from '../_db.js'
 import { authenticate, authSuperAdmin, cors, signToken } from '../_auth.js'
+import backup from './backup.js'
 
 let empresaSchemaReady: Promise<void> | null = null
 const TEMAS_VALIDOS = new Set(['blanco','rosado','crema','lila','azul_cielo','gris_claro','noche','oceano','ambar','vino','grafito','neon','discoteca','restaurante','claro','bosque'])
@@ -18,10 +19,14 @@ function ensureEmpresaSchema() {
 }
 
 export default async function handler(req: any, res: any) {
+  const urlPath = (req.url || '').split('?')[0]
+  // El respaldo conserva su URL y cron, pero comparte la funcion administrativa
+  // para mantenernos dentro del limite de funciones del plan de Vercel.
+  if (urlPath === '/api/backup') return backup(req, res)
+
   cors(res)
   if (req.method === 'OPTIONS') return res.status(200).end()
 
-  const urlPath = (req.url || '').split('?')[0]
   const parts = urlPath.split('/').filter(Boolean)
 
   // /api/empresas/[id] — accesible por admin de empresa también
