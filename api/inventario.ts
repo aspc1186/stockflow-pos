@@ -73,9 +73,16 @@ export default async function handler(req: any, res: any) {
     if (lote) {
       const tipoLote = req.body?.tipo === 'salida' ? 'salida' : 'entrada'
       if (!lote.length) return res.status(400).json({ ok:false, msg:'No hay productos en la sesión de escaneo' })
+      if (pagar_desde_caja && tipoLote !== 'entrada') return res.status(400).json({ ok:false, msg:'Solo las entradas de producto pueden pagarse desde caja' })
       try {
         const resultado = await transaction(async client => {
           const aplicados: any[] = []
+          let compraTotal = 0
+          let cajaPago: any = null
+          if (pagar_desde_caja) {
+            cajaPago = (await client.query(`SELECT id FROM cajas WHERE empresa_id=$1 AND estado='abierta' ORDER BY apertura_at DESC LIMIT 1 FOR UPDATE`, [eid])).rows[0]
+            if (!cajaPago) throw new Error('Abre la caja antes de pagar una compra de inventario')
+          }
           for (const item of lote) {
             const producto = (await client.query(`SELECT id,nombre,precio_costo,controla_lote,controla_vencimiento,controla_serial FROM productos WHERE id=$1 AND empresa_id=$2 FOR UPDATE`, [item.producto_id,eid])).rows[0]
             const q = Number(item.cantidad)
@@ -92,14 +99,21 @@ export default async function handler(req: any, res: any) {
             const costoAnterior=Number(producto.precio_costo||0)
             const costoFinal=Number.isFinite(costoNuevo as number) ? Number(costoNuevo) : costoAnterior
             const costoPromedio=tipoLote==='entrada'&&costoNuevo!==null&&antes+q>0 ? ((antes*costoAnterior)+(q*costoFinal))/(antes+q) : costoAnterior
+            if (pagar_desde_caja && costoFinal <= 0) throw new Error(`Indica el costo unitario de ${producto.nombre} para registrar el pago desde caja`)
             if (tipoLote==='entrada'&&costoNuevo!==null) await client.query(`UPDATE productos SET precio_costo=$1,updated_at=NOW() WHERE id=$2 AND empresa_id=$3`,[costoPromedio,producto.id,eid])
             await client.query(`UPDATE inventario SET stock_actual=$1,updated_at=NOW() WHERE producto_id=$2 AND empresa_id=$3`,[despues,producto.id,eid])
-            await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,lote,vencimiento,serial,soporte_url) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,[eid,producto.id,auth.id,tipoLote,q,antes,despues,costoFinal,req.body?.notas||'Lote por lector de código de barras',item.lote || null,item.vencimiento || null,item.serial || null, soporte_url || null])
+            const notasFinal = pagar_desde_caja && tipoLote === 'entrada' ? `${notas ? `${notas} - ` : ''}Pagado desde caja` : notas || 'Lote por lector de codigo de barras'
+            await client.query(`INSERT INTO movimientos_inventario (id,empresa_id,producto_id,usuario_id,tipo,cantidad,stock_antes,stock_despues,costo_unit,notas,lote,vencimiento,serial,soporte_url) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,[eid,producto.id,auth.id,tipoLote,q,antes,despues,costoFinal,notasFinal,item.lote || null,item.vencimiento || null,item.serial || null, soporte_url || null])
+            if (pagar_desde_caja) compraTotal += q * costoFinal
             aplicados.push({producto_id:producto.id,cantidad:q,stock_antes:antes,stock_despues:despues})
           }
-          return aplicados
+          if (cajaPago) {
+            await client.query(`INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,tipo,metodo_pago,monto,descripcion) VALUES (gen_random_uuid(),$1,$2,$3,'compra_inventario',$4,$5,$6)`, [eid,cajaPago.id,auth.id,metodo_pago || 'efectivo',compraTotal,`Compra inventario: ${lote.length} productos`])
+            await client.query(`UPDATE cajas SET total_compras_inventario=COALESCE(total_compras_inventario,0)+$1 WHERE id=$2`, [compraTotal,cajaPago.id])
+          }
+          return { aplicados, compra_total: compraTotal }
         })
-        return res.status(201).json({ ok:true,data:{aplicados:resultado} })
+        return res.status(201).json({ ok:true,data:resultado })
       } catch (error:any) { return res.status(400).json({ ok:false,msg:error.message||'No se pudo aplicar el lote' }) }
     }
     const tipo = tipoRecibido === 'compra' ? 'entrada' : tipoRecibido

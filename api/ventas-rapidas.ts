@@ -35,6 +35,14 @@ export default async function handler(req: any, res: any) {
       let subtotal = 0
       let impuestos = 0
 
+      // El pedido debe existir antes de insertar sus renglones: pedido_items
+      // tiene una llave foranea hacia pedidos.
+      await client.query(
+        `INSERT INTO pedidos (id,empresa_id,usuario_id,mesero_id,estado,tipo,origen,subtotal,impuestos,total,metodo_pago,notas,cierre_at)
+         VALUES ($1,$2,$3,$3,'cobrado','venta_rapida','QUICK_SALE',0,0,0,$4,$5,NOW())`,
+        [pedidoId, auth.empresa_id, auth.id, metodoPago, notas]
+      )
+
       for (const item of items) {
         const cantidad = Number(item.cantidad)
         if (!item.producto_id || !Number.isFinite(cantidad) || cantidad <= 0) throw new Error('Hay un producto o una cantidad invalida en la venta')
@@ -81,11 +89,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const total = subtotal + impuestos
-      await client.query(
-        `INSERT INTO pedidos (id,empresa_id,usuario_id,mesero_id,estado,tipo,origen,subtotal,impuestos,total,metodo_pago,notas,cierre_at)
-         VALUES ($1,$2,$3,$3,'cobrado','venta_rapida','QUICK_SALE',$4,$5,$6,$7,$8,NOW())`,
-        [pedidoId, auth.empresa_id, auth.id, subtotal, impuestos, total, metodoPago, notas]
-      )
+      await client.query(`UPDATE pedidos SET subtotal=$1,impuestos=$2,total=$3 WHERE id=$4 AND empresa_id=$5`, [subtotal, impuestos, total, pedidoId, auth.empresa_id])
       await client.query(`UPDATE cajas SET total_ventas=COALESCE(total_ventas,0)+$1 WHERE id=$2`, [total, caja.id])
       await client.query(
         `INSERT INTO caja_movimientos (id,empresa_id,caja_id,usuario_id,pedido_id,tipo,metodo_pago,monto,descripcion)

@@ -33,6 +33,8 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
   const [tipo, setTipo] = useState<'entrada'|'salida'>(searchParams.get('tipo') === 'salida' ? 'salida' : 'entrada')
   const [notas, setNotas] = useState('')
   const [soporteUrl, setSoporteUrl] = useState('')
+  const [pagarDesdeCaja, setPagarDesdeCaja] = useState(false)
+  const [metodoPago, setMetodoPago] = useState('efectivo')
   const soporteRef = useRef<HTMLInputElement>(null)
   const videoSoporteRef = useRef<HTMLVideoElement>(null)
   const streamSoporteRef = useRef<MediaStream | null>(null)
@@ -57,6 +59,7 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
     const nuevoTipo = searchParams.get('tipo')
     if (nuevoTipo === 'entrada' || nuevoTipo === 'salida') { setTipo(nuevoTipo); setLote([]); setHistorialLote([]) }
   }, [searchParams])
+  useEffect(() => { if (tipo === 'salida') setPagarDesdeCaja(false) }, [tipo])
   const detenerCamaraSoporte = () => { streamSoporteRef.current?.getTracks().forEach(track=>track.stop()); streamSoporteRef.current=null; setCamaraSoporteActiva(false) }
   useEffect(() => () => detenerCamaraSoporte(), [])
 
@@ -89,8 +92,8 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
     setHistorialLote(actual => actual.slice(0, -1))
   }
   const guardarLote = useMutation({
-    mutationFn: () => api.post('/inventario', { items:lote, tipo, notas, soporte_url:soporteUrl }),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['inventario']}); qc.invalidateQueries({queryKey:['dashboard-stats']}); setLote([]); setHistorialLote([]); setNotas(''); setSoporteUrl(''); toast.success('Movimiento registrado y trazable') },
+    mutationFn: () => api.post('/inventario', { items:lote, tipo, notas, soporte_url:soporteUrl, pagar_desde_caja:pagarDesdeCaja, metodo_pago:metodoPago }),
+    onSuccess: () => { qc.invalidateQueries({queryKey:['inventario']}); qc.invalidateQueries({queryKey:['dashboard-stats']}); setLote([]); setHistorialLote([]); setNotas(''); setSoporteUrl(''); setPagarDesdeCaja(false); toast.success('Movimiento registrado y trazable') },
     onError: (e:any) => toast.error(e?.response?.data?.msg || 'No se pudo guardar el movimiento'),
   })
   const crearConteo = useMutation({
@@ -136,7 +139,8 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
         {items.map(item => <div key={item.producto_id} className="flex flex-wrap items-center gap-3 p-3">
           <div className="min-w-44 flex-1"><p className="font-medium">{item.nombre}</p><p className="font-mono text-xs text-surface-200/50">{item.codigo}</p>{tipo === 'salida' && !esConteo && <p className="text-xs text-amber-200">Disponible: {item.stock} · Restante: {item.stock - item.cantidad}</p>}</div>
           <div className="flex items-center gap-2"><button className="btn-secondary h-9 w-9 p-0" onClick={() => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, cantidad:Math.max(esConteo ? 0 : 1, linea.cantidad - 1) } : linea))}>-</button><input className="input h-9 w-20 text-center" type="number" min={esConteo ? 0 : 1} value={item.cantidad} onChange={event => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, cantidad:Math.max(esConteo ? 0 : 1, Number(event.target.value) || 0) } : linea))}/><button className="btn-secondary h-9 w-9 p-0" onClick={() => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, cantidad:linea.cantidad + 1 } : linea))}>+</button><button className="btn-ghost h-9 w-9 p-0 text-red-300" onClick={() => setItems(actual => actual.filter(linea => linea.producto_id !== item.producto_id))}><Trash2 className="h-4 w-4"/></button></div>
-          {tipo === 'entrada' && !esConteo && (item.controla_lote || item.controla_vencimiento || item.controla_serial) && <div className="grid w-full gap-2 border-t border-white/10 pt-3 sm:grid-cols-3">{item.controla_lote && <input className="input" value={item.lote || ''} onChange={e => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, lote:e.target.value } : linea))} placeholder="Lote requerido"/>}{item.controla_vencimiento && <div><label className="label">Fecha de vencimiento</label><input className="input" type="date" value={item.vencimiento || ''} onChange={e => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, vencimiento:e.target.value } : linea))}/></div>} {item.controla_serial && <input className="input" value={item.serial || ''} onChange={e => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, serial:e.target.value } : linea))} placeholder="Serial requerido"/>}</div>}
+          {tipo === 'entrada' && !esConteo && <div className="grid w-full gap-2 border-t border-white/10 pt-3 sm:grid-cols-2 lg:grid-cols-4"><div><label className="label">Costo unitario</label><input className="input" inputMode="decimal" value={item.costo_unit || ''} onChange={e => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, costo_unit:e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.') } : linea))} placeholder="Costo de compra"/></div>{item.controla_lote && <div><label className="label">Lote</label><input className="input" value={item.lote || ''} onChange={e => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, lote:e.target.value } : linea))} placeholder="Lote requerido"/></div>}{item.controla_vencimiento && <div><label className="label">Fecha de vencimiento</label><input className="input" type="date" value={item.vencimiento || ''} onChange={e => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, vencimiento:e.target.value } : linea))}/></div>} {item.controla_serial && <div><label className="label">Serial</label><input className="input" value={item.serial || ''} onChange={e => setItems(actual => actual.map(linea => linea.producto_id === item.producto_id ? { ...linea, serial:e.target.value } : linea))} placeholder="Serial requerido"/></div>}</div>}
+          {tipo === 'entrada' && !esConteo && items[0]?.producto_id === item.producto_id && <div className="flex w-full flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={pagarDesdeCaja} onChange={e => setPagarDesdeCaja(e.target.checked)}/>Pagar esta compra desde caja</label>{pagarDesdeCaja && <select className="input h-9 min-w-40" value={metodoPago} onChange={e => setMetodoPago(e.target.value)}><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta_credito">Tarjeta crédito</option><option value="tarjeta_debito">Tarjeta débito</option></select>}</div>}
         </div>)}
       </div>}
     </div>

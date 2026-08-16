@@ -3,7 +3,7 @@ import { Camera, Keyboard, ScanLine } from 'lucide-react'
 import api from '@/lib/axios'
 
 export type ScannerSuggestion = { id:string; nombre:string; codigo?:string; id_producto?:string; precio_venta?:number|string }
-type ScannerProps = { modo:'qr'|'barras'; onDetectar:(codigo:string)=>void; continuo?:boolean; sugerencias?:ScannerSuggestion[] }
+type ScannerProps = { modo:'qr'|'barras'|'mixto'; onDetectar:(codigo:string)=>void; continuo?:boolean; sugerencias?:ScannerSuggestion[] }
 
 export default function Scanner({ modo, onDetectar, continuo=false, sugerencias=[] }:ScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -27,16 +27,18 @@ export default function Scanner({ modo, onDetectar, continuo=false, sugerencias=
       if(videoRef.current){ videoRef.current.srcObject=stream; await videoRef.current.play() }
       const Detector=(window as any).BarcodeDetector
       if(!Detector){ setMensaje('Camara activa. Tu navegador no ofrece deteccion nativa; usa un lector fisico o escribe el codigo.'); setCamaraActiva(true); return }
-      const formats=modo==='qr'?['qr_code']:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']
-      const detector=new Detector({formats})
+      const formats=modo==='qr' ? ['qr_code'] : ['qr_code','ean_13','ean_8','upc_a','upc_e','code_128','code_39']
+      const soportados=typeof Detector.getSupportedFormats === 'function' ? await Detector.getSupportedFormats() : formats
+      const compatibles=formats.filter((format:string) => soportados.includes(format))
+      const detector=new Detector({formats:compatibles.length ? compatibles : formats})
       setCamaraActiva(true); setMensaje('Enfoca el codigo dentro del recuadro.')
       timerRef.current=window.setInterval(async()=>{ try { if(!videoRef.current) return; const resultados=await detector.detect(videoRef.current); if(resultados?.[0]?.rawValue){ confirmar(resultados[0].rawValue,'camara'); if(!continuo) detener() } } catch {} },450)
     } catch(error:any) { detener(); setMensaje(error?.message||'No se pudo iniciar la camara') }
   }
   useEffect(()=>()=>detener(),[])
   useEffect(() => {
-    if (modo !== 'barras' || sugerencias.length) return
+    if (modo === 'qr' || sugerencias.length) return
     api.get('/productos').then(({data}) => setCatalogo(data?.data || [])).catch(() => setCatalogo([]))
   }, [modo, sugerencias.length])
-  return <div className="space-y-3"><div className="w-full max-w-[260px] overflow-hidden rounded-lg border border-white/10 bg-black"><video ref={videoRef} muted playsInline className="block h-36 w-full bg-black object-cover"/><div className="border-t border-white/10 px-3 py-2 text-xs text-surface-200/65">{mensaje}</div></div><div className="flex flex-wrap gap-2"><button type="button" className="btn-primary min-h-10" onClick={iniciar}><Camera className="h-4 w-4"/>{camaraActiva?'Reiniciar camara':'Usar camara'}</button>{camaraActiva&&<button type="button" className="btn-secondary min-h-10" onClick={detener}>Detener</button>}</div><div className="relative flex gap-2"><div className="relative flex-1"><Keyboard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-200/45"/><input autoFocus className="input min-h-10 pl-10" value={manual} onChange={event=>setManual(event.target.value)} onKeyDown={event=>{if(event.key==='Enter') confirmar(manual)}} placeholder={modo==='qr'?'Pega o escanea el QR':'Escribe o escanea el codigo o nombre'}/>{modo==='barras' && coincidencias.length>0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-white/10 bg-surface-900 shadow-xl">{coincidencias.map(producto=><button key={producto.id} type="button" className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-white/10" onClick={()=>confirmar(producto.codigo || producto.id_producto || producto.id)}><span className="min-w-0"><strong className="block truncate">{producto.nombre}</strong><small className="block text-surface-200/55">{producto.codigo || producto.id_producto || 'Sin codigo'}</small></span></button>)}</div>}</div><button type="button" className="btn-secondary min-h-10" onClick={()=>confirmar(manual)}><ScanLine className="h-4 w-4"/>Validar</button></div></div>
+  return <div className="space-y-3"><div className="w-full max-w-[260px] overflow-hidden rounded-lg border border-white/10 bg-black"><video ref={videoRef} muted playsInline className="block h-36 w-full bg-black object-cover"/><div className="border-t border-white/10 px-3 py-2 text-xs text-surface-200/65">{mensaje}</div></div><div className="flex flex-wrap gap-2"><button type="button" className="btn-primary min-h-10" onClick={iniciar}><Camera className="h-4 w-4"/>{camaraActiva?'Reiniciar camara':'Usar camara'}</button>{camaraActiva&&<button type="button" className="btn-secondary min-h-10" onClick={detener}>Detener</button>}</div><div className="relative flex gap-2"><div className="relative flex-1"><Keyboard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-200/45"/><input autoFocus className="input min-h-10 pl-10" value={manual} onChange={event=>setManual(event.target.value)} onKeyDown={event=>{if(event.key==='Enter') confirmar(manual)}} placeholder={modo==='qr'?'Pega o escanea el QR':'Escribe o escanea el codigo, QR o nombre'}/>{modo!=='qr' && coincidencias.length>0 && <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-white/10 bg-surface-900 shadow-xl">{coincidencias.map(producto=><button key={producto.id} type="button" className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-white/10" onClick={()=>confirmar(producto.codigo || producto.id_producto || producto.id)}><span className="min-w-0"><strong className="block truncate">{producto.nombre}</strong><small className="block text-surface-200/55">{producto.codigo || producto.id_producto || 'Sin codigo'}</small></span></button>)}</div>}</div><button type="button" className="btn-secondary min-h-10" onClick={()=>confirmar(manual)}><ScanLine className="h-4 w-4"/>Validar</button></div></div>
 }
