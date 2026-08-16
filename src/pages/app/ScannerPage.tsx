@@ -52,7 +52,15 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
     queryKey:['conteos-inventario'], enabled: modo === 'qr', retry:1,
     queryFn: async () => { const { data } = await api.get<any>('/conteos'); return Array.isArray(data.data || data) ? data.data || data : [] },
   })
-  const productos:any[] = Array.isArray(productosData) ? productosData.filter(Boolean) : []
+  const productos = useMemo(() => (Array.isArray(productosData) ? productosData : [])
+    .filter((producto:any) => !!producto && typeof producto === 'object' && producto.id != null)
+    .map((producto:any) => ({
+      ...producto,
+      id: String(producto.id),
+      nombre: String(producto.nombre ?? ''),
+      codigo: String(producto.codigo ?? ''),
+      id_producto: String(producto.id_producto ?? ''),
+    })), [productosData])
   const conteos:any[] = conteosData
 
   useEffect(() => {
@@ -151,13 +159,13 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
   const abrirCamaraSoporte = async () => { try { detenerCamaraSoporte(); const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false}); streamSoporteRef.current=stream; setCamaraSoporteActiva(true); window.setTimeout(async()=>{if(videoSoporteRef.current){videoSoporteRef.current.srcObject=stream;await videoSoporteRef.current.play()}},0) } catch { toast.error('No fue posible abrir la camara. Revisa el permiso de camara.') } }
   const capturarSoporte = () => { const video=videoSoporteRef.current; if(!video?.videoWidth) return toast.error('La camara aun no esta lista'); const canvas=document.createElement('canvas'); canvas.width=video.videoWidth; canvas.height=video.videoHeight; canvas.getContext('2d')?.drawImage(video,0,0); const soporte=canvas.toDataURL('image/jpeg',0.82); if(soporte.length>1_500_000*1.37) return toast.error('La foto es demasiado pesada; acercate al documento e intenta de nuevo'); setSoporteUrl(soporte); detenerCamaraSoporte(); toast.success('Foto de soporte capturada') }
 
-  const sugerenciasProductos = productos.map((producto:any) => ({
+  const sugerenciasProductos = useMemo(() => productos.map((producto:any) => ({
     id: String(producto.id),
     nombre: String(producto.nombre || ''),
     codigo: String(producto.codigo || ''),
     id_producto: String(producto.id_producto || ''),
     precio_venta: producto.precio_venta,
-  }))
+  })), [productos])
 
   if (modo === 'barras' && typeof window !== 'undefined') {
     const esEntrada = tipo === 'entrada'

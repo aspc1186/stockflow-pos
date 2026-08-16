@@ -19,7 +19,15 @@ export default function VentaRapidaPage() {
   const [recibido, setRecibido] = useState('')
   const [notas, setNotas] = useState('')
   const { data: productosData = [] } = useQuery({ queryKey:['productos-venta-rapida'], queryFn: async () => { const r=await api.get('/productos'); const respuesta=r.data?.data ?? r.data; return Array.isArray(respuesta) ? respuesta : [] }, staleTime: 20_000 })
-  const productos = (Array.isArray(productosData) ? productosData : []).filter((producto): producto is Producto => !!producto && typeof producto === 'object')
+  const productos = useMemo(() => (Array.isArray(productosData) ? productosData : [])
+    .filter((producto): producto is Producto => !!producto && typeof producto === 'object' && producto.id != null)
+    .map(producto => ({
+      ...producto,
+      id: String(producto.id),
+      nombre: String(producto.nombre ?? ''),
+      codigo: String(producto.codigo ?? ''),
+      id_producto: String(producto.id_producto ?? ''),
+    })), [productosData])
   const candidatos = useMemo(() => productos.filter(p => p.disponible !== false && `${p.nombre || ''} ${p.codigo || ''} ${p.id_producto || ''}`.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8), [productos,busqueda])
   const agregar = (codigoOId:string) => {
     const valor=String(codigoOId).trim()
