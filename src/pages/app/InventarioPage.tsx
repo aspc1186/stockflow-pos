@@ -18,7 +18,7 @@ export default function InventarioPage() {
   const [search, setSearch] = useState('')
   const [searchApi, setSearchApi] = useState('')
   const [modal, setModal] = useState(false)
-  const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+  const [form, setForm] = useState({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:true,metodo_pago:'efectivo'})
   const [codigo, setCodigo] = useState('')
   const [registroContinuo, setRegistroContinuo] = useState(true)
   const [productoBloqueado, setProductoBloqueado] = useState(false)
@@ -58,7 +58,7 @@ export default function InventarioPage() {
       setCodigo('')
       if (registroContinuo) {
         setProductoBloqueado(false)
-        setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+        setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:true,metodo_pago:'efectivo'})
         window.setTimeout(() => lectorRef.current?.focus(), 0)
       } else setModal(false)
       toast.success('Movimiento registrado y saldo actualizado')
@@ -94,7 +94,7 @@ export default function InventarioPage() {
   const abrirMovimiento = () => {
     setCodigo('')
     setProductoBloqueado(false)
-    setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:false,metodo_pago:'efectivo'})
+    setForm({producto_id:'',tipo:'entrada',cantidad:'',costo_unit:'',notas:'',soporte_url:'',pagar_desde_caja:true,metodo_pago:'efectivo'})
     setModal(true)
     window.setTimeout(() => lectorRef.current?.focus(), 0)
   }
@@ -194,7 +194,7 @@ export default function InventarioPage() {
           <p className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-surface-200/70">Usa este formulario para una sola referencia, ajustes, mermas o roturas. Para recibir varios productos por código utiliza <strong>Registrar entrada</strong>.</p>
           <div><label className="label">Producto *</label><select disabled={productoBloqueado} className="input" value={form.producto_id} onChange={e=>{const producto=productos.find((item:any)=>item.id===e.target.value) as any;setForm(p=>({...p,producto_id:e.target.value,costo_unit:String(Number(producto?.precio_costo||0))}))}}><option value="" className="bg-surface-800">Selecciona un producto</option>{productos.map((p:any)=><option key={p.id} value={p.id} className="bg-surface-800">{p.codigo ? `[${p.codigo}] ` : ''}{p.nombre}</option>)}</select></div>
           {productoSeleccionado&&<div className="rounded-lg border border-brand-400/20 bg-brand-500/5 p-3 text-sm sm:col-span-2"><p className="font-semibold text-surface-50">{productoSeleccionado.nombre}</p><div className="mt-2 grid grid-cols-3 gap-2 text-xs text-surface-200/60"><span>Codigo: <b className="font-mono text-surface-100">{productoSeleccionado.codigo||'-'}</b></span><span>Saldo: <b className="text-surface-100">{Number(productoSeleccionado.stock_actual||0).toFixed(2)}</b></span><span>Costo: <b className="text-surface-100">{formatCurrency(productoSeleccionado.precio_costo||0)}</b></span></div></div>}
-          <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value,pagar_desde_caja:e.target.value==='entrada'?p.pagar_desde_caja:false}))}><option value="entrada" className="bg-surface-800">Entrada de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
+          <div><label className="label">Tipo</label><select className="input" value={form.tipo} onChange={e=>setForm(p=>({...p,tipo:e.target.value,pagar_desde_caja:e.target.value==='entrada'}))}><option value="entrada" className="bg-surface-800">Entrada de producto</option>{['salida','ajuste','merma','rotura'].map(t=><option key={t} value={t} className="bg-surface-800 capitalize">{t}</option>)}</select></div>
           <div><label className="label">{form.tipo === 'ajuste' ? 'Saldo final contado *' : 'Cantidad *'}</label><input type="number" min="0" className="input" value={form.cantidad} onChange={e=>setForm(p=>({...p,cantidad:e.target.value}))}/>{form.tipo === 'ajuste' && <p className="mt-1 text-xs text-surface-200/50">La correccion queda registrada como movimiento de ajuste.</p>}</div>
           <div><label className="label">Costo unitario</label><input type="number" min="0" className="input" placeholder="Solo si cambia el costo" value={form.costo_unit} onChange={e=>setForm(p=>({...p,costo_unit:e.target.value}))}/></div>
           {form.tipo==='entrada' && <div className="space-y-3 rounded-lg border border-white/10 bg-surface-900/40 p-3"><label className="flex cursor-pointer items-center gap-3 text-sm text-surface-100"><input type="checkbox" checked={form.pagar_desde_caja} onChange={e=>setForm(p=>({...p,pagar_desde_caja:e.target.checked}))}/><span>Pagado desde caja</span></label>{form.pagar_desde_caja && <div><label className="label">Metodo de pago</label><select className="input" value={form.metodo_pago} onChange={e=>setForm(p=>({...p,metodo_pago:e.target.value}))}>{['efectivo','tarjeta_credito','tarjeta_debito','transferencia','nequi','daviplata'].map(m=><option key={m} value={m} className="bg-surface-800 capitalize">{m.replace('_',' ')}</option>)}</select></div>}<div><label className="label">Factura o soporte de compra</label><input ref={soporteRef} className="hidden" type="file" accept="image/*,application/pdf" onChange={event=>adjuntarSoporte(event.target.files?.[0])}/>{camaraSoporteActiva&&<div className="mb-3 overflow-hidden rounded-lg border border-brand-400/30 bg-black"><video ref={videoSoporteRef} autoPlay playsInline muted className="h-52 w-full object-cover"/></div>}<div className="flex flex-wrap items-center gap-2"><button type="button" className="btn-secondary min-h-10" onClick={camaraSoporteActiva?capturarSoporte:abrirCamaraSoporte}><Camera className="h-4 w-4"/>{camaraSoporteActiva?'Capturar foto':'Tomar foto'}</button>{camaraSoporteActiva&&<button type="button" className="btn-secondary min-h-10" onClick={detenerCamaraSoporte}>Cancelar camara</button>}<button type="button" className="btn-secondary min-h-10" onClick={()=>soporteRef.current?.click()} disabled={cargandoSoporte}><FileUp className="h-4 w-4"/>{cargandoSoporte?'Cargando...':'Adjuntar documento'}</button>{form.soporte_url&&<span className="text-xs text-emerald-300">Documento adjunto</span>}</div><p className="mt-1 text-xs text-surface-200/45">Foto, imagen o PDF, maximo 1.5 MB.</p></div></div>}

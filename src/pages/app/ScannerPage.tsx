@@ -33,7 +33,7 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
   const [tipo, setTipo] = useState<'entrada'|'salida'>(searchParams.get('tipo') === 'salida' ? 'salida' : 'entrada')
   const [notas, setNotas] = useState('')
   const [soporteUrl, setSoporteUrl] = useState('')
-  const [pagarDesdeCaja, setPagarDesdeCaja] = useState(false)
+  const [pagarDesdeCaja, setPagarDesdeCaja] = useState(true)
   const [metodoPago, setMetodoPago] = useState('efectivo')
   const soporteRef = useRef<HTMLInputElement>(null)
   const videoSoporteRef = useRef<HTMLVideoElement>(null)
@@ -65,7 +65,12 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
 
   useEffect(() => {
     const nuevoTipo = searchParams.get('tipo')
-    if (nuevoTipo === 'entrada' || nuevoTipo === 'salida') { setTipo(nuevoTipo); setLote([]); setHistorialLote([]) }
+    if (nuevoTipo === 'entrada' || nuevoTipo === 'salida') {
+      setTipo(nuevoTipo)
+      setPagarDesdeCaja(nuevoTipo === 'entrada')
+      setLote([])
+      setHistorialLote([])
+    }
   }, [searchParams])
   useEffect(() => { if (tipo === 'salida') setPagarDesdeCaja(false) }, [tipo])
   const detenerCamaraSoporte = () => { streamSoporteRef.current?.getTracks().forEach(track=>track.stop()); streamSoporteRef.current=null; setCamaraSoporteActiva(false) }
@@ -102,7 +107,7 @@ export default function ScannerPage({ modo }:{modo:'qr'|'barras'}) {
   }
   const guardarLote = useMutation({
     mutationFn: () => api.post('/inventario', { items:lote, tipo, notas, soporte_url:soporteUrl, pagar_desde_caja:pagarDesdeCaja, metodo_pago:metodoPago }),
-    onSuccess: () => { qc.invalidateQueries({queryKey:['inventario']}); qc.invalidateQueries({queryKey:['dashboard-stats']}); setLote([]); setHistorialLote([]); setNotas(''); setSoporteUrl(''); setPagarDesdeCaja(false); toast.success('Movimiento registrado y trazable') },
+    onSuccess: () => { qc.invalidateQueries({queryKey:['inventario']}); qc.invalidateQueries({queryKey:['dashboard-stats']}); setLote([]); setHistorialLote([]); setNotas(''); setSoporteUrl(''); setPagarDesdeCaja(tipo === 'entrada'); toast.success('Movimiento registrado y trazable') },
     onError: (e:any) => toast.error(e?.response?.data?.msg || 'No se pudo guardar el movimiento'),
   })
   const crearConteo = useMutation({
