@@ -75,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('pos_token', session.token)
     localStorage.setItem('pos_user', JSON.stringify(session.user))
     setUser({ ...session.user, token: session.token })
+    // El soporte siempre inicia en la portada del cliente, nunca en un modulo aislado.
+    window.location.assign('/app/inicio')
   }, [])
 
   const logout = useCallback(() => {

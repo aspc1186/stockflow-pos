@@ -62,7 +62,9 @@ export default function ClientHomePage() {
       const r = await api.get<any>('/dashboard')
       return (r.data.data || r.data) as DashboardStats
     },
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
   const modulos = useMemo(() => MODULOS_PLATAFORMA.filter(modulo => permitido(modulo, user?.rol || '', empresa?.plan || 'basico', tipo, extras)), [user?.rol, empresa?.plan, tipo, extras.join('|')])
   const tiene = (id: string) => modulos.some(modulo => modulo.id === id)

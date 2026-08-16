@@ -7,7 +7,7 @@ let empresaSchemaReady: Promise<void> | null = null
 const TEMAS_VALIDOS = new Set(['blanco','rosado','crema','lila','azul_cielo','gris_claro','noche','oceano','ambar','vino','grafito','neon','discoteca','restaurante','claro','bosque'])
 function ensureEmpresaSchema() {
   if (!empresaSchemaReady) empresaSchemaReady = query(`
-    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ;
+    ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plan VARCHAR(30) DEFAULT 'basico', ADD COLUMN IF NOT EXISTS tema VARCHAR(30) DEFAULT 'noche', ADD COLUMN IF NOT EXISTS fondo_url TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago TEXT, ADD COLUMN IF NOT EXISTS notificacion_pago_at TIMESTAMPTZ, ADD COLUMN IF NOT EXISTS eliminado_at TIMESTAMPTZ;
     CREATE TABLE IF NOT EXISTS empresa_modulos_extra (
       empresa_id UUID NOT NULL, modulo_id VARCHAR(80) NOT NULL, activo BOOLEAN NOT NULL DEFAULT true,
       creado_por UUID, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -89,6 +89,7 @@ export default async function handler(req: any, res: any) {
             (SELECT COUNT(*) FROM pedidos p WHERE p.empresa_id=e.id AND DATE(p.created_at)=CURRENT_DATE) as pedidos_hoy,
             (SELECT COALESCE(SUM(p.total),0) FROM pedidos p WHERE p.empresa_id=e.id AND p.estado='cobrado' AND DATE(p.created_at)=CURRENT_DATE) as ventas_hoy
           FROM empresas e
+          WHERE e.eliminado_at IS NULL
           ORDER BY e.created_at DESC
         `)
         return res.status(200).json({ ok: true, data: rows })
@@ -183,6 +184,13 @@ export default async function handler(req: any, res: any) {
         [activa, plan, licencia_fin, nombre, tipo, nit, telefono, email, ciudad, direccion, Boolean(notificar_pago), avisoPago, empresaId]
       )
       return res.status(200).json({ ok: true, data: u })
+    }
+    // Conserva ventas, caja y auditoria; eliminar una cuenta nunca borra datos historicos.
+    if (req.method === 'DELETE') {
+      if (String(req.body?.confirmacion || '').trim().toUpperCase() !== 'ELIMINAR') return res.status(400).json({ ok:false, msg:'Confirma escribiendo ELIMINAR' })
+      const [u] = await query(`UPDATE empresas SET activa=false, eliminado_at=NOW(), updated_at=NOW() WHERE id=$1 AND eliminado_at IS NULL RETURNING id,nombre`, [empresaId])
+      if (!u) return res.status(404).json({ ok:false, msg:'Empresa no encontrada o ya eliminada' })
+      return res.status(200).json({ ok:true, data:u })
     }
   }
   return res.status(405).end()

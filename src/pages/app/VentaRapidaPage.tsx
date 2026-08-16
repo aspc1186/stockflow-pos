@@ -22,7 +22,7 @@ export default function VentaRapidaPage() {
   const candidatos = useMemo(() => productos.filter(p => p.disponible !== false && `${p.nombre} ${p.codigo || ''} ${p.id_producto || ''}`.toLowerCase().includes(busqueda.toLowerCase())).slice(0, 8), [productos,busqueda])
   const agregar = (codigoOId:string) => {
     const valor=String(codigoOId).trim()
-    const producto=productos.find(p => p.id===valor || p.codigo===valor || p.id_producto===valor)
+    const producto=productos.find(p => p.id===valor || p.codigo===valor || p.id_producto===valor) || productos.find(p => p.nombre.toLowerCase()===valor.toLowerCase())
     if (!producto) return toast.error('Producto no encontrado')
     if (producto.disponible === false) return toast.error('Producto no disponible')
     setLineas(actual => {
@@ -34,7 +34,7 @@ export default function VentaRapidaPage() {
     toast.success(`${producto.nombre} agregado`)
   }
   const totales = useMemo(() => lineas.reduce((acu, l) => { const bruto=Number(l.precio_venta||0)*l.cantidad; const descuento=bruto*l.descuento_pct/100; const base=bruto-descuento; const impuesto=base*Number(l.impuesto_pct||0)/100; return {subtotal:acu.subtotal+bruto,descuentos:acu.descuentos+descuento,impuestos:acu.impuestos+impuesto,total:acu.total+base+impuesto} }, {subtotal:0,descuentos:0,impuestos:0,total:0}), [lineas])
-  const cobrar = useMutation({ mutationFn: async () => { const r=await api.post('/ventas-rapidas',{items:lineas.map(l=>({producto_id:l.id,cantidad:l.cantidad,descuento_pct:l.descuento_pct})),metodo_pago:metodoPago,notas}); return r.data?.data }, onSuccess: data => { toast.success(`Venta registrada: ${formatCurrency(Number(data.total || 0))}`); setLineas([]); setRecibido(''); setNotas(''); qc.invalidateQueries({queryKey:['dashboard-stats']}); qc.invalidateQueries({queryKey:['inventario']}); qc.invalidateQueries({queryKey:['productos-venta-rapida']}) }, onError:(error:any)=>toast.error(error?.response?.data?.msg || 'No se pudo registrar la venta') })
+  const cobrar = useMutation({ mutationFn: async () => { const r=await api.post('/ventas-rapidas',{items:lineas.map(l=>({producto_id:l.id,cantidad:l.cantidad,descuento_pct:l.descuento_pct})),metodo_pago:metodoPago,notas}); return r.data?.data }, onSuccess: data => { toast.success(`Venta registrada: ${formatCurrency(Number(data.total || 0))}`); setLineas([]); setRecibido(''); setNotas(''); qc.invalidateQueries({queryKey:['dashboard-stats']}); qc.invalidateQueries({queryKey:['inventario']}); qc.invalidateQueries({queryKey:['productos-venta-rapida']}) }, onError:(error:any)=>{ const msg=error?.response?.data?.msg || error?.response?.data?.error || (error?.response?.status===404||error?.response?.status===405 ? 'La version publicada aun no tiene el servicio de venta rapida. Actualiza el despliegue.' : '') || 'No se pudo registrar la venta'; toast.error(msg) } })
   const efectivo=Number(String(recibido).replace(/[^0-9.-]/g,''))||0
   const cambio=Math.max(0,efectivo-totales.total)
   const actualizar=(id:string,cantidad:number)=>setLineas(actual=>actual.flatMap(l=>l.id===id?(cantidad>0?[{...l,cantidad}]:[]):[l]))

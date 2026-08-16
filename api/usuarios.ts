@@ -74,18 +74,20 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ ok: false, msg: `Rol no existe en la base: ${rolNombre}` })
       }
 
-      const baseUsername = username || (email ? String(email).split('@')[0] : '') || nombre
-      const uname = cleanUsername(String(baseUsername))
-      if (!uname) {
+      const explicitUsername = cleanUsername(String(username || ''))
+      const baseUsername = explicitUsername || cleanUsername(String((email ? String(email).split('@')[0] : '') || nombre))
+      if (!baseUsername) {
         return res.status(400).json({ ok: false, msg: 'Username invalido' })
       }
-
-      const existing = await queryOne(
-        `SELECT id FROM usuarios WHERE empresa_id=$1 AND LOWER(username)=LOWER($2)`,
-        [eid, uname]
-      )
-      if (existing) {
+      let uname = baseUsername
+      let suffix = 2
+      let existing = await queryOne(`SELECT id FROM usuarios WHERE empresa_id=$1 AND LOWER(username)=LOWER($2)`, [eid, uname])
+      if (explicitUsername && existing) {
         return res.status(409).json({ ok: false, msg: 'Ya existe un usuario con ese username' })
+      }
+      while (!explicitUsername && existing) {
+        uname = `${baseUsername}${suffix++}`
+        existing = await queryOne(`SELECT id FROM usuarios WHERE empresa_id=$1 AND LOWER(username)=LOWER($2)`, [eid, uname])
       }
 
       const hash = await bcrypt.hash(String(password), 12)

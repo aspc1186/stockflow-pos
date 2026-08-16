@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Building2, Users, CheckCircle, XCircle, Pencil, Save, ShieldCheck, KeyRound } from 'lucide-react'
+import { ArrowLeft, Building2, Users, CheckCircle, XCircle, Pencil, Save, ShieldCheck, KeyRound, Trash2 } from 'lucide-react'
 import api from '@/lib/axios'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { PageLoader } from '@/components/ui/Spinner'
@@ -20,6 +20,8 @@ export default function EmpresaDetailPage() {
   const [usuarioPassword, setUsuarioPassword] = useState<any | null>(null)
   const [nuevaPassword, setNuevaPassword] = useState('')
   const [confirmarPassword, setConfirmarPassword] = useState('')
+  const [eliminarAbierto, setEliminarAbierto] = useState(false)
+  const [confirmacionEliminar, setConfirmacionEliminar] = useState('')
   const [edicion, setEdicion] = useState({ nombre:'', tipo:'bar', nit:'', ciudad:'', telefono:'', email:'', direccion:'', plan:'basico', licencia_fin:'', notificar_pago:false, mensaje_pago:'' })
 
   const { data, isLoading } = useQuery({
@@ -46,7 +48,6 @@ export default function EmpresaDetailPage() {
     mutationFn: () => startSupport(id || ''),
     onSuccess: () => {
       toast.success('Modo de soporte iniciado')
-      navigate('/app/dashboard')
     },
     onError: (e: any) => toast.error(e?.response?.data?.msg ?? e?.message ?? 'No fue posible iniciar el modo de soporte'),
   })
@@ -54,6 +55,11 @@ export default function EmpresaDetailPage() {
     mutationFn: () => api.patch(`/superadmin/empresas/${id}/usuarios/${usuarioPassword.id}/password`, { password:nuevaPassword }),
     onSuccess: () => { setUsuarioPassword(null); setNuevaPassword(''); setConfirmarPassword(''); toast.success('Contraseña actualizada') },
     onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo actualizar la contraseña'),
+  })
+  const eliminarCuenta = useMutation({
+    mutationFn: () => api.delete(`/superadmin/empresas/${id}`, { data:{confirmacion:confirmacionEliminar} }),
+    onSuccess: () => { toast.success('Cuenta archivada. Se conserva toda la trazabilidad.'); navigate('/superadmin/empresas') },
+    onError: (e:any) => toast.error(e?.response?.data?.msg ?? 'No se pudo eliminar la cuenta'),
   })
 
   const abrirEdicion = (empresa: any = data) => {
@@ -79,7 +85,7 @@ export default function EmpresaDetailPage() {
       <div className="flex items-center gap-3">
         <button onClick={() => navigate('/superadmin/empresas')} className="btn-ghost btn-sm p-2"><ArrowLeft className="w-4 h-4"/></button>
         <div className="flex-1"><h1 className="page-title">{empresa.nombre}</h1><p className="page-subtitle capitalize">{empresa.tipo?.replace(/_/g,' ')} · {empresa.ciudad||'Sin ciudad'}</p></div>
-        <div className="flex flex-wrap justify-end gap-2"><button onClick={()=>setSoporteAbierto(true)} className="btn-primary btn-sm"><ShieldCheck className="w-4 h-4"/>Abrir modo soporte</button><button onClick={()=>abrirEdicion()} className="btn-secondary btn-sm"><Pencil className="w-4 h-4"/>Editar empresa</button><button onClick={() => toggle.mutate(!empresa.activa)} className={cn('btn btn-sm', empresa.activa ? 'btn-danger' : 'btn-primary')}>{empresa.activa ? <><XCircle className="w-4 h-4"/>Desactivar</> : <><CheckCircle className="w-4 h-4"/>Activar</>}</button></div>
+        <div className="flex flex-wrap justify-end gap-2"><button onClick={()=>setSoporteAbierto(true)} className="btn-primary btn-sm"><ShieldCheck className="w-4 h-4"/>Abrir modo soporte</button><button onClick={()=>abrirEdicion()} className="btn-secondary btn-sm"><Pencil className="w-4 h-4"/>Editar empresa</button><button onClick={() => toggle.mutate(!empresa.activa)} className={cn('btn btn-sm', empresa.activa ? 'btn-danger' : 'btn-primary')}>{empresa.activa ? <><XCircle className="w-4 h-4"/>Desactivar</> : <><CheckCircle className="w-4 h-4"/>Activar</>}</button><button onClick={()=>{setConfirmacionEliminar('');setEliminarAbierto(true)}} className="btn-danger btn-sm"><Trash2 className="w-4 h-4"/>Eliminar cuenta</button></div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -137,6 +143,7 @@ export default function EmpresaDetailPage() {
       <Modal open={!!usuarioPassword} onClose={()=>setUsuarioPassword(null)} title="Cambiar contraseña" size="sm" footer={<div className="flex gap-3"><button className="btn-secondary flex-1" onClick={()=>setUsuarioPassword(null)}>Cancelar</button><button className="btn-primary flex-1" onClick={()=>cambiarPassword.mutate()} disabled={cambiarPassword.isPending || nuevaPassword.length < 6 || nuevaPassword !== confirmarPassword}>{cambiarPassword.isPending?'Actualizando...':'Guardar contraseña'}</button></div>}>
         <div className="space-y-4"><p className="text-sm text-surface-200/65">Nueva contraseña para <strong className="text-surface-50">{usuarioPassword?.nombre}</strong> (@{usuarioPassword?.username}). La contraseña anterior no puede verse ni recuperarse.</p><div><label className="label">Nueva contraseña</label><input type="password" autoComplete="new-password" className="input" value={nuevaPassword} onChange={e=>setNuevaPassword(e.target.value)}/></div><div><label className="label">Confirmar contraseña</label><input type="password" autoComplete="new-password" className="input" value={confirmarPassword} onChange={e=>setConfirmarPassword(e.target.value)}/></div>{nuevaPassword && nuevaPassword.length < 6 && <p className="text-xs text-red-300">Debe tener al menos 6 caracteres.</p>}{confirmarPassword && nuevaPassword !== confirmarPassword && <p className="text-xs text-red-300">Las contraseñas no coinciden.</p>}</div>
       </Modal>
+      <Modal open={eliminarAbierto} onClose={()=>setEliminarAbierto(false)} title="Eliminar cuenta de empresa" size="sm" footer={<div className="flex gap-3"><button className="btn-secondary flex-1" onClick={()=>setEliminarAbierto(false)}>Cancelar</button><button className="btn-danger flex-1" onClick={()=>eliminarCuenta.mutate()} disabled={eliminarCuenta.isPending || confirmacionEliminar.trim().toUpperCase()!=='ELIMINAR'}><Trash2 className="h-4 w-4"/>{eliminarCuenta.isPending?'Eliminando...':'Eliminar cuenta'}</button></div>}><div className="space-y-3 text-sm"><p>Este segundo paso desactiva y archiva <strong>{empresa.nombre}</strong>. Las ventas, inventario, cierres y auditoria no se borran.</p><label className="label">Escribe <strong>ELIMINAR</strong> para confirmar<input autoFocus className="input mt-1" value={confirmacionEliminar} onChange={e=>setConfirmacionEliminar(e.target.value)}/></label></div></Modal>
     </div>
   )
 }
