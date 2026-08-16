@@ -1,9 +1,55 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, Keyboard, ScanLine } from 'lucide-react'
 import api from '@/lib/axios'
 
 export type ScannerSuggestion = { id:string; nombre:string; codigo?:string; id_producto?:string; precio_venta?:number|string }
 type ScannerProps = { modo:'qr'|'barras'|'mixto'; onDetectar:(codigo:string)=>void; continuo?:boolean; sugerencias?:ScannerSuggestion[] }
+
+function textoSeguro(valor: unknown) {
+  return typeof valor === 'string' || typeof valor === 'number' ? String(valor) : ''
+}
+
+function normalizarSugerencias(registros: unknown): ScannerSuggestion[] {
+  if (!Array.isArray(registros)) return []
+  const resultado: ScannerSuggestion[] = []
+  for (const registro of registros) {
+    if (!registro || typeof registro !== 'object') continue
+    const producto = registro as Record<string, unknown>
+    const id = textoSeguro(producto.id)
+    const nombre = textoSeguro(producto.nombre)
+    if (!id || !nombre) continue
+    const precio = producto.precio_venta
+    resultado.push({
+      id,
+      nombre,
+      codigo: textoSeguro(producto.codigo),
+      id_producto: textoSeguro(producto.id_producto),
+      precio_venta: typeof precio === 'string' || typeof precio === 'number' ? precio : undefined,
+    })
+  }
+  return resultado
+}
+
+class SugerenciasSeguras extends Component<{ productos:ScannerSuggestion[]; termino:string; onSeleccionar:(producto:ScannerSuggestion) => void }, { fallida:boolean }> {
+  state = { fallida:false }
+
+  static getDerivedStateFromError() {
+    return { fallida:true }
+  }
+
+  componentDidUpdate(prevProps: Readonly<{ termino:string }>) {
+    if (this.state.fallida && prevProps.termino !== this.props.termino) this.setState({ fallida:false })
+  }
+
+  render() {
+    if (this.state.fallida || this.props.productos.length === 0) return null
+    return <div className="scanner-suggestions absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-white/10 bg-surface-900 shadow-2xl">
+      {this.props.productos.map((producto, indice) => <button key={`${producto.id}-${producto.codigo || producto.id_producto || indice}-${indice}`} type="button" className="flex w-full items-center justify-between gap-3 border-b border-white/5 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-white/10" onClick={() => this.props.onSeleccionar(producto)}>
+        <span className="min-w-0"><strong className="block truncate">{producto.nombre}</strong><small className="block text-surface-200/55">{producto.codigo || producto.id_producto || 'Sin codigo'}</small></span>
+      </button>)}
+    </div>
+  }
+}
 
 export default function Scanner({ modo, onDetectar, continuo=false, sugerencias }:ScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -14,53 +60,83 @@ export default function Scanner({ modo, onDetectar, continuo=false, sugerencias 
   const [camaraActiva, setCamaraActiva] = useState(false)
   const [mensaje, setMensaje] = useState('Usa la camara o un lector USB/Bluetooth configurado como teclado.')
   const [catalogo, setCatalogo] = useState<ScannerSuggestion[]>([])
-  // Cuando la pantalla ya tiene el catálogo, no volvemos a consultarlo mientras el usuario escribe.
-  const productosDisponibles = Array.isArray(sugerencias)
-    ? sugerencias
-    : Array.isArray(catalogo) ? catalogo : []
-  // La lista llega desde APIs distintas. Normalizarla evita que un registro
-  // incompleto rompa el render justo cuando se muestran las coincidencias.
-  const catalogoSeguro = useMemo(() => productosDisponibles
-    .filter((producto): producto is ScannerSuggestion => !!producto && typeof producto === 'object')
-    .map(producto => ({
-      id: String(producto.id ?? ''),
-      nombre: String(producto.nombre ?? ''),
-      codigo: String(producto.codigo ?? ''),
-      id_producto: String(producto.id_producto ?? ''),
-      precio_venta: producto.precio_venta,
-    }))
-    .filter(producto => producto.id && producto.nombre), [productosDisponibles])
+  const productosDisponibles = Array.isArray(sugerencias) ? sugerencias : catalogo
+  const catalogoSeguro = useMemo(() => normalizarSugerencias(productosDisponibles), [productosDisponibles])
   const termino = manual.trim().toLowerCase()
-  const coincidencias = termino
-    ? catalogoSeguro.filter(producto => `${String(producto.nombre || '')} ${String(producto.codigo || '')} ${String(producto.id_producto || '')}`.toLowerCase().includes(termino)).slice(0, 8)
-    : []
-  const confirmar = (valor:string, origen:'camara'|'manual'='manual') => { const codigo=valor.trim(); if(!codigo) return; const ahora=Date.now(); if(origen==='camara'&&continuo&&ultimoCodigoRef.current.codigo===codigo&&ahora-ultimoCodigoRef.current.at<1400)return; ultimoCodigoRef.current={codigo,at:ahora}; onDetectar(codigo); setManual('') }
-  const detener = () => { if(timerRef.current) window.clearInterval(timerRef.current); timerRef.current=null; streamRef.current?.getTracks().forEach(track=>track.stop()); streamRef.current=null; setCamaraActiva(false) }
+  const coincidencias = useMemo(() => {
+    if (!termino) return []
+    return catalogoSeguro.filter(producto => `${producto.nombre} ${producto.codigo || ''} ${producto.id_producto || ''}`.toLowerCase().includes(termino)).slice(0, 8)
+  }, [catalogoSeguro, termino])
+
+  const confirmar = (valor:string, origen:'camara'|'manual'='manual') => {
+    const codigo = valor.trim()
+    if (!codigo) return
+    const ahora = Date.now()
+    if (origen === 'camara' && continuo && ultimoCodigoRef.current.codigo === codigo && ahora - ultimoCodigoRef.current.at < 1400) return
+    ultimoCodigoRef.current = { codigo, at:ahora }
+    onDetectar(codigo)
+    setManual('')
+  }
+
+  const detener = () => {
+    if (timerRef.current) window.clearInterval(timerRef.current)
+    timerRef.current = null
+    streamRef.current?.getTracks().forEach(track => track.stop())
+    streamRef.current = null
+    setCamaraActiva(false)
+  }
+
   const iniciar = async () => {
     try {
       detener()
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite usar la camara')
-      const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false})
-      streamRef.current=stream
-      if(videoRef.current){ videoRef.current.srcObject=stream; await videoRef.current.play() }
-      const Detector=(window as any).BarcodeDetector
-      if(!Detector){ setMensaje('Camara activa. Tu navegador no ofrece deteccion nativa; usa un lector fisico o escribe el codigo.'); setCamaraActiva(true); return }
-      const formats=modo==='qr' ? ['qr_code'] : ['qr_code','ean_13','ean_8','upc_a','upc_e','code_128','code_39']
-      const soportados=typeof Detector.getSupportedFormats === 'function' ? await Detector.getSupportedFormats() : formats
-      const compatibles=formats.filter((format:string) => soportados.includes(format))
-      const detector=new Detector({formats:compatibles.length ? compatibles : formats})
-      setCamaraActiva(true); setMensaje('Enfoca el codigo dentro del recuadro.')
-      timerRef.current=window.setInterval(async()=>{ try { if(!videoRef.current) return; const resultados=await detector.detect(videoRef.current); if(resultados?.[0]?.rawValue){ confirmar(resultados[0].rawValue,'camara'); if(!continuo) detener() } } catch {} },450)
-    } catch(error:any) { detener(); setMensaje(error?.message||'No se pudo iniciar la camara') }
+      const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' } }, audio:false })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+      const Detector = (window as any).BarcodeDetector
+      if (!Detector) {
+        setMensaje('Camara activa. Tu navegador no ofrece deteccion nativa; usa un lector fisico o escribe el codigo.')
+        setCamaraActiva(true)
+        return
+      }
+      const formats = modo === 'qr' ? ['qr_code'] : ['qr_code','ean_13','ean_8','upc_a','upc_e','code_128','code_39']
+      const soportados = typeof Detector.getSupportedFormats === 'function' ? await Detector.getSupportedFormats() : formats
+      const compatibles = formats.filter((format:string) => soportados.includes(format))
+      const detector = new Detector({ formats:compatibles.length ? compatibles : formats })
+      setCamaraActiva(true)
+      setMensaje('Enfoca el codigo dentro del recuadro.')
+      timerRef.current = window.setInterval(async () => {
+        try {
+          if (!videoRef.current) return
+          const resultados = await detector.detect(videoRef.current)
+          if (resultados?.[0]?.rawValue) {
+            confirmar(resultados[0].rawValue, 'camara')
+            if (!continuo) detener()
+          }
+        } catch {}
+      }, 450)
+    } catch(error:any) {
+      detener()
+      setMensaje(error?.message || 'No se pudo iniciar la camara')
+    }
   }
-  useEffect(()=>()=>detener(),[])
+
+  useEffect(() => () => detener(), [])
   useEffect(() => {
     if (modo === 'qr' || Array.isArray(sugerencias)) return
-    api.get('/productos').then(({data}) => {
+    api.get('/productos').then(({ data }) => {
       const respuesta = data?.data ?? data
       const lista = Array.isArray(respuesta) ? respuesta : Array.isArray(respuesta?.productos) ? respuesta.productos : []
-      setCatalogo(lista)
+      setCatalogo(normalizarSugerencias(lista))
     }).catch(() => setCatalogo([]))
-  }, [modo, Array.isArray(sugerencias)])
-  return <div className="stockflow-scanner space-y-3"><div className="w-full max-w-[260px] overflow-hidden rounded-lg border border-white/10 bg-black"><video ref={videoRef} muted playsInline className="block h-36 w-full bg-black object-cover"/><div className="border-t border-white/10 px-3 py-2 text-xs text-surface-200/65">{mensaje}</div></div><div className="flex flex-wrap gap-2"><button type="button" className="btn-primary min-h-10" onClick={iniciar}><Camera className="h-4 w-4"/>{camaraActiva?'Reiniciar camara':'Usar camara'}</button>{camaraActiva&&<button type="button" className="btn-secondary min-h-10" onClick={detener}>Detener</button>}</div><div className="relative z-30 flex gap-2"><div className="relative flex-1"><Keyboard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-200/45"/><input autoFocus className="input min-h-10 pl-10" value={manual} onChange={event=>setManual(event.target.value)} onKeyDown={event=>{if(event.key==='Enter') confirmar(manual)}} placeholder={modo==='qr'?'Pega o escanea el QR':'Escribe o escanea el codigo, QR o nombre'}/>{modo!=='qr' && coincidencias.length>0 && <div className="scanner-suggestions absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-white/10 bg-surface-900 shadow-2xl">{coincencias.map(producto=><button key={producto.id} type="button" className="flex w-full items-center justify-between gap-3 border-b border-white/5 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-white/10" onClick={()=>confirmar(producto.codigo || producto.id_producto || producto.id)}><span className="min-w-0"><strong className="block truncate">{producto.nombre}</strong><small className="block text-surface-200/55">{producto.codigo || producto.id_producto || 'Sin codigo'}</small></span></button>)}</div>}</div><button type="button" className="btn-secondary min-h-10" onClick={()=>confirmar(manual)}><ScanLine className="h-4 w-4"/>Validar</button></div></div>
+  }, [modo, sugerencias])
+
+  return <div className="stockflow-scanner space-y-3">
+    <div className="w-full max-w-[260px] overflow-hidden rounded-lg border border-white/10 bg-black"><video ref={videoRef} muted playsInline className="block h-36 w-full bg-black object-cover"/><div className="border-t border-white/10 px-3 py-2 text-xs text-surface-200/65">{mensaje}</div></div>
+    <div className="flex flex-wrap gap-2"><button type="button" className="btn-primary min-h-10" onClick={iniciar}><Camera className="h-4 w-4"/>{camaraActiva ? 'Reiniciar camara' : 'Usar camara'}</button>{camaraActiva && <button type="button" className="btn-secondary min-h-10" onClick={detener}>Detener</button>}</div>
+    <div className="relative z-30 flex gap-2"><div className="relative flex-1"><Keyboard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-200/45"/><input autoFocus className="input min-h-10 pl-10" value={manual} onChange={event => setManual(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') confirmar(manual) }} placeholder={modo === 'qr' ? 'Pega o escanea el QR' : 'Escribe o escanea el codigo, QR o nombre'}/>{modo !== 'qr' && <SugerenciasSeguras termino={termino} productos={coincidencias} onSeleccionar={producto => confirmar(producto.codigo || producto.id_producto || producto.id)}/>}</div><button type="button" className="btn-secondary min-h-10" onClick={() => confirmar(manual)}><ScanLine className="h-4 w-4"/>Validar</button></div>
+  </div>
 }
