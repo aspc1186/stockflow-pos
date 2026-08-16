@@ -43,7 +43,8 @@ export default async function handler(req: any, res: any) {
            FROM productos WHERE id=$1 AND empresa_id=$2 FOR UPDATE`,
           [item.producto_id, auth.empresa_id]
         )).rows[0]
-        if (!producto || !producto.disponible) throw new Error('Uno de los productos ya no esta disponible')
+        // Productos anteriores pueden tener el campo disponible en null. Solo false bloquea la venta.
+        if (!producto || producto.disponible === false) throw new Error('Uno de los productos ya no esta disponible')
 
         let inventario = (await client.query(`SELECT stock_actual,stock_minimo FROM inventario WHERE empresa_id=$1 AND producto_id=$2 FOR UPDATE`, [auth.empresa_id, producto.id])).rows[0]
         if (!inventario) {

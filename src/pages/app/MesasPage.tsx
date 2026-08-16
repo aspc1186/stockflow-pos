@@ -76,7 +76,11 @@ export default function MesasPage() {
     queryKey: ['meseros-asignables'],
     queryFn: async () => {
       const { data } = await api.get<any>('/usuarios')
-      return ((data.data || data) as any[]).filter(usuario => ['mesero','cajero','barra'].includes(String(usuario.rol || '').trim().toLowerCase()) && usuario.activo)
+      return ((data.data || data) as any[]).filter(usuario => {
+        const rol = String(usuario.rol || '').trim().toLowerCase()
+        const activo = usuario.activo === true || usuario.activo === 'true' || usuario.activo === 't' || usuario.activo === 1
+        return activo && !usuario.eliminado_at && ['mesero','cajero','barra','supervisor','admin'].includes(rol)
+      })
     },
     enabled: isAdmin,
   })
@@ -131,7 +135,7 @@ export default function MesasPage() {
         <select className="input sm:w-56" value={meseroMasivo} onChange={e => setMeseroMasivo(e.target.value)}><option value="">Sin asignar</option>{meseros.map((mesero:any) => <option key={mesero.id} value={mesero.id}>{mesero.nombre} ({mesero.username})</option>)}</select>
         <button onClick={() => asignarTodas.mutate()} disabled={asignarTodas.isPending} className="btn-secondary whitespace-nowrap">{asignarTodas.isPending ? 'Asignando...' : 'Asignar todas'}</button>
       </div>}
-      {isAdmin && meseros.length === 0 && <p className="text-sm text-amber-400">No hay responsables operativos activos. Crea un usuario con rol Mesero, Cajero o Barra en Usuarios.</p>}
+      {isAdmin && meseros.length === 0 && <p className="text-sm text-amber-400">No hay responsables operativos activos. Crea o activa un usuario en Usuarios.</p>}
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => setFiltro('todas')} className={cn('btn btn-sm',filtro==='todas'?'btn-primary':'btn-secondary')}>Todas ({mesas.length})</button>
         {(['libre','ocupada','reservada','limpieza','cerrada'] as EstadoMesa[]).map(e => (
